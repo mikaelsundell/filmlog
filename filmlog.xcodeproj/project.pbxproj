@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1F54EF612E2BB7430031F6EE /* FrameImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F54EF602E2BB7420031F6EE /* FrameImageView.swift */; };
 		1F62CE0B2E215B3B002DBAA3 /* FrameSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F62CE0A2E215B3B002DBAA3 /* FrameSectionView.swift */; };
 		1F62CE0D2E21604C002DBAA3 /* FrameCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F62CE0C2E21604C002DBAA3 /* FrameCameraView.swift */; };
 		1F62CE0F2E21608C002DBAA3 /* CameraModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F62CE0E2E21608C002DBAA3 /* CameraModel.swift */; };
@@ -46,6 +47,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		1F54EF602E2BB7420031F6EE /* FrameImageView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FrameImageView.swift; sourceTree = "<group>"; };
 		1F62CE0A2E215B3B002DBAA3 /* FrameSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameSectionView.swift; sourceTree = "<group>"; };
 		1F62CE0C2E21604C002DBAA3 /* FrameCameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameCameraView.swift; sourceTree = "<group>"; };
 		1F62CE0E2E21608C002DBAA3 /* CameraModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraModel.swift; sourceTree = "<group>"; };
@@ -130,6 +132,7 @@
 				1F64D2E72E1B1457009EA1A8 /* CameraPicker.swift */,
 				1F64D2EB2E1B17D7009EA1A8 /* PhotoSectionView.swift */,
 				1F667FCB2E1B1FA3009D330A /* FrameDetailView.swift */,
+				1F54EF602E2BB7420031F6EE /* FrameImageView.swift */,
 				1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */,
 				1FD3D14E2E2102F100A1C9EF /* SettingsView.swift */,
 				1F62CE0A2E215B3B002DBAA3 /* FrameSectionView.swift */,
@@ -298,6 +301,7 @@
 				1F62CE112E2160BD002DBAA3 /* CameraPreview.swift in Sources */,
 				1F9B3E972E1AE48C005F95A0 /* ContentView.swift in Sources */,
 				1F62CE0D2E21604C002DBAA3 /* FrameCameraView.swift in Sources */,
+				1F54EF612E2BB7430031F6EE /* FrameImageView.swift in Sources */,
 				1F9B3E992E1AE48C005F95A0 /* Item.swift in Sources */,
 				1F9B3E952E1AE48C005F95A0 /* filmlogApp.swift in Sources */,
 				1F62CE0B2E215B3B002DBAA3 /* FrameSectionView.swift in Sources */,
@@ -486,6 +490,7 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIRequiresFullScreen = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -522,6 +527,7 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIRequiresFullScreen = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -21,6 +21,20 @@ class OrientationObserver: ObservableObject {
     }
 }
 
+struct FrameHelper {
+    static func calculateFrame(containerSize: CGSize,
+                              focalLength: CGFloat,
+                              filmSize: CameraOptions.FilmSize,
+                              horizontalFOV: CGFloat) -> CGSize {
+        let filmWidth = CGFloat(filmSize.width)
+        let filmAspect = CGFloat(filmSize.aspectRatio)
+        let filmHFOV = 2 * atan(filmWidth / (2 * focalLength))
+        let frameHorizontal = containerSize.height * (tan(filmHFOV / 2) / tan((horizontalFOV * .pi / 180) / 2)) // potrait mode, height is native width
+        let frameVertical = frameHorizontal / filmAspect
+        return CGSize(width: frameVertical, height: frameHorizontal)
+    }
+}
+
 struct FrameOverlay: View {
     let isLandscape: Bool
     let aspectRatio: CGFloat
@@ -28,25 +42,22 @@ struct FrameOverlay: View {
     let filmSize: CameraOptions.FilmSize
     let horizontalFOV: CGFloat
 
-    private var filmWidth: CGFloat { CGFloat(filmSize.width) }
-    private var filmHeight: CGFloat { CGFloat(filmSize.height) }
-    private var filmAspect: CGFloat { CGFloat(filmSize.aspectRatio) }
-
     var body: some View {
-        let filmHFOV = 2 * atan(filmWidth / (2 * focalLength))
-        
         GeometryReader { geo in
-            let maxSize = geo.size
-            let frameHorizontal = maxSize.height * (tan(filmHFOV / 2) / tan((horizontalFOV * .pi / 180) / 2))
-            let frameVertical = frameHorizontal / filmAspect
+            let frameSize = FrameHelper.calculateFrame(
+                containerSize: geo.size,
+                focalLength: focalLength,
+                filmSize: filmSize,
+                horizontalFOV: horizontalFOV
+            )
 
             ZStack {
                 Rectangle()
                     .stroke(Color.white, lineWidth: 1)
-                    .frame(width: frameVertical, height: frameHorizontal)
-                
+                    .frame(width: frameSize.width, height: frameSize.height)
+
                 VStack(spacing: 4) {
-                    Text("Film: \(Int(filmSize.width))x\(Int(filmSize.height)) (\(String(format: "%.2f", filmSize.aspectRatio)))")
+                    Text("Film: \(Int(filmSize.width))mm x \(Int(filmSize.height))mm (\(String(format: "%.2f", filmSize.aspectRatio)))")
                         .font(.caption2)
                         .padding(4)
                         .background(Color.black.opacity(0.6))
@@ -55,12 +66,12 @@ struct FrameOverlay: View {
                         .rotationEffect(isLandscape ? .degrees(-90) : .degrees(0))
                 }
                 .offset(
-                    x: isLandscape ? -maxSize.width / 2 + 40 : 0,
-                    y: isLandscape ? 0 : -maxSize.height / 2 + 150
+                    x: isLandscape ? -geo.size.width / 2 + 25 : 0,
+                    y: isLandscape ? 0 : -geo.size.height / 2 + 120
                 )
             }
-            .frame(width: maxSize.width, height: maxSize.height)
-            .position(x: maxSize.width / 2, y: maxSize.height / 2)
+            .frame(width: geo.size.width, height: geo.size.height)
+            .position(x: geo.size.width / 2, y: geo.size.height / 2)
         }
     }
 }
@@ -164,44 +175,8 @@ struct CameraView: View {
             .ignoresSafeArea()
 
             HStack {
-                HStack(spacing: 4) {
-                    Button(action: {
-                        if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == frame.lensFocalLength }),
-                           currentIndex > 0 {
-                            frame.lensFocalLength = CameraOptions.focalLengths[currentIndex - 1].label
-                        }
-                    }) {
-                        Image(systemName: "chevron.left")
-                            .foregroundColor(.white)
-                            .frame(width: 32, height: 32)
-                            .background(Color.black.opacity(0.4))
-                            .clipShape(Circle())
-                    }
-                    Button(action: { showLenses.toggle() }) {
-                        Text("\(frame.lensFocalLength)")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white)
-                            .frame(width: 55)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 4)
-                            .background(Color.black.opacity(0.4))
-                            .cornerRadius(4)
-                            .rotationEffect(orientationObserver.isLandscape ? .degrees(-90) : .zero)
-                    }
-                    Button(action: {
-                        if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == frame.lensFocalLength }),
-                           currentIndex < CameraOptions.focalLengths.count - 1 {
-                            frame.lensFocalLength = CameraOptions.focalLengths[currentIndex + 1].label
-                        }
-                    }) {
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(.white)
-                            .frame(width: 32, height: 32)
-                            .background(Color.black.opacity(0.4))
-                            .clipShape(Circle())
-                    }
-                }
-
+                focalLengthControls()
+                
                 Spacer()
 
                 Button(action: { cameraModel.capturePhoto() }) {
@@ -218,43 +193,7 @@ struct CameraView: View {
 
                 Spacer()
 
-                HStack(spacing: 4) {
-                    Button(action: {
-                        if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == frame.aspectRatio }),
-                           currentIndex > 0 {
-                            frame.aspectRatio = CameraOptions.aspectRatios[currentIndex - 1].label
-                        }
-                    }) {
-                        Image(systemName: "chevron.left")
-                            .foregroundColor(.white)
-                            .frame(width: 32, height: 32)
-                            .background(Color.black.opacity(0.4))
-                            .clipShape(Circle())
-                    }
-                    Button(action: { showAspectRatios.toggle() }) {
-                        Text("\(frame.aspectRatio)")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white)
-                            .frame(width: 55)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 4)
-                            .background(Color.black.opacity(0.4))
-                            .cornerRadius(4)
-                            .rotationEffect(orientationObserver.isLandscape ? .degrees(-90) : .zero)
-                    }
-                    Button(action: {
-                        if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == frame.aspectRatio }),
-                           currentIndex < CameraOptions.aspectRatios.count - 1 {
-                            frame.aspectRatio = CameraOptions.aspectRatios[currentIndex + 1].label
-                        }
-                    }) {
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(.white)
-                            .frame(width: 32, height: 32)
-                            .background(Color.black.opacity(0.4))
-                            .clipShape(Circle())
-                    }
-                }
+                aspectRatioControls()
             }
             .padding(.horizontal)
             .padding(.vertical, 6)
@@ -264,11 +203,149 @@ struct CameraView: View {
             cameraModel.onImageCaptured = { result in
                 switch result {
                 case .success(let image):
-                    onCapture(image)
-                    dismiss()
+                    captureImage(image: image)
                 case .failure(let error):
-                    print("camera Error: \(error.localizedDescription)")
+                    print("camera error: \(error.localizedDescription)")
                 }
+            }
+        }
+    }
+    
+    private func captureImage(image: UIImage) {
+        let containerSize = UIScreen.main.bounds.size
+        let filmSize = CameraOptions.filmSizes.first(where: { $0.label == frame.filmSize })?.value ?? CameraOptions.FilmSize.defaultFilmSize
+        let focalLength = CameraOptions.focalLengths.first(where: { $0.label == frame.lensFocalLength })?.value ?? 0
+        let frameSize = FrameHelper.calculateFrame(
+            containerSize: containerSize,
+            focalLength: focalLength,
+            filmSize: filmSize,
+            horizontalFOV: cameraModel.horizontalFOV
+        )
+        let croppedImage = cropImage(image, targetSize: frameSize, containerSize: containerSize, isLandscape: orientationObserver.isLandscape)
+        onCapture(croppedImage)
+        dismiss()
+    }
+    
+    private func cropImage(_ image: UIImage,
+                           targetSize: CGSize,
+                           containerSize: CGSize,
+                           isLandscape: Bool) -> UIImage {
+        
+        guard let cgImage = image.cgImage else { return image }
+        
+        let width = CGFloat(cgImage.width)
+        let height = CGFloat(cgImage.height)
+        
+        let landscapeContainerSize = containerSize.landscape()
+        let containerRatio = landscapeContainerSize.width / landscapeContainerSize.height
+        
+        let newHeight = width / containerRatio
+        let offsetY = max((height - newHeight) / 2, 0)
+        let landscapeRect = CGRect(x: 0, y: offsetY, width: width, height: newHeight)
+        
+        guard let nativeImage = cgImage.cropping(to: landscapeRect) else { return image }
+        
+        let cropWidth = CGFloat(nativeImage.width)
+        let cropHeight = CGFloat(nativeImage.height)
+        
+        let scaleX = cropWidth / landscapeContainerSize.width
+        let scaleY = cropHeight / landscapeContainerSize.height
+        
+        let landscapeTargetSize = targetSize.landscape()
+        let targetCropWidth = landscapeTargetSize.width * scaleX
+        let targetCropHeight = landscapeTargetSize.height * scaleY
+        
+        let cropX = max((cropWidth - targetCropWidth) / 2, 0)
+        let cropY = max((cropHeight - targetCropHeight) / 2, 0)
+        let cropRect = CGRect(x: cropX, y: cropY, width: targetCropWidth, height: targetCropHeight)
+        
+        guard let targetImage = nativeImage.cropping(to: cropRect) else {
+            return UIImage(cgImage: nativeImage, scale: image.scale, orientation: .up)
+        }
+        
+        let orientation: UIImage.Orientation = isLandscape ? .up : .right
+        return UIImage(cgImage: targetImage, scale: image.scale, orientation: orientation)
+    }
+
+    
+    @ViewBuilder
+    private func focalLengthControls() -> some View {
+        HStack(spacing: 4) {
+            Button(action: {
+                if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == frame.lensFocalLength }),
+                   currentIndex > 0 {
+                    frame.lensFocalLength = CameraOptions.focalLengths[currentIndex - 1].label
+                }
+            }) {
+                Image(systemName: "chevron.left")
+                    .foregroundColor(.white)
+                    .frame(width: 32, height: 32)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
+            }
+            Button(action: { showLenses.toggle() }) {
+                Text("\(frame.lensFocalLength)")
+                    .font(.system(size: 12))
+                    .foregroundColor(.white)
+                    .frame(width: 55)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                    .background(Color.black.opacity(0.4))
+                    .cornerRadius(4)
+                    .rotationEffect(orientationObserver.isLandscape ? .degrees(-90) : .zero)
+            }
+            Button(action: {
+                if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == frame.lensFocalLength }),
+                   currentIndex < CameraOptions.focalLengths.count - 1 {
+                    frame.lensFocalLength = CameraOptions.focalLengths[currentIndex + 1].label
+                }
+            }) {
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.white)
+                    .frame(width: 32, height: 32)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func aspectRatioControls() -> some View {
+        HStack(spacing: 4) {
+            Button(action: {
+                if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == frame.aspectRatio }),
+                   currentIndex > 0 {
+                    frame.aspectRatio = CameraOptions.aspectRatios[currentIndex - 1].label
+                }
+            }) {
+                Image(systemName: "chevron.left")
+                    .foregroundColor(.white)
+                    .frame(width: 32, height: 32)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
+            }
+            Button(action: { showAspectRatios.toggle() }) {
+                Text("\(frame.aspectRatio)")
+                    .font(.system(size: 12))
+                    .foregroundColor(.white)
+                    .frame(width: 55)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                    .background(Color.black.opacity(0.4))
+                    .cornerRadius(4)
+                    .rotationEffect(orientationObserver.isLandscape ? .degrees(-90) : .zero)
+            }
+            Button(action: {
+                if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == frame.aspectRatio }),
+                   currentIndex < CameraOptions.aspectRatios.count - 1 {
+                    frame.aspectRatio = CameraOptions.aspectRatios[currentIndex + 1].label
+                }
+            }) {
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.white)
+                    .frame(width: 32, height: 32)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
             }
         }
     }
@@ -296,3 +373,10 @@ struct CameraView: View {
     func func3() { print("func3") }
     func func4() { print("func4") }
 }
+
+extension CGSize {
+    func landscape() -> CGSize {
+        return CGSize(width: self.height, height: self.width)
+    }
+}
+

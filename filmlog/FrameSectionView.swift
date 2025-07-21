@@ -75,9 +75,14 @@ struct FrameSectionView: View {
             }
         }
         .fullScreenCover(isPresented: $showFullImage) {
-                //if let data = data, let uiImage = UIImage(data: data) {
-                //    FrameImageView(image: uiImage, aspectRatio: aspectRatio)
-                //}
+            if let imageData = frame.photoImage?.data,
+               let uiImage = UIImage(data: imageData) {
+                FrameImageView(image: uiImage)
+            } else {
+                Text("No image available")
+                    .font(.headline)
+                    .padding()
+            }
         }
         .onChange(of: selectedItem) {
             if let selectedItem {
