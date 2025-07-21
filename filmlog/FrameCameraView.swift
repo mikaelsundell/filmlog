@@ -7,9 +7,7 @@ import AVFoundation
 import Combine
 
 class OrientationObserver: ObservableObject {
-    @Published var isLandscape: Bool = UIDevice.current.orientation.isLandscape
     @Published var orientation: UIDeviceOrientation = UIDevice.current.orientation
-
     private var cancellable: AnyCancellable?
 
     init(position: AVCaptureDevice.Position = .back) {
@@ -20,7 +18,6 @@ class OrientationObserver: ObservableObject {
             }
             .sink { [weak self] (newOrientation: UIDeviceOrientation) in
                 self?.orientation = newOrientation
-                self?.isLandscape = newOrientation.isLandscape
             }
     }
     
@@ -46,6 +43,22 @@ struct FrameHelper {
         let frameVertical = frameHorizontal / filmAspect
         return CGSize(width: frameVertical, height: frameHorizontal)
     }
+    
+    static func calculateAspectFrame(containerSize: CGSize,
+                                     frameSize: CGSize,
+                                     aspectRatio: CGFloat,
+                                     orientation: UIDeviceOrientation) -> CGSize? {
+        guard aspectRatio > 0 else { return nil }
+        if !orientation.isLandscape {
+            let width = frameSize.width
+            let height = width / aspectRatio
+            return CGSize(width: width, height: height)
+        } else {
+            let height = frameSize.height
+            let width = height / aspectRatio
+            return CGSize(width: width, height: height)
+        }
+    }
 }
 
 struct FrameOverlay: View {
@@ -63,11 +76,39 @@ struct FrameOverlay: View {
                 filmSize: filmSize,
                 horizontalFov: horizontalFov
             )
+            
+            let aspectSize = FrameHelper.calculateAspectFrame(
+                containerSize: geo.size,
+                frameSize: frameSize,
+                aspectRatio: aspectRatio,
+                orientation: orientation
+            )
 
             ZStack {
+                
+                Color.black.opacity(0.6)
+                .mask {
+                    Rectangle()
+                        .fill(Color.white)
+                        .overlay(
+                            Rectangle()
+                                .frame(width: frameSize.width, height: frameSize.height)
+                                .blendMode(.destinationOut)
+                        )
+                        .compositingGroup()
+                }
+                .animation(.easeInOut(duration: 0.3), value: frameSize)
+
+                
                 Rectangle()
                     .stroke(Color.white, lineWidth: 1)
                     .frame(width: frameSize.width, height: frameSize.height)
+                
+                if let aspectSize {
+                    Rectangle()
+                        .stroke(Color.red, style: StrokeStyle(lineWidth: 1, dash: [6]))
+                        .frame(width: aspectSize.width, height: aspectSize.height)
+                }
 
                 VStack(spacing: 4) {
                     Text("Film: \(Int(filmSize.width))mm x \(Int(filmSize.height))mm (\(String(format: "%.2f", filmSize.aspectRatio)))")
@@ -118,17 +159,17 @@ struct CameraView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             CameraPreview(session: cameraModel.session)
-               .animation(.easeInOut(duration: 0.3), value: orientationObserver.isLandscape)
+               .animation(.easeInOut(duration: 0.3), value: orientationObserver.orientation)
                .ignoresSafeArea()
             
             GeometryReader { geometry in
                 ZStack {
                     CameraPreview(session: cameraModel.session)
+                        .animation(.easeInOut(duration: 0.3), value: orientationObserver.orientation)
                         .ignoresSafeArea()
-                        .animation(.easeInOut(duration: 0.3), value: orientationObserver.isLandscape)
                     
                     FrameOverlay(
-                        aspectRatio: cameraModel.aspectRatio,
+                        aspectRatio: CameraOptions.aspectRatios.first(where: { $0.label == frame.aspectRatio })?.value ?? 0,
                         focalLength: CameraOptions.focalLengths.first(where: { $0.label == frame.lensFocalLength })?.value ?? 0,
                         filmSize: CameraOptions.filmSizes.first(where: { $0.label == frame.filmSize })?.value ?? CameraOptions.FilmSize.defaultFilmSize,
                         horizontalFov: cameraModel.horizontalFov,
