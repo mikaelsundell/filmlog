@@ -40,10 +40,9 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
     private let output = AVCapturePhotoOutput()
     let session = AVCaptureSession()
 
-    /// Called when photo capture completes (success or failure)
     var onImageCaptured: ((Result<UIImage, CameraError>) -> Void)?
 
-    @Published var horizontalFOV: CGFloat = 0
+    @Published var horizontalFov: CGFloat = 0
     @Published var aspectRatio: CGFloat = 0
     @Published var currentLens: CameraLensType = .wide  // Default lens
 
@@ -147,7 +146,7 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
         let aspectRatio = width / height
 
         DispatchQueue.main.async {
-            self.horizontalFOV = fov
+            self.horizontalFov = fov
             self.aspectRatio = aspectRatio
         }
     }

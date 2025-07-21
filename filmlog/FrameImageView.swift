@@ -11,16 +11,12 @@ struct FrameImageView: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Color.black.ignoresSafeArea()
-
             GeometryReader { geometry in
                 ZStack {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFit()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                .onAppear {
-                    debugPrintImageInfo(image: image, geometry: geometry)
                 }
             }
 
@@ -33,22 +29,5 @@ struct FrameImageView: View {
                     .foregroundColor(.white)
             }
         }
-    }
-
-    /// Debug function to log image info
-    private func debugPrintImageInfo(image: UIImage, geometry: GeometryProxy) {
-        let sizePoints = image.size
-        let scale = image.scale
-        let sizePixels = CGSize(width: sizePoints.width * scale, height: sizePoints.height * scale)
-        let orientation = image.imageOrientation
-
-        print("""
-        📷 FrameImageView Debug Info:
-        - UIImage size (points): \(sizePoints.width)x\(sizePoints.height)
-        - Scale factor: \(scale)
-        - UIImage size (pixels): \(Int(sizePixels.width))x\(Int(sizePixels.height))
-        - Orientation: \(orientation)
-        - Displayed frame size: \(Int(geometry.size.width))x\(Int(geometry.size.height))
-        """)
     }
 }
