@@ -27,7 +27,7 @@ struct ContentView: View {
                                 RollDetailView(roll: roll, selectedRoll: $selectedRoll, index: localIndex)
                             }) {
                                 Label {
-                                    Text("\(localIndex + 1).) \(roll.name.isEmpty ? roll.timestamp.formatted(date: .numeric, time: .standard) : roll.name), Film: \(roll.filmStock)")
+                                    Text("\(localIndex + 1).) \(roll.name.isEmpty ? roll.timestamp.formatted(date: .numeric, time: .standard) : roll.name) (\(roll.daysAgoText))")
                                         .font(.footnote)
                                 } icon: {
                                     Image(systemName: "film.fill")
@@ -47,7 +47,7 @@ struct ContentView: View {
                                 RollDetailView(roll: roll, selectedRoll: $selectedRoll, index: localIndex)
                             }) {
                                 Label {
-                                    Text("\(localIndex + 1).) \(roll.name.isEmpty ? roll.timestamp.formatted(date: .numeric, time: .standard) : roll.name), Film: \(roll.filmStock) (\(roll.shots.count))")
+                                    Text("\(localIndex + 1).) \(roll.name.isEmpty ? roll.timestamp.formatted(date: .numeric, time: .standard) : roll.name) (\(roll.daysAgoText))")
                                         .font(.footnote)
                                 } icon: {
                                     Image(systemName: "film.fill")
@@ -67,7 +67,7 @@ struct ContentView: View {
                                 RollDetailView(roll: roll, selectedRoll: $selectedRoll, index: localIndex)
                             }) {
                                 Label {
-                                    Text("\(localIndex + 1).) \(roll.name.isEmpty ? roll.timestamp.formatted(date: .numeric, time: .standard) : roll.name), Film: \(roll.filmStock) (\(roll.shots.count))")
+                                    Text("\(localIndex + 1).) \(roll.name.isEmpty ? roll.timestamp.formatted(date: .numeric, time: .standard) : roll.name) (\(roll.daysAgoText))")
                                         .font(.footnote)
                                 } icon: {
                                     Image(systemName: "film.fill")
@@ -118,6 +118,17 @@ struct ContentView: View {
             let newRoll = Roll(timestamp: Date())
             modelContext.insert(newRoll)
         }
+    }
+}
+
+extension Roll {
+    var daysAgoText: String {
+        let calendar = Calendar.current
+        let now = Date()
+        if let days = calendar.dateComponents([.day], from: timestamp, to: now).day {
+            return "\(days) day\(days == 1 ? "" : "s")"
+        }
+        return "Unknown"
     }
 }
 

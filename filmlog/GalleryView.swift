@@ -11,14 +11,19 @@ struct GalleryView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Query private var galleries: [Gallery]
     @State private var searchText: String = ""
-    @State private var selectedCategoryId: UUID? = nil
+    @State private var selectedCategory: UUID? = nil
     @State private var showImagePicker = false
     @State private var selectedItem: PhotosPickerItem? = nil
     
+    @State private var showCategoryEditSheet = false
     @State private var selectedCategoryForEdit: Category? = nil
     @State private var showEditOptions = false
     @State private var showRenameDialog = false
     @State private var renameText = ""
+    
+    @State private var selectedImageForEdit: ImageData? = nil
+    @State private var newComment = ""
+    @State private var newCategory: UUID? = nil
 
     var body: some View {
         NavigationStack {
@@ -56,15 +61,16 @@ struct GalleryView: View {
                                     .font(.caption)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
-                                    .background(selectedCategoryId == category.id ? Color.blue : Color.blue.opacity(0.1))
-                                    .foregroundColor(selectedCategoryId == category.id ? .white : .blue)
+                                    .background(selectedCategory == category.id ? Color.blue : Color.blue.opacity(0.1))
+                                    .foregroundColor(selectedCategory == category.id ? .white : .blue)
                                     .cornerRadius(12)
                                     .onTapGesture {
-                                        selectedCategoryId = selectedCategoryId == category.id ? nil : category.id
+                                        selectedCategory = selectedCategory == category.id ? nil : category.id
                                     }
                                     .onLongPressGesture {
                                         selectedCategoryForEdit = category
-                                        showEditOptions = true
+                                        renameText = category.name
+                                        showCategoryEditSheet = true
                                     }
                             }
                         }
@@ -99,6 +105,14 @@ struct GalleryView: View {
                                                height: UIScreen.main.bounds.width / 3 - 8)
                                         .clipped()
                                         .cornerRadius(4)
+                                        .onTapGesture {
+                                            print("Tapped on image \(image.id)")
+                                        }
+                                        .onLongPressGesture {
+                                            selectedImageForEdit = image
+                                            newComment = image.comment ?? ""
+                                            newCategory = image.category
+                                        }
                                 }
                             }
                         }
@@ -121,7 +135,7 @@ struct GalleryView: View {
                 
                 Task {
                     if let data = try? await newItem.loadTransferable(type: Data.self) {
-                        let newImage = ImageData(data: data, categoryId: selectedCategoryId)
+                        let newImage = ImageData(data: data, category: selectedCategory)
                         modelContext.insert(newImage)
                         do {
                             try modelContext.save()
@@ -153,16 +167,80 @@ struct GalleryView: View {
                 }
                 Button("Cancel", role: .cancel) { }
             }
-            .confirmationDialog("Edit category", isPresented: $showEditOptions, titleVisibility: .visible) {
-                Button("Rename") {
-                    renameText = selectedCategoryForEdit?.name ?? ""
-                    showRenameDialog = true
+            .sheet(isPresented: $showCategoryEditSheet) {
+                if let category = selectedCategoryForEdit {
+                    NavigationView {
+                        Form {
+                            Section(header: Text("Rename category")) {
+                                TextField("Category name", text: $renameText)
+                            }
+                            Section {
+                                Button("Delete category", role: .destructive) {
+                                    let linkedImages = currentGallery.images.filter { $0.category == category.id }
+                                    if !linkedImages.isEmpty {
+                                        for image in linkedImages {
+                                            image.category = nil
+                                        }
+                                    }
+                                    if let index = currentGallery.categories.firstIndex(where: { $0.id == category.id }) {
+                                        currentGallery.categories.remove(at: index)
+                                    }
+                                    try? modelContext.save()
+                                    showCategoryEditSheet = false
+                                }
+                            }
+                        }
+                        .navigationTitle("Edit category")
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Save") {
+                                    category.name = renameText
+                                    try? modelContext.save()
+                                    showCategoryEditSheet = false
+                                }
+                            }
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Cancel") {
+                                    showCategoryEditSheet = false
+                                }
+                            }
+                        }
+                    }
                 }
-                Button("Delete", role: .destructive) {
-                    if let category = selectedCategoryForEdit {
-                        if let index = currentGallery.categories.firstIndex(where: { $0.id == category.id }) {
-                            currentGallery.categories.remove(at: index)
-                            try? modelContext.save()
+            }
+            .sheet(item: $selectedImageForEdit) { image in
+                NavigationView {
+                    Form {
+                        Section(header: Text("Comment")) {
+                            TextField("Enter comment", text: $newComment)
+                        }
+
+                        Section(header: Text("Category")) {
+                            Picker("Select category", selection: $newCategory) {
+                                Text("None").tag(UUID?.none)
+                                ForEach(currentGallery.categories) { category in
+                                    Text(category.name).tag(UUID?.some(category.id))
+                                }
+                            }
+                        }
+                    }
+                    .onAppear {
+                        print("Editing image UUID: \(image.id)")
+                    }
+                    .navigationTitle("Edit image")
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Save") {
+                                image.comment = newComment
+                                image.category = newCategory
+                                try? modelContext.save()
+                                selectedImageForEdit = nil
+                            }
+                        }
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") {
+                                selectedImageForEdit = nil
+                            }
                         }
                     }
                 }
@@ -192,8 +270,8 @@ struct GalleryView: View {
     private var filteredImages: [ImageData] {
         let allImages = currentGallery.images
         var imgs = allImages
-        if let categoryId = selectedCategoryId {
-            imgs = imgs.filter { $0.categoryId == categoryId }
+        if let category = selectedCategory {
+            imgs = imgs.filter { $0.category == category }
         }
         if !searchText.isEmpty {
             imgs = imgs.filter { $0.comment?.localizedCaseInsensitiveContains(searchText) == true }
@@ -250,7 +328,7 @@ struct GalleryView: View {
 
                     let newImage = ImageData(
                         data: data,
-                        categoryId: selectedCategoryId,
+                        category: selectedCategory,
                         comment: comment,
                         creator: creator,
                         timestamp: timestamp

@@ -269,23 +269,23 @@ class ImageData: Codable {
     var id: UUID
     var data: Data
     var referenceCount: Int
-    var categoryId: UUID?
+    var category: UUID?
     var comment: String?
     var creator: String?
     var timestamp: Int?
 
-    init(data: Data, categoryId: UUID? = nil, comment: String? = nil, creator: String? = nil, timestamp: Int? = nil) {
+    init(data: Data, category: UUID? = nil, comment: String? = nil, creator: String? = nil, timestamp: Int? = nil) {
         self.id = UUID()
         self.data = data
         self.referenceCount = 1
-        self.categoryId = categoryId
+        self.category = category
         self.comment = comment
         self.creator = creator
         self.timestamp = timestamp
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, data, referenceCount, categoryId, comment, creator, timestamp
+        case id, data, referenceCount, category, comment, creator, timestamp
     }
 
     required init(from decoder: Decoder) throws {
@@ -293,7 +293,7 @@ class ImageData: Codable {
         id = try container.decode(UUID.self, forKey: .id)
         data = try container.decode(Data.self, forKey: .data)
         referenceCount = try container.decodeIfPresent(Int.self, forKey: .referenceCount) ?? 1
-        categoryId = try container.decodeIfPresent(UUID.self, forKey: .categoryId)
+        category = try container.decodeIfPresent(UUID.self, forKey: .category)
         comment = try container.decodeIfPresent(String.self, forKey: .comment)
         creator = try container.decodeIfPresent(String.self, forKey: .creator)
         timestamp = try container.decodeIfPresent(Int.self, forKey: .timestamp)
@@ -304,7 +304,7 @@ class ImageData: Codable {
         try container.encode(id, forKey: .id)
         try container.encode(data, forKey: .data)
         try container.encode(referenceCount, forKey: .referenceCount)
-        try container.encodeIfPresent(categoryId, forKey: .categoryId)
+        try container.encodeIfPresent(category, forKey: .category)
         try container.encodeIfPresent(comment, forKey: .comment)
         try container.encodeIfPresent(creator, forKey: .creator)
         try container.encodeIfPresent(timestamp, forKey: .timestamp)

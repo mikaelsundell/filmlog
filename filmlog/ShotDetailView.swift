@@ -340,7 +340,7 @@ struct ShotDetailView: View {
                 }
             }
         }
-        .navigationTitle("Frame \(index + 1) of \(count)")
+        .navigationTitle("Shot \(index + 1) of \(count)")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             locationManager.currentLocation = nil

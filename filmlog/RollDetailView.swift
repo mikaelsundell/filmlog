@@ -40,10 +40,10 @@ struct RollDetailView: View {
                                                 })
                             }) {
                                 Label {
-                                    Text("\(index + 1).) \(shot.name.isEmpty ? shot.timestamp.formatted(date: .numeric, time: .standard) : shot.name)")
+                                    Text("\(index + 1).) \(shot.name.isEmpty ? shot.timestamp.formatted(date: .numeric, time: .standard) : shot.name) (\(shot.daysAgoText))")
                                         .font(.footnote)
                                 } icon: {
-                                    Image(systemName: "film")
+                                    Image(systemName: "film.fill")
                                 }
                             }
                         }
@@ -141,7 +141,7 @@ struct RollDetailView: View {
                                 withAnimation {
                                     roll.status = "shooting"
                                     roll.isLocked = true
-                                    addFrame()
+                                    addShot()
                                 }
                             }
                             confirmMoveToShooting = false
@@ -270,7 +270,7 @@ struct RollDetailView: View {
         }
     }
 
-    private func addFrame() {
+    private func addShot() {
         withAnimation {
             let newShot = Shot(timestamp: Date())
             newShot.filmSize = roll.filmSize
@@ -291,3 +291,15 @@ struct RollDetailView: View {
         }
     }
 }
+
+extension Shot {
+    var daysAgoText: String {
+        let calendar = Calendar.current
+        let now = Date()
+        if let days = calendar.dateComponents([.day], from: timestamp, to: now).day {
+            return "\(days) day\(days == 1 ? "" : "s")"
+        }
+        return "Unknown"
+    }
+}
+
