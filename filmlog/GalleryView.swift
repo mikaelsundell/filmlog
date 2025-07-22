@@ -35,83 +35,77 @@ struct GalleryView: View {
                 .background(Color(.systemGray6))
                 .cornerRadius(10)
                 .padding()
-
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("Categories")
-                                .font(.headline)
-                            Spacer()
-                            Button(action: addCategory) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.blue)
-                            }
-                        }
-                        .padding(.horizontal)
-
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                ForEach(currentGallery.categories) { category in
-                                    Text(category.name)
-                                        .font(.caption)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
-                                        .background(selectedCategoryId == category.id ? Color.blue : Color.blue.opacity(0.1))
-                                        .foregroundColor(selectedCategoryId == category.id ? .white : .blue)
-                                        .cornerRadius(12)
-                                        .onTapGesture {
-                                            selectedCategoryId = selectedCategoryId == category.id ? nil : category.id
-                                        }
-                                        .onLongPressGesture {
-                                            selectedCategoryForEdit = category
-                                            showEditOptions = true
-                                        }
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-
-                        Divider()
-                            .padding(.horizontal)
-                        
-                        HStack {
-                            Text("Categories")
-                                .font(.headline)
-                            Spacer()
-                            Button(action: addCategory) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.blue)
-                            }
-                        }
-                        .padding(.horizontal)
-
-                        if filteredImages.isEmpty {
-                            Text("No images found")
-                                .foregroundColor(.gray)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .padding(.top, 40)
-                        } else {
-                            let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 3)
-                            LazyVGrid(columns: columns, spacing: 2) {
-                                ForEach(filteredImages, id: \.id) { image in
-                                    if let uiImage = UIImage(data: image.data) {
-                                        Image(uiImage: uiImage)
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: UIScreen.main.bounds.width / 3 - 4,
-                                                   height: UIScreen.main.bounds.width / 3 - 4)
-                                            .clipped()
-                                            .cornerRadius(6)
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 2)
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Categories")
+                            .font(.headline)
+                        Spacer()
+                        Button(action: addCategory) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(.blue)
                         }
                     }
-                    .padding(.top)
+                    .padding(.horizontal)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(currentGallery.categories) { category in
+                                Text(category.name)
+                                    .font(.caption)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(selectedCategoryId == category.id ? Color.blue : Color.blue.opacity(0.1))
+                                    .foregroundColor(selectedCategoryId == category.id ? .white : .blue)
+                                    .cornerRadius(12)
+                                    .onTapGesture {
+                                        selectedCategoryId = selectedCategoryId == category.id ? nil : category.id
+                                    }
+                                    .onLongPressGesture {
+                                        selectedCategoryForEdit = category
+                                        showEditOptions = true
+                                    }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                    
+                    Divider()
+                        .padding(.horizontal)
+                    
+                    HStack {
+                        Text("Images")
+                            .font(.headline)
+                    }
+                    .padding(.horizontal)
                 }
+                
+                ScrollView {
+                    if filteredImages.isEmpty {
+                        Text("No images found")
+                            .foregroundColor(.gray)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.top, 40)
+                    } else {
+                        let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
+                        LazyVGrid(columns: columns, spacing: 6) {
+                            ForEach(filteredImages, id: \.id) { image in
+                                if let uiImage = UIImage(data: image.data) {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: UIScreen.main.bounds.width / 3 - 8,
+                                               height: UIScreen.main.bounds.width / 3 - 8)
+                                        .clipped()
+                                        .cornerRadius(4)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                    }
+                }
+                .padding(.top)
             }
             .navigationTitle("Gallery")
             .onAppear {
@@ -202,7 +196,7 @@ struct GalleryView: View {
             imgs = imgs.filter { $0.categoryId == categoryId }
         }
         if !searchText.isEmpty {
-            imgs = imgs.filter { $0.id.uuidString.localizedCaseInsensitiveContains(searchText) }
+            imgs = imgs.filter { $0.comment?.localizedCaseInsensitiveContains(searchText) == true }
         }
         return imgs
     }
