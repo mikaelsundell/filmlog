@@ -102,6 +102,9 @@ struct ContentView: View {
                     Button(action: addRoll) {
                         Label("Add roll", systemImage: "plus")
                     }
+                    NavigationLink(destination: GalleryView()) {
+                        Label("Gallery", systemImage: "photo")
+                    }
                     NavigationLink(destination: SettingsView()) {
                         Label("Settings", systemImage: "gear")
                     }

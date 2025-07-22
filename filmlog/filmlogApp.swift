@@ -11,6 +11,7 @@ struct filmlogApp: App {
         let schema = Schema([
             Roll.self,
             Frame.self,
+            Gallery.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

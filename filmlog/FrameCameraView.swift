@@ -33,13 +33,12 @@ class OrientationObserver: ObservableObject {
 
 struct FrameHelper {
     static func calculateFrame(containerSize: CGSize,
-                              focalLength: CGFloat,
-                              filmSize: CameraOptions.FilmSize,
-                              horizontalFov: CGFloat) -> CGSize {
-        let filmWidth = CGFloat(filmSize.width)
+                               focalLength: CGFloat,
+                               filmSize: CameraOptions.FilmSize,
+                               horizontalFov: CGFloat) -> CGSize {
         let filmAspect = CGFloat(filmSize.aspectRatio)
-        let filmHFov = 2 * atan(filmWidth / (2 * focalLength))
-        let frameHorizontal = containerSize.height * (tan(filmHFov / 2) / tan((horizontalFov * .pi / 180) / 2)) // potrait mode, height is native width
+        let filmHFov = 2 * atan(CGFloat(filmSize.width) / (2 * focalLength))
+        let frameHorizontal = containerSize.height * (tan(filmHFov / 2) / tan((horizontalFov * .pi / 180) / 2))
         let frameVertical = frameHorizontal / filmAspect
         return CGSize(width: frameVertical, height: frameHorizontal)
     }
@@ -48,14 +47,15 @@ struct FrameHelper {
                                      frameSize: CGSize,
                                      aspectRatio: CGFloat,
                                      orientation: UIDeviceOrientation) -> CGSize? {
+        
         guard aspectRatio > 0 else { return nil }
-        if !orientation.isLandscape {
-            let width = frameSize.width
-            let height = width / aspectRatio
+        if orientation.isLandscape {
+            let height = frameSize.height
+            let width = height * aspectRatio
             return CGSize(width: width, height: height)
         } else {
-            let height = frameSize.height
-            let width = height / aspectRatio
+            let width = frameSize.width
+            let height = width / aspectRatio
             return CGSize(width: width, height: height)
         }
     }

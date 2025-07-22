@@ -6,8 +6,26 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 
+struct AppDataStats {
+    var rolls: Int
+    var frames: Int
+    var galleries: Int
+    var images: Int
+    var totalSize: Int
+}
+
+struct SharedContainerStats {
+    let path: String
+    let totalFiles: Int
+    let imageCount: Int
+    let jsonCount: Int
+    let totalSize: UInt64
+}
+
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
+    @State private var appDataStats: AppDataStats? = nil
+    @State private var sharedContainerStats: SharedContainerStats?
     @State private var rolls: [Roll] = []
     @State private var showFileImporter = false
     @State private var showFileExporter = false
@@ -16,10 +34,92 @@ struct SettingsView: View {
     @State private var exportError: String? = nil
     @State private var restoreSuccess: String? = nil
     @State private var backupSuccess: String? = nil
-    
+
     var body: some View {
         Form {
-            Section(header: Text("Data Management")) {
+            Section(header: Text("Application Data")) {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let stats = appDataStats {
+                        HStack {
+                            Text("Rolls")
+                            Spacer()
+                            Text("\(stats.rolls)")
+                        }
+                        HStack {
+                            Text("Frames")
+                            Spacer()
+                            Text("\(stats.frames)")
+                        }
+                        HStack {
+                            Text("Galleries")
+                            Spacer()
+                            Text("\(stats.galleries)")
+                        }
+                        HStack {
+                            Text("Total Images")
+                            Spacer()
+                            Text("\(stats.images)")
+                        }
+                        HStack {
+                            Text("Total Size")
+                            Spacer()
+                            Text(ByteCountFormatter.string(fromByteCount: Int64(stats.totalSize), countStyle: .file))
+                        }
+                    } else {
+                        Text("App data stats not available")
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+                .onAppear {
+                    calculateAppDataStats()
+                }
+            }
+            
+            Section(header: Text("Shared Container")) {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let stats = sharedContainerStats {
+                        HStack {
+                            Text("Image Files")
+                            Spacer()
+                            Text("\(stats.imageCount)")
+                                .foregroundColor(.primary)
+                        }
+                        HStack {
+                            Text("JSON Files")
+                            Spacer()
+                            Text("\(stats.jsonCount)")
+                                .foregroundColor(.primary)
+                        }
+                        HStack {
+                            Text("Total Files")
+                            Spacer()
+                            Text("\(stats.totalFiles)")
+                                .foregroundColor(.primary)
+                        }
+                        HStack {
+                            Text("Total Size")
+                            Spacer()
+                            Text(ByteCountFormatter.string(fromByteCount: Int64(stats.totalSize), countStyle: .file))
+                                .foregroundColor(.primary)
+                        }
+                        Text("Path: \(stats.path)")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    } else {
+                        Text("Shared container data not available")
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+                .onAppear {
+                    calculateSharedContainerStats()
+                }
+            }
+            
+            Section(header: Text("Backup Management")) {
                 Button("Backup rolls to JSON") {
                     backupRolls()
                 }
@@ -73,6 +173,103 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .onAppear {
             fetchRolls()
+        }
+    }
+    
+    private func calculateAppDataStats() {
+        do {
+            let descriptor = FetchDescriptor<Roll>()
+            let rolls = try modelContext.fetch(descriptor)
+            
+            var frameCount = 0
+            var rollImageSet = Set<UUID>()
+            var totalImageSize = 0
+            
+            for roll in rolls {
+                frameCount += roll.frames.count
+                
+                if let img = roll.image {
+                    rollImageSet.insert(img.id)
+                    totalImageSize += img.data.count
+                }
+                
+                for frame in roll.frames {
+                    if let img = frame.photoImage {
+                        rollImageSet.insert(img.id)
+                        totalImageSize += img.data.count
+                    }
+                    if let img = frame.lightMeterImage {
+                        rollImageSet.insert(img.id)
+                        totalImageSize += img.data.count
+                    }
+                }
+            }
+            
+            let galleryDescriptor = FetchDescriptor<Gallery>()
+            let galleries = try modelContext.fetch(galleryDescriptor)
+            var galleryImageCount = 0
+            for gallery in galleries {
+                for image in gallery.images {
+                    galleryImageCount += 1
+                    totalImageSize += image.data.count
+                }
+            }
+            
+            let totalImages = rollImageSet.count + galleryImageCount
+            
+            appDataStats = AppDataStats(
+                rolls: rolls.count,
+                frames: frameCount,
+                galleries: 1,
+                images: totalImages,
+                totalSize: totalImageSize
+            )
+            
+        } catch {
+            print("failed to calculate app data stats: \(error)")
+        }
+    }
+    
+    private func calculateSharedContainerStats() {
+        let fileManager = FileManager.default
+        guard let containerURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.mikaelsundell.filmlog") else {
+            return
+        }
+        
+        do {
+            let files = try fileManager.contentsOfDirectory(at: containerURL, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey], options: .skipsHiddenFiles)
+            let fileURLs = files.filter {
+                (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == false
+            }
+            
+            var totalSize: UInt64 = 0
+            var imageCount = 0
+            var jsonCount = 0
+            
+            for file in fileURLs {
+                let attributes = try fileManager.attributesOfItem(atPath: file.path)
+                if let fileSize = attributes[.size] as? UInt64 {
+                    totalSize += fileSize
+                }
+                
+                let ext = file.pathExtension.lowercased()
+                if ["jpg", "jpeg", "png"].contains(ext) {
+                    imageCount += 1
+                } else if ext == "json" {
+                    jsonCount += 1
+                }
+            }
+            
+            sharedContainerStats = SharedContainerStats(
+                path: containerURL.path,
+                totalFiles: fileURLs.count,
+                imageCount: imageCount,
+                jsonCount: jsonCount,
+                totalSize: totalSize
+            )
+            
+        } catch {
+            print("failed to read shared container: \(error)")
         }
     }
 

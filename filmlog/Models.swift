@@ -236,15 +236,23 @@ class ImageData: Codable {
     var id: UUID
     var data: Data
     var referenceCount: Int
+    var category: String?
+    var comment: String?
+    var creator: String?
+    var timestamp: Int?
 
-    init(data: Data) {
+    init(data: Data, category: String? = nil, comment: String? = nil, creator: String? = nil, timestamp: Int? = nil) {
         self.id = UUID()
         self.data = data
         self.referenceCount = 1
+        self.category = category
+        self.comment = comment
+        self.creator = creator
+        self.timestamp = timestamp
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, data, referenceCount
+        case id, data, referenceCount, category, comment, creator, timestamp
     }
 
     required init(from decoder: Decoder) throws {
@@ -252,6 +260,10 @@ class ImageData: Codable {
         id = try container.decode(UUID.self, forKey: .id)
         data = try container.decode(Data.self, forKey: .data)
         referenceCount = try container.decodeIfPresent(Int.self, forKey: .referenceCount) ?? 1
+        category = try container.decodeIfPresent(String.self, forKey: .category)
+        comment = try container.decodeIfPresent(String.self, forKey: .comment)
+        creator = try container.decodeIfPresent(String.self, forKey: .creator)
+        timestamp = try container.decodeIfPresent(Int.self, forKey: .timestamp)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -259,6 +271,10 @@ class ImageData: Codable {
         try container.encode(id, forKey: .id)
         try container.encode(data, forKey: .data)
         try container.encode(referenceCount, forKey: .referenceCount)
+        try container.encodeIfPresent(category, forKey: .category)
+        try container.encodeIfPresent(comment, forKey: .comment)
+        try container.encodeIfPresent(creator, forKey: .creator)
+        try container.encodeIfPresent(timestamp, forKey: .timestamp)
     }
 
     func incrementReference() {
@@ -268,6 +284,33 @@ class ImageData: Codable {
     func decrementReference() -> Bool {
         referenceCount -= 1
         return referenceCount <= 0
+    }
+}
+
+@Model
+class Gallery: Codable {
+    @Relationship var images: [ImageData] = []
+    var categories: [String] = []
+
+    init(images: [ImageData] = [], categories: [String] = []) {
+        self.images = images
+        self.categories = categories
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case images, categories
+    }
+
+    required init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        images = try container.decodeIfPresent([ImageData].self, forKey: .images) ?? []
+        categories = try container.decodeIfPresent([String].self, forKey: .categories) ?? []
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(images, forKey: .images)
+        try container.encode(categories, forKey: .categories)
     }
 }
 

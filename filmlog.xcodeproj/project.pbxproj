@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1F2D89DC2E2E5F580040D673 /* GalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F2D89DB2E2E5F580040D673 /* GalleryView.swift */; };
+		1F2D89E42E2E61780040D673 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F2D89E32E2E61780040D673 /* ShareViewController.swift */; };
+		1F2D89E72E2E61780040D673 /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1F2D89E52E2E61780040D673 /* MainInterface.storyboard */; };
+		1F2D89EB2E2E61780040D673 /* FilmlogShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1F2D89E12E2E61780040D673 /* FilmlogShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1F54EF612E2BB7430031F6EE /* FrameImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F54EF602E2BB7420031F6EE /* FrameImageView.swift */; };
 		1F62CE0B2E215B3B002DBAA3 /* FrameSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F62CE0A2E215B3B002DBAA3 /* FrameSectionView.swift */; };
 		1F62CE0D2E21604C002DBAA3 /* FrameCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F62CE0C2E21604C002DBAA3 /* FrameCameraView.swift */; };
@@ -30,6 +34,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		1F2D89E92E2E61780040D673 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1F9B3E892E1AE48C005F95A0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1F2D89E02E2E61780040D673;
+			remoteInfo = FilmlogShareExtension;
+		};
 		1F9B3EA42E1AE48F005F95A0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 1F9B3E892E1AE48C005F95A0 /* Project object */;
@@ -46,7 +57,28 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		1F2D89EF2E2E61780040D673 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				1F2D89EB2E2E61780040D673 /* FilmlogShareExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		1F2D89DB2E2E5F580040D673 /* GalleryView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GalleryView.swift; sourceTree = "<group>"; };
+		1F2D89E12E2E61780040D673 /* FilmlogShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FilmlogShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		1F2D89E32E2E61780040D673 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		1F2D89E62E2E61780040D673 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/MainInterface.storyboard; sourceTree = "<group>"; };
+		1F2D89E82E2E61780040D673 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		1F2D89F02E2E719F0040D673 /* FilmlogShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FilmlogShareExtension.entitlements; sourceTree = "<group>"; };
+		1F2D89F12E2E762E0040D673 /* filmlog.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = filmlog.entitlements; sourceTree = "<group>"; };
 		1F54EF602E2BB7420031F6EE /* FrameImageView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FrameImageView.swift; sourceTree = "<group>"; };
 		1F62CE0A2E215B3B002DBAA3 /* FrameSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameSectionView.swift; sourceTree = "<group>"; };
 		1F62CE0C2E21604C002DBAA3 /* FrameCameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameCameraView.swift; sourceTree = "<group>"; };
@@ -74,6 +106,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		1F2D89DE2E2E61780040D673 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1F9B3E8E2E1AE48C005F95A0 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -98,12 +137,24 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1F2D89E22E2E61780040D673 /* FilmlogShareExtension */ = {
+			isa = PBXGroup;
+			children = (
+				1F2D89F02E2E719F0040D673 /* FilmlogShareExtension.entitlements */,
+				1F2D89E32E2E61780040D673 /* ShareViewController.swift */,
+				1F2D89E52E2E61780040D673 /* MainInterface.storyboard */,
+				1F2D89E82E2E61780040D673 /* Info.plist */,
+			);
+			path = FilmlogShareExtension;
+			sourceTree = "<group>";
+		};
 		1F9B3E882E1AE48C005F95A0 = {
 			isa = PBXGroup;
 			children = (
 				1F9B3E932E1AE48C005F95A0 /* filmlog */,
 				1F9B3EA62E1AE48F005F95A0 /* filmlogTests */,
 				1F9B3EB02E1AE48F005F95A0 /* filmlogUITests */,
+				1F2D89E22E2E61780040D673 /* FilmlogShareExtension */,
 				1F9B3E922E1AE48C005F95A0 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -114,6 +165,7 @@
 				1F9B3E912E1AE48C005F95A0 /* filmlog.app */,
 				1F9B3EA32E1AE48F005F95A0 /* filmlogTests.xctest */,
 				1F9B3EAD2E1AE48F005F95A0 /* filmlogUITests.xctest */,
+				1F2D89E12E2E61780040D673 /* FilmlogShareExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -121,6 +173,8 @@
 		1F9B3E932E1AE48C005F95A0 /* filmlog */ = {
 			isa = PBXGroup;
 			children = (
+				1F2D89F12E2E762E0040D673 /* filmlog.entitlements */,
+				1F2D89DB2E2E5F580040D673 /* GalleryView.swift */,
 				1FD3D1502E2108A100A1C9EF /* Info.plist */,
 				1F9B3E942E1AE48C005F95A0 /* filmlogApp.swift */,
 				1F9B3E962E1AE48C005F95A0 /* ContentView.swift */,
@@ -171,6 +225,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		1F2D89E02E2E61780040D673 /* FilmlogShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1F2D89EC2E2E61780040D673 /* Build configuration list for PBXNativeTarget "FilmlogShareExtension" */;
+			buildPhases = (
+				1F2D89DD2E2E61780040D673 /* Sources */,
+				1F2D89DE2E2E61780040D673 /* Frameworks */,
+				1F2D89DF2E2E61780040D673 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FilmlogShareExtension;
+			productName = FilmlogShareExtension;
+			productReference = 1F2D89E12E2E61780040D673 /* FilmlogShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		1F9B3E902E1AE48C005F95A0 /* filmlog */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1F9B3EB72E1AE48F005F95A0 /* Build configuration list for PBXNativeTarget "filmlog" */;
@@ -178,10 +249,12 @@
 				1F9B3E8D2E1AE48C005F95A0 /* Sources */,
 				1F9B3E8E2E1AE48C005F95A0 /* Frameworks */,
 				1F9B3E8F2E1AE48C005F95A0 /* Resources */,
+				1F2D89EF2E2E61780040D673 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				1F2D89EA2E2E61780040D673 /* PBXTargetDependency */,
 			);
 			name = filmlog;
 			productName = filmlog;
@@ -234,6 +307,9 @@
 				LastSwiftUpdateCheck = 1500;
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
+					1F2D89E02E2E61780040D673 = {
+						CreatedOnToolsVersion = 15.0.1;
+					};
 					1F9B3E902E1AE48C005F95A0 = {
 						CreatedOnToolsVersion = 15.0.1;
 					};
@@ -263,11 +339,20 @@
 				1F9B3E902E1AE48C005F95A0 /* filmlog */,
 				1F9B3EA22E1AE48F005F95A0 /* filmlogTests */,
 				1F9B3EAC2E1AE48F005F95A0 /* filmlogUITests */,
+				1F2D89E02E2E61780040D673 /* FilmlogShareExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		1F2D89DF2E2E61780040D673 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1F2D89E72E2E61780040D673 /* MainInterface.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1F9B3E8F2E1AE48C005F95A0 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -294,6 +379,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1F2D89DD2E2E61780040D673 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1F2D89E42E2E61780040D673 /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1F9B3E8D2E1AE48C005F95A0 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -305,6 +398,7 @@
 				1F9B3E992E1AE48C005F95A0 /* Item.swift in Sources */,
 				1F9B3E952E1AE48C005F95A0 /* filmlogApp.swift in Sources */,
 				1F62CE0B2E215B3B002DBAA3 /* FrameSectionView.swift in Sources */,
+				1F2D89DC2E2E5F580040D673 /* GalleryView.swift in Sources */,
 				1F62CE0F2E21608C002DBAA3 /* CameraModel.swift in Sources */,
 				1F64D2E62E1B1384009EA1A8 /* RollDetailView.swift in Sources */,
 				1FEDFF2A2E1EA54400E64567 /* FullscreenImageView.swift in Sources */,
@@ -336,6 +430,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		1F2D89EA2E2E61780040D673 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1F2D89E02E2E61780040D673 /* FilmlogShareExtension */;
+			targetProxy = 1F2D89E92E2E61780040D673 /* PBXContainerItemProxy */;
+		};
 		1F9B3EA52E1AE48F005F95A0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 1F9B3E902E1AE48C005F95A0 /* filmlog */;
@@ -348,7 +447,70 @@
 		};
 /* End PBXTargetDependency section */
 
+/* Begin PBXVariantGroup section */
+		1F2D89E52E2E61780040D673 /* MainInterface.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				1F2D89E62E2E61780040D673 /* Base */,
+			);
+			name = MainInterface.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
 /* Begin XCBuildConfiguration section */
+		1F2D89ED2E2E61780040D673 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FilmlogShareExtension/FilmlogShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = R5Y97YP857;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FilmlogShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FilmlogShareExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = mikaelsundell.filmlog.share;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		1F2D89EE2E2E61780040D673 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FilmlogShareExtension/FilmlogShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = R5Y97YP857;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FilmlogShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FilmlogShareExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = mikaelsundell.filmlog.share;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		1F9B3EB52E1AE48F005F95A0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -471,9 +633,11 @@
 		1F9B3EB82E1AE48F005F95A0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = filmlog/filmlog.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"filmlog/Preview Content\"";
@@ -508,9 +672,11 @@
 		1F9B3EB92E1AE48F005F95A0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = filmlog/filmlog.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"filmlog/Preview Content\"";
@@ -617,6 +783,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		1F2D89EC2E2E61780040D673 /* Build configuration list for PBXNativeTarget "FilmlogShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1F2D89ED2E2E61780040D673 /* Debug */,
+				1F2D89EE2E2E61780040D673 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		1F9B3E8C2E1AE48C005F95A0 /* Build configuration list for PBXProject "filmlog" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
