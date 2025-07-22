@@ -8,16 +8,21 @@ import SwiftData
 
 struct GalleryView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @Query private var galleries: [Gallery]
     @State private var searchText: String = ""
-    @State private var selectedCategory: String? = nil
+    @State private var selectedCategoryId: UUID? = nil
     @State private var showImagePicker = false
     @State private var selectedItem: PhotosPickerItem? = nil
+    
+    @State private var selectedCategoryForEdit: Category? = nil
+    @State private var showEditOptions = false
+    @State private var showRenameDialog = false
+    @State private var renameText = ""
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Search bar
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.gray)
@@ -33,9 +38,8 @@ struct GalleryView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
-                        // Categories Section
                         HStack {
-                            Text("Categories")
+                            Text("Categories (\(currentGallery.categories.count))")
                                 .font(.headline)
                             Spacer()
                             Button(action: addCategory) {
@@ -48,16 +52,20 @@ struct GalleryView: View {
 
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
-                                ForEach(currentGallery.categories, id: \.self) { category in
-                                    Text(category)
+                                ForEach(currentGallery.categories) { category in
+                                    Text(category.name)
                                         .font(.caption)
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 6)
-                                        .background(selectedCategory == category ? Color.blue : Color.blue.opacity(0.1))
-                                        .foregroundColor(selectedCategory == category ? .white : .blue)
+                                        .background(selectedCategoryId == category.id ? Color.blue : Color.blue.opacity(0.1))
+                                        .foregroundColor(selectedCategoryId == category.id ? .white : .blue)
                                         .cornerRadius(12)
                                         .onTapGesture {
-                                            selectedCategory = selectedCategory == category ? nil : category
+                                            selectedCategoryId = selectedCategoryId == category.id ? nil : category.id
+                                        }
+                                        .onLongPressGesture {
+                                            selectedCategoryForEdit = category
+                                            showEditOptions = true
                                         }
                                 }
                             }
@@ -66,8 +74,19 @@ struct GalleryView: View {
 
                         Divider()
                             .padding(.horizontal)
+                        
+                        HStack {
+                            Text("Categories (\(filteredImages.count))")
+                                .font(.headline)
+                            Spacer()
+                            Button(action: addCategory) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                        .padding(.horizontal)
 
-                        // Images Grid
                         if filteredImages.isEmpty {
                             Text("No images found")
                                 .foregroundColor(.gray)
@@ -98,20 +117,17 @@ struct GalleryView: View {
             .onAppear {
                 importSharedImages()
             }
-            .toolbar {
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    Button(action: { showImagePicker = true }) {
-                        Label("Add Image", systemImage: "plus")
-                    }
+            .onChange(of: scenePhase) { oldPhase, newPhase in
+                if newPhase == .active {
+                    importSharedImages()
                 }
             }
-            .photosPicker(isPresented: $showImagePicker, selection: $selectedItem, matching: .images)
             .onChange(of: selectedItem) { _, newItem in
                 guard let newItem else { return }
                 
                 Task {
                     if let data = try? await newItem.loadTransferable(type: Data.self) {
-                        let newImage = ImageData(data: data, category: selectedCategory ?? "")
+                        let newImage = ImageData(data: data, categoryId: selectedCategoryId)
                         modelContext.insert(newImage)
                         do {
                             try modelContext.save()
@@ -133,6 +149,38 @@ struct GalleryView: View {
                     }
                 }
             }
+            .alert("Rename category", isPresented: $showRenameDialog) {
+                TextField("Category name", text: $renameText)
+                Button("Save") {
+                    if let category = selectedCategoryForEdit {
+                        category.name = renameText
+                        try? modelContext.save()
+                    }
+                }
+                Button("Cancel", role: .cancel) { }
+            }
+            .confirmationDialog("Edit category", isPresented: $showEditOptions, titleVisibility: .visible) {
+                Button("Rename") {
+                    renameText = selectedCategoryForEdit?.name ?? ""
+                    showRenameDialog = true
+                }
+                Button("Delete", role: .destructive) {
+                    if let category = selectedCategoryForEdit {
+                        if let index = currentGallery.categories.firstIndex(where: { $0.id == category.id }) {
+                            currentGallery.categories.remove(at: index)
+                            try? modelContext.save()
+                        }
+                    }
+                }
+            }
+            .toolbar {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Button(action: { showImagePicker = true }) {
+                        Label("Add Image", systemImage: "plus")
+                    }
+                }
+            }
+            .photosPicker(isPresented: $showImagePicker, selection: $selectedItem, matching: .images)
         }
     }
 
@@ -142,7 +190,7 @@ struct GalleryView: View {
         } else {
             let gallery = Gallery()
             modelContext.insert(gallery)
-            try? modelContext.save() // ✅ Persist immediately
+            try? modelContext.save()
             return gallery
         }
     }
@@ -150,8 +198,8 @@ struct GalleryView: View {
     private var filteredImages: [ImageData] {
         let allImages = currentGallery.images
         var imgs = allImages
-        if let category = selectedCategory {
-            imgs = imgs.filter { $0.category == category }
+        if let categoryId = selectedCategoryId {
+            imgs = imgs.filter { $0.categoryId == categoryId }
         }
         if !searchText.isEmpty {
             imgs = imgs.filter { $0.id.uuidString.localizedCaseInsensitiveContains(searchText) }
@@ -159,11 +207,17 @@ struct GalleryView: View {
         return imgs
     }
 
-    // MARK: - Actions
     private func addCategory() {
-        let newCategory = "Category \(currentGallery.categories.count + 1)"
-        currentGallery.categories.append(newCategory)
-        try? modelContext.save()
+        do {
+            let newCategory = Category(name: "Category \(currentGallery.categories.count + 1)")
+            modelContext.insert(newCategory)
+            try modelContext.save()
+            
+            currentGallery.categories.append(newCategory)
+            try modelContext.save()
+        } catch {
+            print("failed to add category: \(error)")
+        }
     }
 
     private func importSharedImages() {
@@ -198,7 +252,7 @@ struct GalleryView: View {
 
                     let newImage = ImageData(
                         data: data,
-                        category: selectedCategory,
+                        categoryId: selectedCategoryId,
                         comment: comment,
                         creator: creator,
                         timestamp: timestamp
@@ -221,5 +275,4 @@ struct GalleryView: View {
             print("error reading shared images: \(error)")
         }
     }
-
 }

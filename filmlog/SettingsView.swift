@@ -108,6 +108,16 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                             .lineLimit(1)
                             .truncationMode(.middle)
+                        
+                        Divider()
+                        
+                        Button(role: .destructive) {
+                            deleteSharedContainerFiles()
+                        } label: {
+                            Text("Delete files")
+                                .foregroundColor(.red)
+                        }
+                        .padding(.top, 8)
                     } else {
                         Text("Shared container data not available")
                             .foregroundColor(.secondary)
@@ -270,6 +280,28 @@ struct SettingsView: View {
             
         } catch {
             print("failed to read shared container: \(error)")
+        }
+    }
+    
+    private func deleteSharedContainerFiles() {
+        let fileManager = FileManager.default
+        guard let containerURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.mikaelsundell.filmlog") else {
+            return
+        }
+        
+        do {
+            let files = try fileManager.contentsOfDirectory(at: containerURL, includingPropertiesForKeys: nil, options: .skipsHiddenFiles)
+            let removableFiles = files.filter {
+                let ext = $0.pathExtension.lowercased()
+                return ["jpg", "json"].contains(ext)
+            }
+            for file in removableFiles {
+                try fileManager.removeItem(at: file)
+            }
+            calculateSharedContainerStats()
+            
+        } catch {
+            print("failed to delete files: \(error)")
         }
     }
 

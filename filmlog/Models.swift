@@ -232,27 +232,54 @@ struct CameraOptions {
 }
 
 @Model
+class Category: Codable {
+    var id: UUID
+    var name: String
+    
+    init(name: String) {
+        self.id = UUID()
+        self.name = name
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name
+    }
+    
+    required init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+    }
+}
+
+@Model
 class ImageData: Codable {
     var id: UUID
     var data: Data
     var referenceCount: Int
-    var category: String?
+    var categoryId: UUID?
     var comment: String?
     var creator: String?
     var timestamp: Int?
 
-    init(data: Data, category: String? = nil, comment: String? = nil, creator: String? = nil, timestamp: Int? = nil) {
+    init(data: Data, categoryId: UUID? = nil, comment: String? = nil, creator: String? = nil, timestamp: Int? = nil) {
         self.id = UUID()
         self.data = data
         self.referenceCount = 1
-        self.category = category
+        self.categoryId = categoryId
         self.comment = comment
         self.creator = creator
         self.timestamp = timestamp
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, data, referenceCount, category, comment, creator, timestamp
+        case id, data, referenceCount, categoryId, comment, creator, timestamp
     }
 
     required init(from decoder: Decoder) throws {
@@ -260,7 +287,7 @@ class ImageData: Codable {
         id = try container.decode(UUID.self, forKey: .id)
         data = try container.decode(Data.self, forKey: .data)
         referenceCount = try container.decodeIfPresent(Int.self, forKey: .referenceCount) ?? 1
-        category = try container.decodeIfPresent(String.self, forKey: .category)
+        categoryId = try container.decodeIfPresent(UUID.self, forKey: .categoryId)
         comment = try container.decodeIfPresent(String.self, forKey: .comment)
         creator = try container.decodeIfPresent(String.self, forKey: .creator)
         timestamp = try container.decodeIfPresent(Int.self, forKey: .timestamp)
@@ -271,7 +298,7 @@ class ImageData: Codable {
         try container.encode(id, forKey: .id)
         try container.encode(data, forKey: .data)
         try container.encode(referenceCount, forKey: .referenceCount)
-        try container.encodeIfPresent(category, forKey: .category)
+        try container.encodeIfPresent(categoryId, forKey: .categoryId)
         try container.encodeIfPresent(comment, forKey: .comment)
         try container.encodeIfPresent(creator, forKey: .creator)
         try container.encodeIfPresent(timestamp, forKey: .timestamp)
@@ -287,12 +314,13 @@ class ImageData: Codable {
     }
 }
 
+
 @Model
 class Gallery: Codable {
     @Relationship var images: [ImageData] = []
-    var categories: [String] = []
+    @Relationship var categories: [Category] = []
 
-    init(images: [ImageData] = [], categories: [String] = []) {
+    init(images: [ImageData] = [], categories: [Category] = []) {
         self.images = images
         self.categories = categories
     }
@@ -304,7 +332,7 @@ class Gallery: Codable {
     required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         images = try container.decodeIfPresent([ImageData].self, forKey: .images) ?? []
-        categories = try container.decodeIfPresent([String].self, forKey: .categories) ?? []
+        categories = try container.decodeIfPresent([Category].self, forKey: .categories) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
