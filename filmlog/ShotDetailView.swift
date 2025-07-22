@@ -38,8 +38,8 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
 }
 
-struct FrameDetailView: View {
-    @Bindable var frame: Frame
+struct ShotDetailView: View {
+    @Bindable var shot: Shot
     var roll: Roll
     var index: Int
     var count: Int
@@ -61,43 +61,43 @@ struct FrameDetailView: View {
 
     var body: some View {
         Form {
-            Section(header: Text("Frame")) {
-                FrameSectionView(
-                    frame: frame,
-                    isLocked: frame.isLocked,
+            Section(header: Text("Shot")) {
+                ShotSectionView(
+                    shot: shot,
+                    isLocked: shot.isLocked,
                     onImagePicked: { newData in
-                        replaceImage(for: &frame.photoImage, with: newData)
+                        replaceImage(for: &shot.photoImage, with: newData)
                     }
                 )
                 
                 HStack {
                     Text("Film size")
                     Spacer()
-                    Text(frame.filmSize)
+                    Text(shot.filmSize)
                 }
                 
-                Picker("Aspect Ratio", selection: $frame.aspectRatio) {
+                Picker("Aspect Ratio", selection: $shot.aspectRatio) {
                     ForEach(CameraOptions.aspectRatios, id: \.label) { item in
                         Text(item.label).tag(item.value)
                     }
                 }
-                .disabled(frame.isLocked)
+                .disabled(shot.isLocked)
                 
-                TextField("Name", text: $frame.name)
+                TextField("Name", text: $shot.name)
                     .focused($activeField, equals: .name)
-                    .disabled(frame.isLocked)
+                    .disabled(shot.isLocked)
                 
-                TextField("Note", text: $frame.note, axis: .vertical)
+                TextField("Note", text: $shot.note, axis: .vertical)
                     .lineLimit(3...6)
                     .focused($activeField, equals: .note)
-                    .disabled(frame.isLocked)
+                    .disabled(shot.isLocked)
             }
             
             Section(header: Text("Location")) {
                 if requestingLocation {
                     Text("Waiting for location...")
                         .foregroundColor(.secondary)
-                } else if let loc = frame.location {
+                } else if let loc = shot.location {
                     HStack {
                         Text("Lat: \(loc.latitude), Lon: \(loc.longitude)")
                         Spacer()
@@ -120,17 +120,17 @@ struct FrameDetailView: View {
                 }) {
                     Label("Request location", systemImage: "location.fill")
                 }
-                .disabled(frame.isLocked || requestingLocation)
+                .disabled(shot.isLocked || requestingLocation)
 
                 HStack {
                     Text("Elevation")
                     Spacer()
-                    if requestingLocation || frame.elevation == 0 {
+                    if requestingLocation || shot.elevation == 0 {
                         Text("-")
                             .foregroundColor(.secondary)
                     } else {
                         HStack(spacing: 0) {
-                            TextField("", value: $frame.elevation, formatter: elevationFormatter)
+                            TextField("", value: $shot.elevation, formatter: elevationFormatter)
                                 .keyboardType(.decimalPad)
                                 .multilineTextAlignment(.trailing)
                                 .focused($activeField, equals: .elevation)
@@ -150,16 +150,16 @@ struct FrameDetailView: View {
                 HStack {
                     Text("Color temperature")
                     Spacer()
-                    if requestingLocation || frame.elevation == 0 {
+                    if requestingLocation || shot.elevation == 0 {
                         Text("-")
                             .foregroundColor(.secondary)
                     } else {
                         HStack(spacing: 0) {
-                            TextField("", value: $frame.colorTemperature, formatter: colorTemperatureFormatter)
+                            TextField("", value: $shot.colorTemperature, formatter: colorTemperatureFormatter)
                                 .keyboardType(.numberPad)
                                 .multilineTextAlignment(.trailing)
                                 .focused($activeField, equals: .colorTemperature)
-                                .disabled(frame.isLocked)
+                                .disabled(shot.isLocked)
                             Text("K")
                         }
                     }
@@ -167,54 +167,54 @@ struct FrameDetailView: View {
             }
             
             Section(header: Text("Camera")) {
-                Picker("F-Stop", selection: $frame.fstop) {
+                Picker("F-Stop", selection: $shot.fstop) {
                     ForEach(CameraOptions.fStops, id: \.label) { item in
                         Text(item.label).tag(item.value)
                     }
                 }
-                .disabled(frame.isLocked)
+                .disabled(shot.isLocked)
                 
-                Picker("Shutter", selection: $frame.shutter) {
+                Picker("Shutter", selection: $shot.shutter) {
                     ForEach(CameraOptions.shutterSpeeds, id: \.label) { item in
                         Text(item.label).tag(item.value)
                     }
                 }
-                .disabled(frame.isLocked)
+                .disabled(shot.isLocked)
                 
-                Picker("Compensation", selection: $frame.exposureCompensation) {
+                Picker("Compensation", selection: $shot.exposureCompensation) {
                     ForEach(["-3", "-2", "-1", "0", "+1", "+2", "+3"], id: \.self) { value in
                         Text("EV\(value)").tag(value)
                     }
                 }
-                .disabled(frame.isLocked)
+                .disabled(shot.isLocked)
             }
             
             Section(header: Text("Lens")) {
-                Picker("Lens", selection: $frame.lensName) {
+                Picker("Lens", selection: $shot.lensName) {
                     ForEach(CameraOptions.lensNames, id: \.self) { item in
                         Text(item).tag(item)
                     }
                 }
-                .disabled(frame.isLocked)
+                .disabled(shot.isLocked)
                 
-                Picker("Focal length", selection: $frame.lensFocalLength) {
+                Picker("Focal length", selection: $shot.lensFocalLength) {
                     ForEach(CameraOptions.focalLengths, id: \.label) { item in
                         Text(item.label).tag(item.value)
                     }
 
                 }
-                .disabled(frame.isLocked)
+                .disabled(shot.isLocked)
                 
                 HStack {
                     Text("Focus Distance")
                     Spacer()
 
                     HStack(spacing: 2) {
-                        TextField("", value: $frame.focusDistance, formatter: focusDistanceFormatter)
+                        TextField("", value: $shot.focusDistance, formatter: focusDistanceFormatter)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
                             .focused($activeField, equals: .focusDistance)
-                            .disabled(frame.isLocked)
+                            .disabled(shot.isLocked)
                         Text("mm")
                     }
                 }
@@ -224,7 +224,7 @@ struct FrameDetailView: View {
                     Spacer()
 
                     HStack(spacing: 2) {
-                        TextField("", value: $frame.focusDepthOfField, formatter: focusDistanceFormatter)
+                        TextField("", value: $shot.focusDepthOfField, formatter: focusDistanceFormatter)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
                             .disabled(true)
@@ -241,7 +241,7 @@ struct FrameDetailView: View {
                     Spacer()
 
                     HStack(spacing: 2) {
-                        TextField("", value: $frame.focusNearLimit, formatter: focusDistanceFormatter)
+                        TextField("", value: $shot.focusNearLimit, formatter: focusDistanceFormatter)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
                             .disabled(true)
@@ -258,7 +258,7 @@ struct FrameDetailView: View {
                     Spacer()
 
                     HStack(spacing: 2) {
-                        TextField("", value: $frame.focusFarLimit, formatter: focusDistanceFormatter)
+                        TextField("", value: $shot.focusFarLimit, formatter: focusDistanceFormatter)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
                             .disabled(true)
@@ -275,7 +275,7 @@ struct FrameDetailView: View {
                     Spacer()
 
                     HStack(spacing: 2) {
-                        TextField("", value: $frame.focusHyperfocalDistance, formatter: focusDistanceFormatter)
+                        TextField("", value: $shot.focusHyperfocalDistance, formatter: focusDistanceFormatter)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
                             .disabled(true)
@@ -290,27 +290,27 @@ struct FrameDetailView: View {
             
             Section(header: Text("Lightmeter")) {
                 PhotoSectionView(
-                    data: frame.lightMeterImage?.data,
+                    data: shot.lightMeterImage?.data,
                     label: "Add photo",
-                    isLocked: frame.isLocked
+                    isLocked: shot.isLocked
                 ) { newData in
-                    replaceImage(for: &frame.lightMeterImage, with: newData)
+                    replaceImage(for: &shot.lightMeterImage, with: newData)
                 }
                 
-                evPicker(title: "Sky", selection: $frame.exposureSky)
-                evPicker(title: "Foliage", selection: $frame.exposureFoliage)
-                evPicker(title: "Highlights", selection: $frame.exposureHighlights)
-                evPicker(title: "Mid gray", selection: $frame.exposureMidGray)
-                evPicker(title: "Shadows", selection: $frame.exposureShadows)
-                evPicker(title: "Skin key", selection: $frame.exposureSkinKey)
-                evPicker(title: "Skin fill", selection: $frame.exposureSkinFill)
+                evPicker(title: "Sky", selection: $shot.exposureSky)
+                evPicker(title: "Foliage", selection: $shot.exposureFoliage)
+                evPicker(title: "Highlights", selection: $shot.exposureHighlights)
+                evPicker(title: "Mid gray", selection: $shot.exposureMidGray)
+                evPicker(title: "Shadows", selection: $shot.exposureShadows)
+                evPicker(title: "Skin key", selection: $shot.exposureSkinKey)
+                evPicker(title: "Skin fill", selection: $shot.exposureSkinFill)
             }
             
             Section {
                 Button(action: {
                     showDialog = true
                 }) {
-                    Label("Next frame", systemImage: "film")
+                    Label("Next shot", systemImage: "film")
                         .font(.subheadline)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -320,20 +320,20 @@ struct FrameDetailView: View {
                 }
                 .listRowBackground(Color.clear)
                 .confirmationDialog("Choose an option", isPresented: $showDialog) {
-                    Button("Add one frame") {
-                        createNextFrame(count: 1)
+                    Button("Add one shot") {
+                        createNextShot(count: 1)
                         dismiss()
                     }
-                    Button("Add 2 frames") {
-                        createNextFrame(count: 2)
+                    Button("Add 2 shots") {
+                        createNextShot(count: 2)
                         dismiss()
                     }
-                    Button("Add 5 frames") {
-                        createNextFrame(count: 5)
+                    Button("Add 5 shots") {
+                        createNextShot(count: 5)
                         dismiss()
                     }
-                    Button("Add 10 frames") {
-                        createNextFrame(count: 10)
+                    Button("Add 10 shots") {
+                        createNextShot(count: 10)
                         dismiss()
                     }
                     Button("Cancel", role: .cancel) {}
@@ -344,33 +344,33 @@ struct FrameDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             locationManager.currentLocation = nil
-            if frame.location == nil {
-                frame.elevation = 0
-                frame.colorTemperature = 0
+            if shot.location == nil {
+                shot.elevation = 0
+                shot.colorTemperature = 0
             }
             updateDof()
         }
-        .onChange(of: frame.focusDistance) { _, _ in updateDof() }
-        .onChange(of: frame.fstop) { _, _ in updateDof() }
-        .onChange(of: frame.lensFocalLength) { _, _ in updateDof() }
+        .onChange(of: shot.focusDistance) { _, _ in updateDof() }
+        .onChange(of: shot.fstop) { _, _ in updateDof() }
+        .onChange(of: shot.lensFocalLength) { _, _ in updateDof() }
         .onReceive(locationManager.$currentLocation) { location in
             if requestingLocation, let location = location {
-                frame.location = LocationOptions.Location(
+                shot.location = LocationOptions.Location(
                     latitude: location.coordinate.latitude,
                     longitude: location.coordinate.longitude,
                     altitude: location.altitude
                 )
-                frame.elevation = frame.location?.elevation(for: Date()) ?? 0
-                frame.colorTemperature = frame.location?.colorTemperature(for: Date()) ?? 0
+                shot.elevation = shot.location?.elevation(for: Date()) ?? 0
+                shot.colorTemperature = shot.location?.colorTemperature(for: Date()) ?? 0
                 requestingLocation = false
             }
         }
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
-                Button(action: { frame.isLocked.toggle() }) {
-                    Image(systemName: frame.isLocked ? "lock.fill" : "lock.open")
+                Button(action: { shot.isLocked.toggle() }) {
+                    Image(systemName: shot.isLocked ? "lock.fill" : "lock.open")
                 }
-                .help(frame.isLocked ? "Unlock to edit frame info" : "Lock to prevent editing")
+                .help(shot.isLocked ? "Unlock to edit shot info" : "Lock to prevent editing")
                 
                 if count > 1 {
                     Button(role: .destructive) {
@@ -378,19 +378,24 @@ struct FrameDetailView: View {
                     } label: {
                         Image(systemName: "trash")
                     }
-                    .help("Delete this frame")
+                    .help("Delete this shot")
                 }
             }
-            ToolbarItemGroup(placement: .keyboard) {
-                Button("Done") { activeField = nil }
+            ToolbarItem(placement: .keyboard) {
+                HStack {
+                    Spacer()
+                    Button("Done") {
+                        activeField = nil
+                    }
+                }
             }
         }
         .alert("Are you sure?", isPresented: $showDeleteAlert) {
             Button("Delete", role: .destructive) {
                 withAnimation {
-                    cleanupImage(frame.photoImage)
-                    cleanupImage(frame.lightMeterImage)
-                    modelContext.delete(frame)
+                    cleanupImage(shot.photoImage)
+                    cleanupImage(shot.lightMeterImage)
+                    modelContext.delete(shot)
                     onDelete?()
                     dismiss()
                 }
@@ -398,19 +403,19 @@ struct FrameDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             if index == count - 1 {
-                Text("This frame contains associated data. Are you sure you want to delete it?")
+                Text("This shot contains associated data. Are you sure you want to delete it?")
             } else {
-                Text("Deleting this frame will change the frame order. Are you sure you want to proceed?")
+                Text("Deleting this shot will change the shot order. Are you sure you want to proceed?")
             }
         }
     }
 
-    private func createNextFrame(count: Int) {
+    private func createNextShot(count: Int) {
         for _ in 0..<count {
-            let newFrame = frame.copy()
-            newFrame.roll = roll
-            modelContext.insert(newFrame)
-            roll.frames.append(newFrame)
+            let newShot = shot.copy()
+            newShot.roll = roll
+            modelContext.insert(newShot)
+            roll.shots.append(newShot)
         }
     }
     
@@ -421,28 +426,28 @@ struct FrameDetailView: View {
     }
     
     private func updateDof() {
-        guard frame.focusDistance > 0 else {
-            frame.focusDepthOfField = 0
+        guard shot.focusDistance > 0 else {
+            shot.focusDepthOfField = 0
             return
         }
         
-        guard let filmSize = CameraOptions.filmSizes.first(where: { $0.label == frame.filmSize })?.value,
-              let aperture = CameraOptions.fStops.first(where: { $0.label == frame.fstop })?.value,
-              let focalLength = CameraOptions.focalLengths.first(where: { $0.label == frame.lensFocalLength })?.value else {
-            frame.focusDepthOfField = 0
+        guard let filmSize = CameraOptions.filmSizes.first(where: { $0.label == shot.filmSize })?.value,
+              let aperture = CameraOptions.fStops.first(where: { $0.label == shot.fstop })?.value,
+              let focalLength = CameraOptions.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value else {
+            shot.focusDepthOfField = 0
             return
         }
         
         let result = filmSize.focusDepthOfField(
             focalLength: focalLength,
             aperture: aperture,
-            focusDistance: frame.focusDistance
+            focusDistance: shot.focusDistance
         )
         
-        frame.focusDepthOfField = result.dof.isInfinite ? -1.0 : result.dof
-        frame.focusNearLimit = result.near
-        frame.focusFarLimit = result.far
-        frame.focusHyperfocalDistance = result.hyperfocal
+        shot.focusDepthOfField = result.dof.isInfinite ? -1.0 : result.dof
+        shot.focusNearLimit = result.near
+        shot.focusFarLimit = result.far
+        shot.focusHyperfocalDistance = result.hyperfocal
     }
     
     private func replaceImage(for imageRef: inout ImageData?, with newData: Data) {
@@ -492,6 +497,6 @@ struct FrameDetailView: View {
                 Text("EV\(value >= 0 ? "+\(value)" : "\(value)")").tag("\(value)")
             }
         }
-        .disabled(frame.isLocked)
+        .disabled(shot.isLocked)
     }
 }

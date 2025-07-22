@@ -47,7 +47,7 @@ struct ContentView: View {
                                 RollDetailView(roll: roll, selectedRoll: $selectedRoll, index: localIndex)
                             }) {
                                 Label {
-                                    Text("\(localIndex + 1).) \(roll.name.isEmpty ? roll.timestamp.formatted(date: .numeric, time: .standard) : roll.name), Film: \(roll.filmStock) (\(roll.frames.count))")
+                                    Text("\(localIndex + 1).) \(roll.name.isEmpty ? roll.timestamp.formatted(date: .numeric, time: .standard) : roll.name), Film: \(roll.filmStock) (\(roll.shots.count))")
                                         .font(.footnote)
                                 } icon: {
                                     Image(systemName: "film.fill")
@@ -67,7 +67,7 @@ struct ContentView: View {
                                 RollDetailView(roll: roll, selectedRoll: $selectedRoll, index: localIndex)
                             }) {
                                 Label {
-                                    Text("\(localIndex + 1).) \(roll.name.isEmpty ? roll.timestamp.formatted(date: .numeric, time: .standard) : roll.name), Film: \(roll.filmStock) (\(roll.frames.count))")
+                                    Text("\(localIndex + 1).) \(roll.name.isEmpty ? roll.timestamp.formatted(date: .numeric, time: .standard) : roll.name), Film: \(roll.filmStock) (\(roll.shots.count))")
                                         .font(.footnote)
                                 } icon: {
                                     Image(systemName: "film.fill")
@@ -86,7 +86,7 @@ struct ContentView: View {
                         ForEach(Array(finishedRolls.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { localIndex, roll in
                             NavigationLink(value: roll) {
                                 Label {
-                                    Text("\(localIndex + 1).) \(roll.name.isEmpty ? roll.timestamp.formatted(date: .numeric, time: .standard) : roll.name), Film: \(roll.filmStock) (\(roll.frames.count))")
+                                    Text("\(localIndex + 1).) \(roll.name.isEmpty ? roll.timestamp.formatted(date: .numeric, time: .standard) : roll.name), Film: \(roll.filmStock) (\(roll.shots.count))")
                                         .font(.footnote)
                                 } icon: {
                                     Image(systemName: "film.fill")

@@ -161,7 +161,13 @@ struct CameraOptions {
         ("Super 35 (3-perf)", FilmSize(width: 24.89, height: 13.87)),
         ("Techniscope (2-perf)", FilmSize(width: 22.00, height: 9.47)),
         ("70mm (5-perf)", FilmSize(width: 48.56, height: 22.10)),
-        ("IMAX 70mm (15-perf)", FilmSize(width: 70.41, height: 52.63))
+        ("IMAX 70mm (15-perf)", FilmSize(width: 70.41, height: 52.63)),
+        ("Alexa Mini / Classic (Open Gate)", FilmSize(width: 28.17, height: 18.13)),
+        ("Alexa Mini / Classic (16:9)", FilmSize(width: 23.76, height: 13.37)),
+        ("Alexa Mini / Classic (4:3)", FilmSize(width: 23.76, height: 17.82)),
+        ("Alexa LF (Open Gate)", FilmSize(width: 36.70, height: 25.54)),
+        ("Alexa LF (16:9)", FilmSize(width: 31.68, height: 17.82)),
+        ("Alexa 65 (Open Gate)", FilmSize(width: 54.12, height: 25.58))
     ]
     
     static let filmStocks: [String] = [
@@ -359,7 +365,7 @@ class Roll: Codable {
 
     @Relationship var image: ImageData?
     @Relationship var lightMeterImage: ImageData?
-    @Relationship var frames: [Frame] = []
+    @Relationship var shots: [Shot] = []
 
     init(timestamp: Date,
          name: String = "",
@@ -390,7 +396,7 @@ class Roll: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, name, note, camera, counter, pushPull, filmDate, filmSize, filmStock, image, lightMeterImage, status, isLocked, frames
+        case id, timestamp, name, note, camera, counter, pushPull, filmDate, filmSize, filmStock, image, lightMeterImage, status, isLocked, shots
     }
 
     required init(from decoder: Decoder) throws {
@@ -409,7 +415,7 @@ class Roll: Codable {
         lightMeterImage = try container.decodeIfPresent(ImageData.self, forKey: .lightMeterImage)
         status = try container.decode(String.self, forKey: .status)
         isLocked = try container.decode(Bool.self, forKey: .isLocked)
-        frames = try container.decodeIfPresent([Frame].self, forKey: .frames) ?? []
+        shots = try container.decodeIfPresent([Shot].self, forKey: .shots) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -428,12 +434,12 @@ class Roll: Codable {
         try container.encodeIfPresent(lightMeterImage, forKey: .lightMeterImage)
         try container.encode(status, forKey: .status)
         try container.encode(isLocked, forKey: .isLocked)
-        try container.encode(frames, forKey: .frames)
+        try container.encode(shots, forKey: .shots)
     }
 }
 
 @Model
-class Frame: Codable {
+class Shot: Codable {
     var id = UUID()
     var timestamp: Date
     var filmSize: String
@@ -524,8 +530,8 @@ class Frame: Codable {
         self.isLocked = isLocked
     }
 
-    func copy() -> Frame {
-        let newFrame = Frame(timestamp: Date())
+    func copy() -> Shot {
+        let newFrame = Shot(timestamp: Date())
         newFrame.filmSize = self.filmSize
         newFrame.aspectRatio = self.aspectRatio
         newFrame.name = self.name

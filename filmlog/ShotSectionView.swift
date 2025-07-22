@@ -5,8 +5,8 @@
 import SwiftUI
 import PhotosUI
 
-struct FrameSectionView: View {
-    @Bindable var frame: Frame
+struct ShotSectionView: View {
+    @Bindable var shot: Shot
     
     var isLocked: Bool = false
     var onImagePicked: (Data) -> Void
@@ -17,7 +17,7 @@ struct FrameSectionView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            if let imageData = frame.photoImage?.data, let uiImage = UIImage(data: imageData) {
+            if let imageData = shot.photoImage?.data, let uiImage = UIImage(data: imageData) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
@@ -68,16 +68,16 @@ struct FrameSectionView: View {
             }
         }
         .fullScreenCover(isPresented: $showCamera) {
-            CameraView(frame: frame) { image in
+            ShotCameraView(shot: shot) { image in
                 if let data = image.jpegData(compressionQuality: 0.9) {
                     onImagePicked(data)
                 }
             }
         }
         .fullScreenCover(isPresented: $showFullImage) {
-            if let imageData = frame.photoImage?.data,
+            if let imageData = shot.photoImage?.data,
                let uiImage = UIImage(data: imageData) {
-                FrameImageView(image: uiImage)
+                ShotImageView(image: uiImage)
             } else {
                 Text("No image available")
                     .font(.headline)

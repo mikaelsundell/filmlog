@@ -39,7 +39,7 @@ struct GalleryView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Text("Categories (\(currentGallery.categories.count))")
+                            Text("Categories")
                                 .font(.headline)
                             Spacer()
                             Button(action: addCategory) {
@@ -76,7 +76,7 @@ struct GalleryView: View {
                             .padding(.horizontal)
                         
                         HStack {
-                            Text("Categories (\(filteredImages.count))")
+                            Text("Categories")
                                 .font(.headline)
                             Spacer()
                             Button(action: addCategory) {
@@ -228,7 +228,11 @@ struct GalleryView: View {
 
         do {
             let files = try fileManager.contentsOfDirectory(at: containerURL, includingPropertiesForKeys: nil, options: .skipsHiddenFiles)
-            let imageFiles = files.filter { ["jpg", "jpeg", "png"].contains($0.pathExtension.lowercased()) }
+            let imageFiles = files.filter {
+                let fileName = $0.lastPathComponent.lowercased()
+                let ext = $0.pathExtension.lowercased()
+                return fileName.hasPrefix("shared_") && ["jpg", "jpeg", "png"].contains(ext)
+            }
             if imageFiles.isEmpty {
                 return
             }

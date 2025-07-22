@@ -14,7 +14,7 @@ struct RollDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focused: Bool
     @State private var selectedItem: PhotosPickerItem? = nil
-    @State private var selectedFrame: Frame? = nil
+    @State private var selectedShot: Shot? = nil
     @State private var showCamera = false
     @State private var showDeleteAlert = false
     @State private var confirmMoveToShooting = false
@@ -24,23 +24,23 @@ struct RollDetailView: View {
     var body: some View {
         Form {
             if roll.status == "shooting" || roll.status == "processing" || roll.status == "finished" {
-                Section(header: Text("Frames")) {
-                    if roll.frames.isEmpty {
-                        Text("No frames")
+                Section(header: Text("Shots")) {
+                    if roll.shots.isEmpty {
+                        Text("No shots")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(Array(roll.frames.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { index, frame in
+                        ForEach(Array(roll.shots.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { index, shot in
                             NavigationLink(destination: {
-                                FrameDetailView(frame: frame,
+                                ShotDetailView(shot: shot,
                                                 roll: roll,
                                                 index: index,
-                                                count: roll.frames.count,
+                                                count: roll.shots.count,
                                                 onDelete: {
-                                                    roll.frames = roll.frames.filter { $0.id != frame.id }
+                                                    roll.shots = roll.shots.filter { $0.id != shot.id }
                                                 })
                             }) {
                                 Label {
-                                    Text("\(index + 1).) \(frame.name.isEmpty ? frame.timestamp.formatted(date: .numeric, time: .standard) : frame.name)")
+                                    Text("\(index + 1).) \(shot.name.isEmpty ? shot.timestamp.formatted(date: .numeric, time: .standard) : shot.name)")
                                         .font(.footnote)
                                 } icon: {
                                     Image(systemName: "film")
@@ -266,15 +266,15 @@ struct RollDetailView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This roll contains \(roll.frames.count) frame\(roll.frames.count == 1 ? "" : "s"). Are you sure you want to delete it?")
+            Text("This roll contains \(roll.shots.count) shot\(roll.shots.count == 1 ? "" : "s"). Are you sure you want to delete it?")
         }
     }
 
     private func addFrame() {
         withAnimation {
-            let newFrame = Frame(timestamp: Date())
-            newFrame.filmSize = roll.filmSize
-            roll.frames.append(newFrame)
+            let newShot = Shot(timestamp: Date())
+            newShot.filmSize = roll.filmSize
+            roll.shots.append(newShot)
         }
     }
 

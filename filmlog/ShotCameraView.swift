@@ -31,7 +31,7 @@ class OrientationObserver: ObservableObject {
     }
 }
 
-struct FrameHelper {
+struct ShotHelper {
     static func calculateFrame(containerSize: CGSize,
                                focalLength: CGFloat,
                                filmSize: CameraOptions.FilmSize,
@@ -51,7 +51,7 @@ struct FrameHelper {
         guard aspectRatio > 0 else { return nil }
         if orientation.isLandscape {
             let height = frameSize.height
-            let width = height * aspectRatio
+            let width = height / aspectRatio
             return CGSize(width: width, height: height)
         } else {
             let width = frameSize.width
@@ -61,7 +61,7 @@ struct FrameHelper {
     }
 }
 
-struct FrameOverlay: View {
+struct ShotOverlay: View {
     let aspectRatio: CGFloat
     let focalLength: CGFloat
     let filmSize: CameraOptions.FilmSize
@@ -70,14 +70,14 @@ struct FrameOverlay: View {
     
     var body: some View {
         GeometryReader { geo in
-            let frameSize = FrameHelper.calculateFrame(
+            let frameSize = ShotHelper.calculateFrame(
                 containerSize: geo.size,
                 focalLength: focalLength,
                 filmSize: filmSize,
                 horizontalFov: horizontalFov
             )
             
-            let aspectSize = FrameHelper.calculateAspectFrame(
+            let aspectSize = ShotHelper.calculateAspectFrame(
                 containerSize: geo.size,
                 frameSize: frameSize,
                 aspectRatio: aspectRatio,
@@ -145,8 +145,8 @@ struct FrameOverlay: View {
     }
 }
 
-struct CameraView: View {
-    @Bindable var frame: Frame
+struct ShotCameraView: View {
+    @Bindable var shot: Shot
     
     var onCapture: (UIImage) -> Void
     @Environment(\.dismiss) private var dismiss
@@ -168,10 +168,10 @@ struct CameraView: View {
                         .animation(.easeInOut(duration: 0.3), value: orientationObserver.orientation)
                         .ignoresSafeArea()
                     
-                    FrameOverlay(
-                        aspectRatio: CameraOptions.aspectRatios.first(where: { $0.label == frame.aspectRatio })?.value ?? 0,
-                        focalLength: CameraOptions.focalLengths.first(where: { $0.label == frame.lensFocalLength })?.value ?? 0,
-                        filmSize: CameraOptions.filmSizes.first(where: { $0.label == frame.filmSize })?.value ?? CameraOptions.FilmSize.defaultFilmSize,
+                    ShotOverlay(
+                        aspectRatio: CameraOptions.aspectRatios.first(where: { $0.label == shot.aspectRatio })?.value ?? 0,
+                        focalLength: CameraOptions.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value ?? 0,
+                        filmSize: CameraOptions.filmSizes.first(where: { $0.label == shot.filmSize })?.value ?? CameraOptions.FilmSize.defaultFilmSize,
                         horizontalFov: cameraModel.horizontalFov,
                         orientation: orientationObserver.orientation
                     )
@@ -250,9 +250,9 @@ struct CameraView: View {
     private func focalLengthControls() -> some View {
         HStack(spacing: 4) {
             Button(action: {
-                if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == frame.lensFocalLength }),
+                if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == shot.lensFocalLength }),
                    currentIndex > 0 {
-                    frame.lensFocalLength = CameraOptions.focalLengths[currentIndex - 1].label
+                    shot.lensFocalLength = CameraOptions.focalLengths[currentIndex - 1].label
                 }
             }) {
                 Image(systemName: "chevron.left")
@@ -262,7 +262,7 @@ struct CameraView: View {
                     .clipShape(Circle())
             }
             Button(action: { showLenses.toggle() }) {
-                Text("\(frame.lensFocalLength)")
+                Text("\(shot.lensFocalLength)")
                     .font(.system(size: 12))
                     .foregroundColor(.white)
                     .frame(width: 55)
@@ -273,9 +273,9 @@ struct CameraView: View {
                     .rotationEffect(orientationObserver.rotationAngle)
             }
             Button(action: {
-                if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == frame.lensFocalLength }),
+                if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == shot.lensFocalLength }),
                    currentIndex < CameraOptions.focalLengths.count - 1 {
-                    frame.lensFocalLength = CameraOptions.focalLengths[currentIndex + 1].label
+                    shot.lensFocalLength = CameraOptions.focalLengths[currentIndex + 1].label
                 }
             }) {
                 Image(systemName: "chevron.right")
@@ -339,9 +339,9 @@ struct CameraView: View {
     private func aspectRatioControls() -> some View {
         HStack(spacing: 4) {
             Button(action: {
-                if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == frame.aspectRatio }),
+                if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == shot.aspectRatio }),
                    currentIndex > 0 {
-                    frame.aspectRatio = CameraOptions.aspectRatios[currentIndex - 1].label
+                    shot.aspectRatio = CameraOptions.aspectRatios[currentIndex - 1].label
                 }
             }) {
                 Image(systemName: "chevron.left")
@@ -351,7 +351,7 @@ struct CameraView: View {
                     .clipShape(Circle())
             }
             Button(action: { showAspectRatios.toggle() }) {
-                Text("\(frame.aspectRatio)")
+                Text("\(shot.aspectRatio)")
                     .font(.system(size: 12))
                     .foregroundColor(.white)
                     .frame(width: 55)
@@ -362,9 +362,9 @@ struct CameraView: View {
                     .rotationEffect(orientationObserver.rotationAngle)
             }
             Button(action: {
-                if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == frame.aspectRatio }),
+                if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == shot.aspectRatio }),
                    currentIndex < CameraOptions.aspectRatios.count - 1 {
-                    frame.aspectRatio = CameraOptions.aspectRatios[currentIndex + 1].label
+                    shot.aspectRatio = CameraOptions.aspectRatios[currentIndex + 1].label
                 }
             }) {
                 Image(systemName: "chevron.right")
@@ -378,9 +378,9 @@ struct CameraView: View {
 
     private func captureImage(image: UIImage) {
         let containerSize = UIScreen.main.bounds.size
-        let filmSize = CameraOptions.filmSizes.first(where: { $0.label == frame.filmSize })?.value ?? CameraOptions.FilmSize.defaultFilmSize
-        let focalLength = CameraOptions.focalLengths.first(where: { $0.label == frame.lensFocalLength })?.value ?? 0
-        let frameSize = FrameHelper.calculateFrame(
+        let filmSize = CameraOptions.filmSizes.first(where: { $0.label == shot.filmSize })?.value ?? CameraOptions.FilmSize.defaultFilmSize
+        let focalLength = CameraOptions.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value ?? 0
+        let frameSize = ShotHelper.calculateFrame(
             containerSize: containerSize,
             focalLength: focalLength,
             filmSize: filmSize,

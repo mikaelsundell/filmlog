@@ -10,7 +10,7 @@ struct filmlogApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Roll.self,
-            Frame.self,
+            Shot.self,
             Gallery.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)

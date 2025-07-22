@@ -196,14 +196,14 @@ struct SettingsView: View {
             var totalImageSize = 0
             
             for roll in rolls {
-                frameCount += roll.frames.count
+                frameCount += roll.shots.count
                 
                 if let img = roll.image {
                     rollImageSet.insert(img.id)
                     totalImageSize += img.data.count
                 }
                 
-                for frame in roll.frames {
+                for frame in roll.shots {
                     if let img = frame.photoImage {
                         rollImageSet.insert(img.id)
                         totalImageSize += img.data.count
@@ -247,9 +247,15 @@ struct SettingsView: View {
         }
         
         do {
-            let files = try fileManager.contentsOfDirectory(at: containerURL, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey], options: .skipsHiddenFiles)
+            let files = try fileManager.contentsOfDirectory(
+                at: containerURL,
+                includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey],
+                options: .skipsHiddenFiles
+            )
+
             let fileURLs = files.filter {
-                (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == false
+                ((try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == false)
+                && $0.lastPathComponent.lowercased().hasPrefix("shared_")
             }
             
             var totalSize: UInt64 = 0
@@ -321,7 +327,7 @@ struct SettingsView: View {
             var imageMap: [UUID: ImageData] = [:]
             for roll in rolls {
                 if let img = roll.image { imageMap[img.id] = img }
-                for frame in roll.frames {
+                for frame in roll.shots {
                     if let img = frame.photoImage { imageMap[img.id] = img }
                     if let img = frame.lightMeterImage { imageMap[img.id] = img }
                 }
@@ -346,8 +352,8 @@ struct SettingsView: View {
                     filmStock: roll.filmStock,
                     isLocked: roll.isLocked,
                     image: roll.image?.id,
-                    frames: roll.frames.map { frame in
-                        FrameExport(
+                    shots: roll.shots.map { frame in
+                        ShotExport(
                             id: frame.id,
                             timestamp: frame.timestamp,
                             filmSize: frame.filmSize,
@@ -436,37 +442,37 @@ struct SettingsView: View {
                 roll.isLocked = rollExport.isLocked
                 roll.image = rollExport.image.flatMap { imageMap[$0] }
                 
-                for frameExport in rollExport.frames {
-                    let frame = Frame(timestamp: frameExport.timestamp)
-                    frame.id = frameExport.id
-                    frame.filmSize = frameExport.filmSize
-                    frame.aspectRatio = frameExport.aspectRatio
-                    frame.name = frameExport.name
-                    frame.note = frameExport.note
-                    frame.location = frameExport.location
-                    frame.elevation = frameExport.elevation
-                    frame.colorTemperature = frameExport.colorTemperature
-                    frame.fstop = frameExport.fstop
-                    frame.shutter = frameExport.shutter
-                    frame.exposureCompensation = frameExport.exposureCompensation
-                    frame.lensName = frameExport.lensName
-                    frame.lensFocalLength = frameExport.lensFocalLength
-                    frame.focusDistance = frameExport.focusDistance
-                    frame.focusDepthOfField = frameExport.focusDepthOfField
-                    frame.focusNearLimit = frameExport.focusNearLimit
-                    frame.focusFarLimit = frameExport.focusFarLimit
-                    frame.focusHyperfocalDistance = frameExport.focusHyperfocalDistance
-                    frame.exposureSky = frameExport.exposureSky
-                    frame.exposureFoliage = frameExport.exposureFoliage
-                    frame.exposureHighlights = frameExport.exposureHighlights
-                    frame.exposureMidGray = frameExport.exposureMidGray
-                    frame.exposureShadows = frameExport.exposureShadows
-                    frame.exposureSkinKey = frameExport.exposureSkinKey
-                    frame.exposureSkinFill = frameExport.exposureSkinFill
-                    frame.photoImage = frameExport.photoImage.flatMap { imageMap[$0] }
-                    frame.lightMeterImage = frameExport.lightMeterImage.flatMap { imageMap[$0] }
-                    frame.isLocked = frameExport.isLocked
-                    roll.frames.append(frame)
+                for shotExport in rollExport.shots {
+                    let shot = Shot(timestamp: shotExport.timestamp)
+                    shot.id = shotExport.id
+                    shot.filmSize = shotExport.filmSize
+                    shot.aspectRatio = shotExport.aspectRatio
+                    shot.name = shotExport.name
+                    shot.note = shotExport.note
+                    shot.location = shotExport.location
+                    shot.elevation = shotExport.elevation
+                    shot.colorTemperature = shotExport.colorTemperature
+                    shot.fstop = shotExport.fstop
+                    shot.shutter = shotExport.shutter
+                    shot.exposureCompensation = shotExport.exposureCompensation
+                    shot.lensName = shotExport.lensName
+                    shot.lensFocalLength = shotExport.lensFocalLength
+                    shot.focusDistance = shotExport.focusDistance
+                    shot.focusDepthOfField = shotExport.focusDepthOfField
+                    shot.focusNearLimit = shotExport.focusNearLimit
+                    shot.focusFarLimit = shotExport.focusFarLimit
+                    shot.focusHyperfocalDistance = shotExport.focusHyperfocalDistance
+                    shot.exposureSky = shotExport.exposureSky
+                    shot.exposureFoliage = shotExport.exposureFoliage
+                    shot.exposureHighlights = shotExport.exposureHighlights
+                    shot.exposureMidGray = shotExport.exposureMidGray
+                    shot.exposureShadows = shotExport.exposureShadows
+                    shot.exposureSkinKey = shotExport.exposureSkinKey
+                    shot.exposureSkinFill = shotExport.exposureSkinFill
+                    shot.photoImage = shotExport.photoImage.flatMap { imageMap[$0] }
+                    shot.lightMeterImage = shotExport.lightMeterImage.flatMap { imageMap[$0] }
+                    shot.isLocked = shotExport.isLocked
+                    roll.shots.append(shot)
                 }
                 
                 modelContext.insert(roll)
@@ -504,10 +510,10 @@ struct RollExport: Codable {
     var filmStock: String
     var isLocked: Bool
     var image: UUID?
-    var frames: [FrameExport]
+    var shots: [ShotExport]
 }
 
-struct FrameExport: Codable {
+struct ShotExport: Codable {
     var id: UUID
     var timestamp: Date
     var filmSize: String

@@ -4,7 +4,7 @@
 
 import SwiftUI
 
-struct FrameImageView: View {
+struct ShotImageView: View {
     var image: UIImage
     @Environment(\.dismiss) private var dismiss
 
