@@ -5,20 +5,55 @@
 import SwiftUI
 import AVFoundation
 import Combine
+import CoreMotion
 
 class OrientationObserver: ObservableObject {
     @Published var orientation: UIDeviceOrientation = UIDevice.current.orientation
+    @Published var roll: Double = 0.0
+    
     private var cancellable: AnyCancellable?
-
+    private var motionManager = CMMotionManager()
+    
     init(position: AVCaptureDevice.Position = .back) {
         cancellable = NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)
             .compactMap { _ -> UIDeviceOrientation? in
                 let current = UIDevice.current.orientation
                 return current.isValidInterfaceOrientation ? current : nil
             }
-            .sink { [weak self] (newOrientation: UIDeviceOrientation) in
+            .sink { [weak self] newOrientation in
                 self?.orientation = newOrientation
             }
+        
+        startMotionUpdates()
+    }
+    
+    private func startMotionUpdates() {
+        if motionManager.isDeviceMotionAvailable {
+            motionManager.deviceMotionUpdateInterval = 0.02
+            motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, error in
+                guard let self = self, let motion = motion else { return }
+                
+                var angle: Double = 0
+                
+                switch self.orientation {
+                case .portrait:
+                    // In portrait, pitch indicates left/right tilt
+                    angle = motion.attitude.pitch * 180 / .pi
+                case .portraitUpsideDown:
+                    angle = -motion.attitude.pitch * 180 / .pi
+                case .landscapeLeft:
+                    // In landscape left, roll is correct
+                    angle = motion.attitude.roll * 180 / .pi
+                case .landscapeRight:
+                    // In landscape right, roll is reversed
+                    angle = -motion.attitude.roll * 180 / .pi
+                default:
+                    angle = motion.attitude.roll * 180 / .pi
+                }
+                
+                self.roll = angle
+            }
+        }
     }
     
     var rotationAngle: Angle {
@@ -40,6 +75,9 @@ struct ShotHelper {
         let filmHFov = 2 * atan(CGFloat(filmSize.width) / (2 * focalLength))
         let frameHorizontal = containerSize.height * (tan(filmHFov / 2) / tan((horizontalFov * .pi / 180) / 2))
         let frameVertical = frameHorizontal / filmAspect
+        
+        print("frameVertical: \(frameVertical) x \(frameHorizontal)")
+        
         return CGSize(width: frameVertical, height: frameHorizontal)
     }
     
@@ -85,7 +123,6 @@ struct ShotOverlay: View {
             )
 
             ZStack {
-                
                 Color.black.opacity(0.6)
                 .mask {
                     Rectangle()
@@ -99,19 +136,20 @@ struct ShotOverlay: View {
                 }
                 .animation(.easeInOut(duration: 0.3), value: frameSize)
 
-                
-                Rectangle()
-                    .stroke(Color.white, lineWidth: 1)
-                    .frame(width: frameSize.width, height: frameSize.height)
-                
                 if let aspectSize {
                     Rectangle()
-                        .stroke(Color.red, style: StrokeStyle(lineWidth: 1, dash: [6]))
+                        .stroke(Color.blue, lineWidth: 2)
                         .frame(width: aspectSize.width, height: aspectSize.height)
                 }
-
+                
+                Rectangle()
+                    .stroke(Color.white, lineWidth: 2)
+                    .frame(width: frameSize.width, height: frameSize.height)
+                
                 VStack(spacing: 4) {
-                    Text("Film: \(Int(filmSize.width))mm x \(Int(filmSize.height))mm (\(String(format: "%.2f", filmSize.aspectRatio)))")
+                    Text("\(Int(filmSize.width)) mm x \(Int(filmSize.height)) mm " +
+                         "\(String(format: "%.2f", filmSize.aspectRatio)) @ " +
+                         "\(String(format: "%.1f", filmSize.angleOfView(focalLength: focalLength).horizontal))°")
                         .font(.caption2)
                         .padding(4)
                         .background(Color.black.opacity(0.6))
@@ -145,6 +183,36 @@ struct ShotOverlay: View {
     }
 }
 
+struct LevelIndicator: View {
+    var roll: Double
+    
+    var body: some View {
+        GeometryReader { geo in
+            let isAligned = abs(roll) < 2  // ✅ within ±2° considered level
+            let color = isAligned ? Color.green : Color.red
+            
+            ZStack {
+                Rectangle()
+                    .fill(color.opacity(0.8))
+                    .frame(width: geo.size.width, height: 2)
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                    .rotationEffect(.degrees(roll))
+                
+                // ✅ Show angle text for debugging
+                Text("\(String(format: "%.1f°", roll))")
+                    .font(.caption)
+                    .foregroundColor(.white)
+                    .padding(4)
+                    .background(Color.black.opacity(0.5))
+                    .cornerRadius(4)
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2 + 30)
+            }
+            .animation(.easeInOut(duration: 0.1), value: roll)
+        }
+        .ignoresSafeArea()
+    }
+}
+
 struct ShotCameraView: View {
     @Bindable var shot: Shot
     
@@ -153,9 +221,10 @@ struct ShotCameraView: View {
     @StateObject private var cameraModel = CameraModel()
     @State private var showLenses = false
     @State private var showAspectRatios = false
+    @State private var showLevelLine = false
     
     @ObservedObject private var orientationObserver = OrientationObserver()
-
+    
     var body: some View {
         ZStack(alignment: .bottom) {
             CameraPreview(session: cameraModel.session)
@@ -176,6 +245,10 @@ struct ShotCameraView: View {
                         orientation: orientationObserver.orientation
                     )
                     .frame(width: geometry.size.width, height: geometry.size.height)
+                    
+                    if showLevelLine {
+                        LevelIndicator(roll: orientationObserver.roll)
+                    }
                 }
                 .ignoresSafeArea()
             }
@@ -257,7 +330,7 @@ struct ShotCameraView: View {
             }) {
                 Image(systemName: "chevron.left")
                     .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 36, height: 36)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
             }
@@ -265,7 +338,7 @@ struct ShotCameraView: View {
                 Text("\(shot.lensFocalLength)")
                     .font(.system(size: 12))
                     .foregroundColor(.white)
-                    .frame(width: 55)
+                    .frame(width: 50)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 4)
                     .background(Color.black.opacity(0.4))
@@ -280,64 +353,16 @@ struct ShotCameraView: View {
             }) {
                 Image(systemName: "chevron.right")
                     .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 36, height: 36)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
-            }
-        }
-    }
-    
-    @ViewBuilder
-    private func utils1() -> some View {
-        HStack(spacing: 8) {
-            Button(action: { util1() }) {
-                Text("1")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
-                    .background(Color.black.opacity(0.4))
-                    .clipShape(Circle())
-                    .rotationEffect(orientationObserver.rotationAngle)
-            }
-            Button(action: { util2() }) {
-                Text("2")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
-                    .background(Color.black.opacity(0.4))
-                    .clipShape(Circle())
-                    .rotationEffect(orientationObserver.rotationAngle)
-            }
-        }
-    }
-    
-    @ViewBuilder
-    private func utils2() -> some View {
-        HStack(spacing: 8) {
-            Button(action: { util3() }) {
-                Text("3")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
-                    .background(Color.black.opacity(0.4))
-                    .clipShape(Circle())
-                    .rotationEffect(orientationObserver.rotationAngle)
-            }
-            Button(action: { util4() }) {
-                Text("4")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
-                    .background(Color.black.opacity(0.4))
-                    .clipShape(Circle())
-                    .rotationEffect(orientationObserver.rotationAngle)
             }
         }
     }
     
     @ViewBuilder
     private func aspectRatioControls() -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 0) {
             Button(action: {
                 if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == shot.aspectRatio }),
                    currentIndex > 0 {
@@ -346,7 +371,7 @@ struct ShotCameraView: View {
             }) {
                 Image(systemName: "chevron.left")
                     .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 36, height: 36)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
             }
@@ -354,7 +379,7 @@ struct ShotCameraView: View {
                 Text("\(shot.aspectRatio)")
                     .font(.system(size: 12))
                     .foregroundColor(.white)
-                    .frame(width: 55)
+                    .frame(width: 50)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 4)
                     .background(Color.black.opacity(0.4))
@@ -369,11 +394,73 @@ struct ShotCameraView: View {
             }) {
                 Image(systemName: "chevron.right")
                     .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 36, height: 36)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
             }
         }
+    }
+    
+    @ViewBuilder
+    private func utils1() -> some View {
+        HStack(spacing: 8) {
+            Button(action: { toggleLens() }) {
+                Text(lensLabel(for: cameraModel.currentLens))
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(width: 32, height: 32)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
+                    .rotationEffect(orientationObserver.rotationAngle)
+            }
+            Button(action: { toggleSymmetry() }) {
+                Text("S")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(width: 32, height: 32)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
+                    .rotationEffect(orientationObserver.rotationAngle)
+            }
+            Button(action: { toggleLevel() }) {
+                Text("L")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(width: 32, height: 32)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
+                    .rotationEffect(orientationObserver.rotationAngle)
+            }
+            Spacer()
+        }
+        .frame(width: 120)
+    }
+    
+    @ViewBuilder
+    private func utils2() -> some View {
+
+        HStack(spacing: 8) {
+            Spacer()
+            Button(action: { increaseExposure() }) {
+                Text("+")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(width: 32, height: 32)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
+                    .rotationEffect(orientationObserver.rotationAngle)
+            }
+            Button(action: { decreaseExposure() }) {
+                Text("-")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(width: 32, height: 32)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
+                    .rotationEffect(orientationObserver.rotationAngle)
+            }
+        }
+        .frame(width: 120)
     }
 
     private func captureImage(image: UIImage) {
@@ -457,15 +544,41 @@ struct ShotCameraView: View {
         UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
         print("screenshot saved to Photos")
     }
-
-    func util1() {
-        print("save stream and screenshot")
-        cameraModel.capturePhotoAndSave()
-        captureScreenshot()
+    
+    private func lensLabel(for lens: CameraLensType) -> String {
+        switch lens {
+        case .ultraWide: return "x0.5"
+        case .wide: return "x1"
+        }
     }
-    func util2() { print("util2") }
-    func util3() { print("util3") }
-    func util4() { print("util4") }
+    
+    private func toggleLens() {
+        let lenses: [CameraLensType] = [.ultraWide, .wide]
+        if let currentIndex = lenses.firstIndex(of: cameraModel.currentLens) {
+            let nextIndex = (currentIndex + 1) % lenses.count
+            cameraModel.switchCamera(to: lenses[nextIndex])
+        }
+    }
+    
+    func toggleSymmetry() {
+        print("toggle symmetry")
+    }
+    
+    func toggleLevel() {
+        withAnimation {
+            showLevelLine.toggle()
+        }
+    }
+
+    func increaseExposure() {
+        cameraModel.adjustExposure(by: 0.25) // +0.25 EV
+    }
+    
+    func decreaseExposure()
+    {
+        cameraModel.adjustExposure(by: -0.25) // -0.25 EV
+    }
+
 }
 
 extension CGSize {

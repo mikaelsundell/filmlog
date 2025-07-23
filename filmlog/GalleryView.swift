@@ -18,7 +18,7 @@ struct ThumbnailView: View {
                     .scaledToFill()
                     .frame(width: size, height: size)
                     .clipped()
-                    .cornerRadius(4)
+                    .cornerRadius(0)
                     .contentShape(Rectangle())
             } else {
                 Color.gray

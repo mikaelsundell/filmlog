@@ -69,6 +69,13 @@ struct CameraOptions {
         let width: Double
         let height: Double
         
+        func angleOfView(focalLength: Double) -> (horizontal: Double, vertical: Double, diagonal: Double) {
+            let horizontal = 2 * atan(width / (2 * focalLength)) * (180.0 / .pi)
+            let vertical = 2 * atan(height / (2 * focalLength)) * (180.0 / .pi)
+            let diagonal = 2 * atan(self.diagonal / (2 * focalLength)) * (180.0 / .pi)
+            return (horizontal, vertical, diagonal)
+        }
+        
         var aspectRatio: Double {
             width / height
         }

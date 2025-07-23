@@ -8,13 +8,11 @@ import UIKit
 enum CameraLensType: String {
     case ultraWide = "Ultra Wide"
     case wide = "Wide"
-    case telephoto = "Telephoto"
 
     var deviceType: AVCaptureDevice.DeviceType {
         switch self {
         case .ultraWide: return .builtInUltraWideCamera
         case .wide: return .builtInWideAngleCamera
-        case .telephoto: return .builtInTelephotoCamera
         }
     }
 }
@@ -44,11 +42,10 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
 
     @Published var horizontalFov: CGFloat = 0
     @Published var aspectRatio: CGFloat = 0
-    @Published var currentLens: CameraLensType = .wide  // Default lens
+    @Published var currentLens: CameraLensType = .wide  // default lens
 
     private var saveCapturedToFile = false
 
-    // MARK: - Public API
     func configure() {
         Task {
             do {
@@ -65,6 +62,33 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
     func switchCamera(to lens: CameraLensType) {
         currentLens = lens
         configureCamera(for: lens)
+    }
+    
+    func adjustExposure(by step: Float) {
+        sessionQueue.async {
+            guard let device = self.session.inputs.compactMap({ ($0 as? AVCaptureDeviceInput)?.device }).first else {
+                return
+            }
+
+            do {
+                try device.lockForConfiguration()
+
+                let currentBias = device.exposureTargetBias
+                let minBias = device.minExposureTargetBias
+                let maxBias = device.maxExposureTargetBias
+                let newBias = max(min(currentBias + step, maxBias), minBias)
+
+                device.setExposureTargetBias(newBias, completionHandler: nil)
+                device.unlockForConfiguration()
+
+            } catch {
+                print("failed to adjust exposure: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    func resetExposure() {
+        adjustExposure(by: -100)
     }
 
     func capturePhoto() {
@@ -102,7 +126,14 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
         sessionQueue.async {
             self.session.beginConfiguration()
             self.session.sessionPreset = .photo
-            self.session.inputs.forEach { self.session.removeInput($0) }
+
+            for input in self.session.inputs {
+                self.session.removeInput(input)
+            }
+
+            for output in self.session.outputs {
+                self.session.removeOutput(output)
+            }
 
             guard let device = AVCaptureDevice.default(lens.deviceType, for: .video, position: .back),
                   let input = try? AVCaptureDeviceInput(device: device),
@@ -110,13 +141,14 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
                 DispatchQueue.main.async {
                     self.onImageCaptured?(.failure(.configurationFailed("Device not available for \(lens.rawValue).")))
                 }
+                self.session.commitConfiguration()
                 return
             }
 
             self.session.addInput(input)
-
             if self.session.canAddOutput(self.output) {
                 self.session.addOutput(self.output)
+
                 if #available(iOS 16.0, *) {
                     let dimensions = CMVideoFormatDescriptionGetDimensions(device.activeFormat.formatDescription)
                     self.output.maxPhotoDimensions = dimensions
@@ -127,11 +159,14 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
                 DispatchQueue.main.async {
                     self.onImageCaptured?(.failure(.configurationFailed("Cannot add photo output.")))
                 }
+                self.session.commitConfiguration()
                 return
             }
 
             self.session.commitConfiguration()
-            self.session.startRunning()
+            if !self.session.isRunning {
+                self.session.startRunning()
+            }
 
             self.updateDeviceInfo(device)
         }
