@@ -115,7 +115,7 @@ struct ContentView: View {
 
     private func addRoll() {
         withAnimation {
-            let newRoll = Roll(timestamp: Date())
+            let newRoll = Roll()
             modelContext.insert(newRoll)
         }
     }

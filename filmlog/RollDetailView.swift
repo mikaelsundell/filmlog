@@ -25,11 +25,11 @@ struct RollDetailView: View {
         Form {
             if roll.status == "shooting" || roll.status == "processing" || roll.status == "finished" {
                 Section(header: Text("Shots")) {
-                    if roll.shots.isEmpty {
+                    if roll.orderedShots.isEmpty {
                         Text("No shots")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(Array(roll.shots.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { index, shot in
+                        ForEach(Array(roll.orderedShots.enumerated()), id: \.element.id) { index, shot in
                             NavigationLink(destination: {
                                 ShotDetailView(shot: shot,
                                                 roll: roll,
@@ -272,7 +272,7 @@ struct RollDetailView: View {
 
     private func addShot() {
         withAnimation {
-            let newShot = Shot(timestamp: Date())
+            let newShot = Shot()
             newShot.filmSize = roll.filmSize
             roll.shots.append(newShot)
         }

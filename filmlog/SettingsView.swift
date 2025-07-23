@@ -8,15 +8,15 @@ import UniformTypeIdentifiers
 
 struct AppDataStats {
     var rolls: Int
-    var frames: Int
+    var shots: Int
     var galleries: Int
+    var categories: Int
     var images: Int
     var totalSize: Int
 }
 
 struct SharedContainerStats {
     let path: String
-    let totalFiles: Int
     let imageCount: Int
     let jsonCount: Int
     let totalSize: UInt64
@@ -27,6 +27,7 @@ struct SettingsView: View {
     @State private var appDataStats: AppDataStats? = nil
     @State private var sharedContainerStats: SharedContainerStats?
     @State private var rolls: [Roll] = []
+    @State private var galleries: [Gallery] = []
     @State private var showFileImporter = false
     @State private var showFileExporter = false
     @State private var exportData: Data? = nil
@@ -46,14 +47,19 @@ struct SettingsView: View {
                             Text("\(stats.rolls)")
                         }
                         HStack {
-                            Text("Frames")
+                            Text("Shots")
                             Spacer()
-                            Text("\(stats.frames)")
+                            Text("\(stats.shots)")
                         }
                         HStack {
                             Text("Galleries")
                             Spacer()
                             Text("\(stats.galleries)")
+                        }
+                        HStack {
+                            Text("Categories")
+                            Spacer()
+                            Text("\(stats.categories)")
                         }
                         HStack {
                             Text("Total Images")
@@ -92,12 +98,6 @@ struct SettingsView: View {
                                 .foregroundColor(.primary)
                         }
                         HStack {
-                            Text("Total Files")
-                            Spacer()
-                            Text("\(stats.totalFiles)")
-                                .foregroundColor(.primary)
-                        }
-                        HStack {
                             Text("Total Size")
                             Spacer()
                             Text(ByteCountFormatter.string(fromByteCount: Int64(stats.totalSize), countStyle: .file))
@@ -130,8 +130,8 @@ struct SettingsView: View {
             }
             
             Section(header: Text("Backup Management")) {
-                Button("Backup rolls to JSON") {
-                    backupRolls()
+                Button("Backup data to JSON") {
+                    backupData()
                 }
                 .fileExporter(
                     isPresented: $showFileExporter,
@@ -139,12 +139,15 @@ struct SettingsView: View {
                     contentType: .json,
                     defaultFilename: backupFilename()
                 ) { result in
-                    if case .failure(let error) = result {
+                    switch result {
+                    case .success(let url):
+                        backupSuccess = "Backup saved to:\n\(url.lastPathComponent)"
+                    case .failure(let error):
                         exportError = "Backup failed: \(error.localizedDescription)"
                     }
                 }
                 
-                Button("Restore rolls from JSON") {
+                Button("Restore data from JSON") {
                     showFileImporter = true
                 }
                 .fileImporter(
@@ -153,7 +156,10 @@ struct SettingsView: View {
                 ) { result in
                     switch result {
                     case .success(let url):
-                        restoreRolls(from: url)
+                        restoreData(from: url)
+                        if importError == nil {
+                            restoreSuccess = "Restored data from:\n\(url.lastPathComponent)"
+                        }
                     case .failure(let error):
                         importError = "Restore failed: \(error.localizedDescription)"
                     }
@@ -165,17 +171,23 @@ struct SettingsView: View {
         } message: {
             Text(importError ?? "Unknown error")
         }
-        .alert("Restore complete", isPresented: .constant(restoreSuccess != nil)) {
+        .alert("Restore complete", isPresented: Binding(
+            get: { restoreSuccess != nil },
+            set: { if !$0 { restoreSuccess = nil } }
+        )) {
             Button("OK", role: .cancel) { restoreSuccess = nil }
         } message: {
-            Text(restoreSuccess ?? "Successfully restored.")
+            Text(restoreSuccess ?? "")
         }
         .alert("Backup error", isPresented: .constant(exportError != nil)) {
             Button("OK", role: .cancel) { exportError = nil }
         } message: {
             Text(exportError ?? "Unknown error")
         }
-        .alert("Backup complete", isPresented: .constant(backupSuccess != nil)) {
+        .alert("Backup complete", isPresented: Binding(
+            get: { backupSuccess != nil },
+            set: { if !$0 { backupSuccess = nil } }
+        )) {
             Button("OK", role: .cancel) { backupSuccess = nil }
         } message: {
             Text(backupSuccess ?? "")
@@ -183,61 +195,56 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .onAppear {
             fetchRolls()
+            fetchGalleries()
         }
     }
     
     private func calculateAppDataStats() {
-        do {
-            let descriptor = FetchDescriptor<Roll>()
-            let rolls = try modelContext.fetch(descriptor)
-            
-            var frameCount = 0
-            var rollImageSet = Set<UUID>()
-            var totalImageSize = 0
-            
-            for roll in rolls {
-                frameCount += roll.shots.count
-                
-                if let img = roll.image {
-                    rollImageSet.insert(img.id)
+        var rollCount = 0;
+        var shotCount = 0;
+        var imageCount = 0;
+        var galleryCount = 0;
+        var categoryCount = 0;
+        var totalImageSize = 0
+        
+        for roll in rolls {
+            rollCount += roll.shots.count
+            if let img = roll.image {
+                imageCount += 1
+                totalImageSize += img.data.count
+            }
+            for shot in roll.shots {
+                shotCount += 1
+                if let img = shot.photoImage {
+                    imageCount += 1
                     totalImageSize += img.data.count
                 }
-                
-                for frame in roll.shots {
-                    if let img = frame.photoImage {
-                        rollImageSet.insert(img.id)
-                        totalImageSize += img.data.count
-                    }
-                    if let img = frame.lightMeterImage {
-                        rollImageSet.insert(img.id)
-                        totalImageSize += img.data.count
-                    }
+                if let img = shot.lightMeterImage {
+                    imageCount += 1
+                    totalImageSize += img.data.count
                 }
             }
-            
-            let galleryDescriptor = FetchDescriptor<Gallery>()
-            let galleries = try modelContext.fetch(galleryDescriptor)
-            var galleryImageCount = 0
-            for gallery in galleries {
-                for image in gallery.images {
-                    galleryImageCount += 1
-                    totalImageSize += image.data.count
-                }
-            }
-            
-            let totalImages = rollImageSet.count + galleryImageCount
-            
-            appDataStats = AppDataStats(
-                rolls: rolls.count,
-                frames: frameCount,
-                galleries: 1,
-                images: totalImages,
-                totalSize: totalImageSize
-            )
-            
-        } catch {
-            print("failed to calculate app data stats: \(error)")
         }
+    
+        for gallery in galleries {
+            galleryCount += 1
+            for image in gallery.images {
+                imageCount += 1
+                totalImageSize += image.data.count
+            }
+            for _ in gallery.categories {
+                categoryCount += 1
+            }
+        }
+        
+        appDataStats = AppDataStats(
+            rolls: rolls.count,
+            shots: shotCount,
+            galleries: galleryCount,
+            categories: categoryCount,
+            images: imageCount,
+            totalSize: totalImageSize
+        )
     }
     
     private func calculateSharedContainerStats() {
@@ -278,7 +285,6 @@ struct SettingsView: View {
             
             sharedContainerStats = SharedContainerStats(
                 path: containerURL.path,
-                totalFiles: fileURLs.count,
                 imageCount: imageCount,
                 jsonCount: jsonCount,
                 totalSize: totalSize
@@ -321,24 +327,89 @@ struct SettingsView: View {
         let descriptor = FetchDescriptor<Roll>()
         rolls = (try? modelContext.fetch(descriptor)) ?? []
     }
+    
+    private func fetchGalleries() {
+        let descriptor = FetchDescriptor<Gallery>()
+        galleries = (try? modelContext.fetch(descriptor)) ?? []
+    }
 
-    private func backupRolls() {
+    private func backupData() {
         do {
             var imageMap: [UUID: ImageData] = [:]
+            var shotMap: [UUID: Shot] = [:]
+            var categoryMap: [UUID: Category] = [:]
+            
             for roll in rolls {
                 if let img = roll.image { imageMap[img.id] = img }
-                for frame in roll.shots {
-                    if let img = frame.photoImage { imageMap[img.id] = img }
-                    if let img = frame.lightMeterImage { imageMap[img.id] = img }
+                
+                for shot in roll.shots {
+                    shotMap[shot.id] = shot
+                    if let img = shot.photoImage { imageMap[img.id] = img }
+                    if let img = shot.lightMeterImage { imageMap[img.id] = img }
+                }
+            }
+
+            for gallery in galleries {
+                for category in gallery.categories {
+                    categoryMap[category.id] = category
+                }
+                for img in gallery.images {
+                    imageMap[img.id] = img
                 }
             }
             
-            let exportImages = imageMap.values.map {
-                ImageDataExport(id: $0.id, data: $0.data.base64EncodedString())
+            let exportImages = imageMap.values
+                .sorted(by: { $0.timestamp < $1.timestamp })
+                .map {
+                    ImageDataExport(
+                        id: $0.id,
+                        timestamp: $0.timestamp,
+                        data: $0.data.base64EncodedString(),
+                        creator: $0.creator,
+                        category: $0.category?.id
+                    )
+                }
+
+            let exportShots = shotMap.values
+                .sorted(by: { $0.timestamp < $1.timestamp })
+                .map { shot in
+                    ShotExport(
+                    id: shot.id,
+                    timestamp: shot.timestamp,
+                    filmSize: shot.filmSize,
+                    aspectRatio: shot.aspectRatio,
+                    name: shot.name,
+                    note: shot.note,
+                    location: shot.location,
+                    elevation: shot.elevation,
+                    colorTemperature: shot.colorTemperature,
+                    fstop: shot.fstop,
+                    shutter: shot.shutter,
+                    exposureCompensation: shot.exposureCompensation,
+                    lensName: shot.lensName,
+                    lensFocalLength: shot.lensFocalLength,
+                    focusDistance: shot.focusDistance,
+                    focusDepthOfField: shot.focusDepthOfField,
+                    focusNearLimit: shot.focusNearLimit,
+                    focusFarLimit: shot.focusFarLimit,
+                    focusHyperfocalDistance: shot.focusHyperfocalDistance,
+                    exposureSky: shot.exposureSky,
+                    exposureFoliage: shot.exposureFoliage,
+                    exposureHighlights: shot.exposureHighlights,
+                    exposureMidGray: shot.exposureMidGray,
+                    exposureShadows: shot.exposureShadows,
+                    exposureSkinKey: shot.exposureSkinKey,
+                    exposureSkinFill: shot.exposureSkinFill,
+                    photoImage: shot.photoImage?.id,
+                    lightMeterImage: shot.lightMeterImage?.id,
+                    isLocked: shot.isLocked
+                )
             }
             
-            let exportRolls = rolls.map { roll in
-                RollExport(
+            let exportRolls = rolls
+                .sorted(by: { $0.timestamp < $1.timestamp })
+                .map { roll in
+                    RollExport(
                     id: roll.id,
                     timestamp: roll.timestamp,
                     name: roll.name,
@@ -352,50 +423,41 @@ struct SettingsView: View {
                     filmStock: roll.filmStock,
                     isLocked: roll.isLocked,
                     image: roll.image?.id,
-                    shots: roll.shots.map { frame in
-                        ShotExport(
-                            id: frame.id,
-                            timestamp: frame.timestamp,
-                            filmSize: frame.filmSize,
-                            aspectRatio: frame.aspectRatio,
-                            name: frame.name,
-                            note: frame.note,
-                            location: frame.location,
-                            elevation: frame.elevation,
-                            colorTemperature: frame.colorTemperature,
-                            fstop: frame.fstop,
-                            shutter: frame.shutter,
-                            exposureCompensation: frame.exposureCompensation,
-                            lensName: frame.lensName,
-                            lensFocalLength: frame.lensFocalLength,
-                            focusDistance: frame.focusDistance,
-                            focusDepthOfField: frame.focusDepthOfField,
-                            focusNearLimit: frame.focusNearLimit,
-                            focusFarLimit: frame.focusFarLimit,
-                            focusHyperfocalDistance: frame.focusHyperfocalDistance,
-                            exposureSky: frame.exposureSky,
-                            exposureFoliage: frame.exposureFoliage,
-                            exposureHighlights: frame.exposureHighlights,
-                            exposureMidGray: frame.exposureMidGray,
-                            exposureShadows: frame.exposureShadows,
-                            exposureSkinKey: frame.exposureSkinKey,
-                            exposureSkinFill: frame.exposureSkinFill,
-                            photoImage: frame.photoImage?.id,
-                            lightMeterImage: frame.lightMeterImage?.id,
-                            isLocked: frame.isLocked
-                        )
-                    }
+                    shots: roll.shots.map { $0.id }
                 )
             }
             
-            let backup = BackupData(images: exportImages, rolls: exportRolls)
+            let exportGalleries = galleries
+                .sorted(by: { $0.timestamp < $1.timestamp })
+                .map { gallery in
+                GalleryExport(
+                    id: gallery.id,
+                    timestamp: gallery.timestamp,
+                    categories: gallery.categories.map { $0.id },
+                    images: gallery.images.map { $0.id }
+                )
+            }
+            
+            let exportCategories = categoryMap.values
+                .sorted(by: { $0.timestamp < $1.timestamp })
+                .map { CategoryExport(id: $0.id, name: $0.name)
+            }
+            
+            let backup = BackupData(
+                images: exportImages,
+                rolls: exportRolls,
+                shots: exportShots,
+                galleries: exportGalleries,
+                categories: exportCategories
+            )
+            
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             exportData = try encoder.encode(backup)
-            
             showFileExporter = true
-            backupSuccess = "Backup successful: \(exportRolls.count) rolls and \(exportImages.count) images."
+            
         } catch {
+            backupSuccess = nil
             exportError = "Failed to encode backup: \(error.localizedDescription)"
         }
     }
@@ -409,27 +471,77 @@ struct SettingsView: View {
         return try Data(contentsOf: url)
     }
 
-    private func restoreRolls(from url: URL) {
+    private func restoreData(from url: URL) {
         do {
             let data = try readFile(from: url)
             let decoder = JSONDecoder()
             let backup = try decoder.decode(BackupData.self, from: data)
             
+            for roll in rolls { modelContext.delete(roll) }
+            for gallery in galleries { modelContext.delete(gallery) }
+            
+            var categoryMap: [UUID: Category] = [:]
             var imageMap: [UUID: ImageData] = [:]
+            var shotMap: [UUID: Shot] = [:]
+            
+            for categoryExport in backup.categories {
+                let category = Category(name: categoryExport.name)
+                category.id = categoryExport.id
+                categoryMap[category.id] = category
+            }
+            
             for imgExport in backup.images {
                 if let imgData = Data(base64Encoded: imgExport.data) {
                     let img = ImageData(data: imgData)
                     img.id = imgExport.id
-                    imageMap[imgExport.id] = img
+                    img.creator = imgExport.creator
+                    img.timestamp = imgExport.timestamp
+                    if let categoryId = imgExport.category {
+                        img.category = categoryMap[categoryId]
+                    }
+                    imageMap[img.id] = img
                 }
             }
             
-            let existingRolls = try modelContext.fetch(FetchDescriptor<Roll>())
-            for roll in existingRolls { modelContext.delete(roll) }
+            for shotExport in backup.shots.sorted(by: { $0.timestamp < $1.timestamp }) {
+                let shot = Shot()
+                shot.id = shotExport.id
+                shot.timestamp = shotExport.timestamp
+                shot.filmSize = shotExport.filmSize
+                shot.aspectRatio = shotExport.aspectRatio
+                shot.name = shotExport.name
+                shot.note = shotExport.note
+                shot.location = shotExport.location
+                shot.elevation = shotExport.elevation
+                shot.colorTemperature = shotExport.colorTemperature
+                shot.fstop = shotExport.fstop
+                shot.shutter = shotExport.shutter
+                shot.exposureCompensation = shotExport.exposureCompensation
+                shot.lensName = shotExport.lensName
+                shot.lensFocalLength = shotExport.lensFocalLength
+                shot.focusDistance = shotExport.focusDistance
+                shot.focusDepthOfField = shotExport.focusDepthOfField
+                shot.focusNearLimit = shotExport.focusNearLimit
+                shot.focusFarLimit = shotExport.focusFarLimit
+                shot.focusHyperfocalDistance = shotExport.focusHyperfocalDistance
+                shot.exposureSky = shotExport.exposureSky
+                shot.exposureFoliage = shotExport.exposureFoliage
+                shot.exposureHighlights = shotExport.exposureHighlights
+                shot.exposureMidGray = shotExport.exposureMidGray
+                shot.exposureShadows = shotExport.exposureShadows
+                shot.exposureSkinKey = shotExport.exposureSkinKey
+                shot.exposureSkinFill = shotExport.exposureSkinFill
+                shot.photoImage = shotExport.photoImage.flatMap { imageMap[$0] }
+                shot.lightMeterImage = shotExport.lightMeterImage.flatMap { imageMap[$0] }
+                shot.isLocked = shotExport.isLocked
+
+                shotMap[shot.id] = shot
+            }
             
-            for rollExport in backup.rolls {
-                let roll = Roll(timestamp: rollExport.timestamp)
+            for rollExport in backup.rolls.sorted(by: { $0.timestamp < $1.timestamp }) {
+                let roll = Roll()
                 roll.id = rollExport.id
+                roll.timestamp = rollExport.timestamp
                 roll.name = rollExport.name
                 roll.note = rollExport.note
                 roll.status = rollExport.status
@@ -441,46 +553,42 @@ struct SettingsView: View {
                 roll.filmStock = rollExport.filmStock
                 roll.isLocked = rollExport.isLocked
                 roll.image = rollExport.image.flatMap { imageMap[$0] }
+                for shotId in rollExport.shots {
+                    if let shot = shotMap[shotId] {
+                        roll.shots.append(shot)
+                    }
+                }
+                modelContext.insert(roll)
+            }
+
+            for galleryExport in backup.galleries.sorted(by: { $0.timestamp < $1.timestamp }) {
+                let gallery = Gallery()
+                gallery.id = galleryExport.id
+                gallery.timestamp = galleryExport.timestamp
                 
-                for shotExport in rollExport.shots {
-                    let shot = Shot(timestamp: shotExport.timestamp)
-                    shot.id = shotExport.id
-                    shot.filmSize = shotExport.filmSize
-                    shot.aspectRatio = shotExport.aspectRatio
-                    shot.name = shotExport.name
-                    shot.note = shotExport.note
-                    shot.location = shotExport.location
-                    shot.elevation = shotExport.elevation
-                    shot.colorTemperature = shotExport.colorTemperature
-                    shot.fstop = shotExport.fstop
-                    shot.shutter = shotExport.shutter
-                    shot.exposureCompensation = shotExport.exposureCompensation
-                    shot.lensName = shotExport.lensName
-                    shot.lensFocalLength = shotExport.lensFocalLength
-                    shot.focusDistance = shotExport.focusDistance
-                    shot.focusDepthOfField = shotExport.focusDepthOfField
-                    shot.focusNearLimit = shotExport.focusNearLimit
-                    shot.focusFarLimit = shotExport.focusFarLimit
-                    shot.focusHyperfocalDistance = shotExport.focusHyperfocalDistance
-                    shot.exposureSky = shotExport.exposureSky
-                    shot.exposureFoliage = shotExport.exposureFoliage
-                    shot.exposureHighlights = shotExport.exposureHighlights
-                    shot.exposureMidGray = shotExport.exposureMidGray
-                    shot.exposureShadows = shotExport.exposureShadows
-                    shot.exposureSkinKey = shotExport.exposureSkinKey
-                    shot.exposureSkinFill = shotExport.exposureSkinFill
-                    shot.photoImage = shotExport.photoImage.flatMap { imageMap[$0] }
-                    shot.lightMeterImage = shotExport.lightMeterImage.flatMap { imageMap[$0] }
-                    shot.isLocked = shotExport.isLocked
-                    roll.shots.append(shot)
+                for categoryId in galleryExport.categories {
+                    if let category = categoryMap[categoryId] {
+                        gallery.categories.append(category)
+                    }
                 }
                 
-                modelContext.insert(roll)
+                for imageId in galleryExport.images {
+                    if let img = imageMap[imageId] {
+                        gallery.images.append(img)
+                    }
+                }
+                
+                modelContext.insert(gallery)
             }
             
             try modelContext.save()
+            fetchRolls()
+            fetchGalleries()
+            calculateAppDataStats()
+            
             restoreSuccess = "Successfully restored \(backup.rolls.count) rolls and \(backup.images.count) images."
         } catch {
+            restoreSuccess = nil
             importError = "Failed to restore rolls: \(error.localizedDescription)"
         }
     }
@@ -489,11 +597,17 @@ struct SettingsView: View {
 struct BackupData: Codable {
     var images: [ImageDataExport]
     var rolls: [RollExport]
+    var shots: [ShotExport]
+    var galleries: [GalleryExport]
+    var categories: [CategoryExport]
 }
 
 struct ImageDataExport: Codable {
     var id: UUID
+    var timestamp: Date
     var data: String
+    var creator: String?
+    var category: UUID?
 }
 
 struct RollExport: Codable {
@@ -510,7 +624,7 @@ struct RollExport: Codable {
     var filmStock: String
     var isLocked: Bool
     var image: UUID?
-    var shots: [ShotExport]
+    var shots: [UUID]
 }
 
 struct ShotExport: Codable {
@@ -543,6 +657,18 @@ struct ShotExport: Codable {
     var photoImage: UUID?
     var lightMeterImage: UUID?
     var isLocked: Bool
+}
+
+struct GalleryExport: Codable {
+    var id: UUID
+    var timestamp: Date
+    var categories: [UUID]
+    var images: [UUID]
+}
+
+struct CategoryExport: Codable {
+    var id: UUID
+    var name: String
 }
 
 struct JSONFile: FileDocument {

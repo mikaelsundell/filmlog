@@ -239,49 +239,50 @@ struct CameraOptions {
 
 @Model
 class Category: Codable {
-    var id: UUID
+    var id = UUID()
+    var timestamp = Date()
     var name: String
     
     init(name: String) {
-        self.id = UUID()
         self.name = name
     }
     
     enum CodingKeys: String, CodingKey {
-        case id, name
+        case id, timestamp, name
     }
     
     required init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(UUID.self, forKey: .id)
-        name = try container.decode(String.self, forKey: .name)
-    }
+       let container = try decoder.container(keyedBy: CodingKeys.self)
+       id = try container.decode(UUID.self, forKey: .id)
+       timestamp = try container.decode(Date.self, forKey: .timestamp)
+       name = try container.decode(String.self, forKey: .name)
+   }
     
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
+        try container.encode(timestamp, forKey: .timestamp)
         try container.encode(name, forKey: .name)
     }
 }
 
 @Model
 class ImageData: Codable {
-    var id: UUID
+    var id = UUID()
+    var timestamp = Date()
     var data: Data
     var referenceCount: Int
-    var category: UUID?
     var comment: String?
     var creator: String?
-    var timestamp: Int?
 
-    init(data: Data, category: UUID? = nil, comment: String? = nil, creator: String? = nil, timestamp: Int? = nil) {
-        self.id = UUID()
+    @Relationship var category: Category?
+
+    init(data: Data, category: Category? = nil, comment: String? = nil, creator: String? = nil) {
         self.data = data
         self.referenceCount = 1
         self.category = category
         self.comment = comment
         self.creator = creator
-        self.timestamp = timestamp
     }
 
     enum CodingKeys: String, CodingKey {
@@ -291,23 +292,23 @@ class ImageData: Codable {
     required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
         data = try container.decode(Data.self, forKey: .data)
         referenceCount = try container.decodeIfPresent(Int.self, forKey: .referenceCount) ?? 1
-        category = try container.decodeIfPresent(UUID.self, forKey: .category)
+        category = try container.decodeIfPresent(Category.self, forKey: .category)
         comment = try container.decodeIfPresent(String.self, forKey: .comment)
         creator = try container.decodeIfPresent(String.self, forKey: .creator)
-        timestamp = try container.decodeIfPresent(Int.self, forKey: .timestamp)
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
+        try container.encode(timestamp, forKey: .timestamp)
         try container.encode(data, forKey: .data)
         try container.encode(referenceCount, forKey: .referenceCount)
         try container.encodeIfPresent(category, forKey: .category)
         try container.encodeIfPresent(comment, forKey: .comment)
         try container.encodeIfPresent(creator, forKey: .creator)
-        try container.encodeIfPresent(timestamp, forKey: .timestamp)
     }
 
     func incrementReference() {
@@ -323,26 +324,40 @@ class ImageData: Codable {
 
 @Model
 class Gallery: Codable {
+    var id = UUID()
+    var timestamp = Date()
     @Relationship var images: [ImageData] = []
     @Relationship var categories: [Category] = []
 
+    var orderedCategories: [Category] {
+        categories.sorted(by: { $0.timestamp < $1.timestamp })
+    }
+
+    var orderedImages: [ImageData] {
+        images.sorted(by: { $0.timestamp < $1.timestamp })
+    }
+    
     init(images: [ImageData] = [], categories: [Category] = []) {
         self.images = images
         self.categories = categories
     }
 
     enum CodingKeys: String, CodingKey {
-        case images, categories
+        case id, timestamp, images, categories
     }
 
     required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
         images = try container.decodeIfPresent([ImageData].self, forKey: .images) ?? []
         categories = try container.decodeIfPresent([Category].self, forKey: .categories) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(timestamp, forKey: .timestamp)
         try container.encode(images, forKey: .images)
         try container.encode(categories, forKey: .categories)
     }
@@ -351,7 +366,7 @@ class Gallery: Codable {
 @Model
 class Roll: Codable {
     var id = UUID()
-    var timestamp: Date
+    var timestamp = Date()
     var name: String
     var note: String
     var camera: String
@@ -366,9 +381,12 @@ class Roll: Codable {
     @Relationship var image: ImageData?
     @Relationship var lightMeterImage: ImageData?
     @Relationship var shots: [Shot] = []
+    
+    var orderedShots: [Shot] {
+        shots.sorted(by: { $0.timestamp < $1.timestamp })
+    }
 
-    init(timestamp: Date,
-         name: String = "",
+    init(name: String = "",
          note: String = "",
          camera: String = "Other",
          counter: Int = 24,
@@ -380,7 +398,6 @@ class Roll: Codable {
          lightMeterImage: ImageData? = nil,
          status: String = "new",
          isLocked: Bool = false) {
-        self.timestamp = timestamp
         self.name = name
         self.note = note
         self.camera = camera
@@ -441,7 +458,7 @@ class Roll: Codable {
 @Model
 class Shot: Codable {
     var id = UUID()
-    var timestamp: Date
+    var timestamp = Date()
     var filmSize: String
     var aspectRatio: String
     var name: String
@@ -472,8 +489,7 @@ class Shot: Codable {
     @Relationship var lightMeterImage: ImageData?
     @Relationship var roll: Roll?
 
-    init(timestamp: Date,
-         filmSize: String = "",
+    init(filmSize: String = "",
          aspectRatio: String = "-",
          name: String = "",
          note: String = "",
@@ -500,7 +516,6 @@ class Shot: Codable {
          photoImage: ImageData? = nil,
          lightMeterImage: ImageData? = nil,
          isLocked: Bool = false) {
-        self.timestamp = timestamp
         self.filmSize = filmSize
         self.aspectRatio = aspectRatio
         self.name = name
@@ -531,7 +546,7 @@ class Shot: Codable {
     }
 
     func copy() -> Shot {
-        let newFrame = Shot(timestamp: Date())
+        let newFrame = Shot()
         newFrame.filmSize = self.filmSize
         newFrame.aspectRatio = self.aspectRatio
         newFrame.name = self.name

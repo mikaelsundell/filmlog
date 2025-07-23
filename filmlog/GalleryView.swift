@@ -11,7 +11,7 @@ struct GalleryView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Query private var galleries: [Gallery]
     @State private var searchText: String = ""
-    @State private var selectedCategory: UUID? = nil
+    @State private var selectedCategory: Category? = nil
     @State private var showImagePicker = false
     @State private var selectedItem: PhotosPickerItem? = nil
     
@@ -23,7 +23,9 @@ struct GalleryView: View {
     
     @State private var selectedImageForEdit: ImageData? = nil
     @State private var newComment = ""
-    @State private var newCategory: UUID? = nil
+    @State private var newCategory: Category? = nil
+    
+    @State private var selectedItems: [PhotosPickerItem] = []
 
     var body: some View {
         NavigationStack {
@@ -56,16 +58,16 @@ struct GalleryView: View {
                     
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
-                            ForEach(currentGallery.categories) { category in
+                            ForEach(currentGallery.orderedCategories) { category in
                                 Text(category.name)
                                     .font(.caption)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
-                                    .background(selectedCategory == category.id ? Color.blue : Color.blue.opacity(0.1))
-                                    .foregroundColor(selectedCategory == category.id ? .white : .blue)
+                                    .background(selectedCategory == category ? Color.blue : Color.blue.opacity(0.1))
+                                    .foregroundColor(selectedCategory == category ? .white : .blue)
                                     .cornerRadius(12)
                                     .onTapGesture {
-                                        selectedCategory = selectedCategory == category.id ? nil : category.id
+                                        selectedCategory = selectedCategory == category ? nil : category
                                     }
                                     .onLongPressGesture {
                                         selectedCategoryForEdit = category
@@ -76,9 +78,6 @@ struct GalleryView: View {
                         }
                         .padding(.horizontal)
                     }
-                    
-                    Divider()
-                        .padding(.horizontal)
                     
                     HStack {
                         Text("Images")
@@ -176,7 +175,7 @@ struct GalleryView: View {
                             }
                             Section {
                                 Button("Delete category", role: .destructive) {
-                                    let linkedImages = currentGallery.images.filter { $0.category == category.id }
+                                    let linkedImages = currentGallery.images.filter { $0.category?.id == category.id }
                                     if !linkedImages.isEmpty {
                                         for image in linkedImages {
                                             image.category = nil
@@ -217,15 +216,15 @@ struct GalleryView: View {
 
                         Section(header: Text("Category")) {
                             Picker("Select category", selection: $newCategory) {
-                                Text("None").tag(UUID?.none)
-                                ForEach(currentGallery.categories) { category in
-                                    Text(category.name).tag(UUID?.some(category.id))
+                                Text("None").tag(Category?.none)
+                                ForEach(currentGallery.orderedCategories) { category in
+                                    Text(category.name).tag(Optional(category))
                                 }
                             }
                         }
                     }
                     .onAppear {
-                        print("Editing image UUID: \(image.id)")
+                        print("Show image UUID: \(image.id)")
                     }
                     .navigationTitle("Edit image")
                     .toolbar {
@@ -248,14 +247,38 @@ struct GalleryView: View {
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button(action: { showImagePicker = true }) {
-                        Label("Add Image", systemImage: "plus")
+                        Label("Add Images", systemImage: "plus")
                     }
                 }
             }
-            .photosPicker(isPresented: $showImagePicker, selection: $selectedItem, matching: .images)
+            .photosPicker(
+                isPresented: $showImagePicker,
+                selection: $selectedItems,
+                maxSelectionCount: 10,
+                matching: .images
+            )
+            .onChange(of: selectedItems) { oldItems, newItems in
+                for item in newItems {
+                    Task {
+                        if let data = try? await item.loadTransferable(type: Data.self) {
+                            let newImage = ImageData(data: data, category: selectedCategory)
+                            modelContext.insert(newImage)
+                            do {
+                                try modelContext.save()
+                            } catch {
+                                print("failed to insert image: \(error)")
+                            }
+                            withAnimation {
+                                currentGallery.images.append(newImage)
+                            }
+                        }
+                    }
+                }
+                selectedItems.removeAll()
+            }
         }
     }
-
+    
     private var currentGallery: Gallery {
         if let gallery = galleries.first {
             return gallery
@@ -268,7 +291,7 @@ struct GalleryView: View {
     }
 
     private var filteredImages: [ImageData] {
-        let allImages = currentGallery.images
+        let allImages = currentGallery.orderedImages
         var imgs = allImages
         if let category = selectedCategory {
             imgs = imgs.filter { $0.category == category }
@@ -316,23 +339,24 @@ struct GalleryView: View {
                 if let data = try? Data(contentsOf: imageFile) {
                     var comment: String? = nil
                     var creator: String? = nil
-                    var timestamp: Int? = nil
+                    var timestamp: Date? = nil
 
                     if fileManager.fileExists(atPath: jsonFile.path),
                        let jsonData = try? Data(contentsOf: jsonFile),
                        let jsonObject = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
                         comment = jsonObject["comment"] as? String
                         creator = jsonObject["creator"] as? String
-                        timestamp = jsonObject["timestamp"] as? Int
+                        timestamp = jsonObject["timestamp"] as? Date
                     }
 
                     let newImage = ImageData(
                         data: data,
                         category: selectedCategory,
                         comment: comment,
-                        creator: creator,
-                        timestamp: timestamp
+                        creator: creator
                     )
+                    
+                    newImage.timestamp = timestamp ?? Date()
 
                     modelContext.insert(newImage)
                     try modelContext.save()
