@@ -6,6 +6,29 @@ import SwiftUI
 import PhotosUI
 import SwiftData
 
+struct ThumbnailView: View {
+    let imageData: ImageData
+    let size: CGFloat
+
+    var body: some View {
+        Group {
+            if let uiImage = UIImage(data: imageData.data) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipped()
+                    .cornerRadius(4)
+                    .contentShape(Rectangle())
+            } else {
+                Color.gray
+                    .frame(width: size, height: size)
+                    .cornerRadius(4)
+            }
+        }
+    }
+}
+
 struct GalleryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
@@ -93,26 +116,21 @@ struct GalleryView: View {
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.top, 40)
                     } else {
+                        let gridWidth = UIScreen.main.bounds.width / 3 - 8
                         let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
+                        
                         LazyVGrid(columns: columns, spacing: 6) {
                             ForEach(filteredImages, id: \.id) { image in
-                                if let uiImage = UIImage(data: image.data) {
-                                    Image(uiImage: uiImage)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: UIScreen.main.bounds.width / 3 - 8,
-                                               height: UIScreen.main.bounds.width / 3 - 8)
-                                        .clipped()
-                                        .cornerRadius(4)
-                                        .onTapGesture {
-                                            print("Tapped on image \(image.id)")
-                                        }
-                                        .onLongPressGesture {
-                                            selectedImageForEdit = image
-                                            newComment = image.comment ?? ""
-                                            newCategory = image.category
-                                        }
+                                ThumbnailView(
+                                    imageData: image,
+                                    size: gridWidth
+                                ).onLongPressGesture {
+                                    print("Long press on \(image.id)")
+                                    selectedImageForEdit = image
+                                    newComment = image.comment ?? ""
+                                    newCategory = image.category
                                 }
+                                .id(image.id)
                             }
                         }
                         .padding(.horizontal, 8)
@@ -224,7 +242,7 @@ struct GalleryView: View {
                         }
                     }
                     .onAppear {
-                        print("Show image UUID: \(image.id)")
+                        print("Show image for edit UUID: \(image.id)")
                     }
                     .navigationTitle("Edit image")
                     .toolbar {
@@ -291,8 +309,7 @@ struct GalleryView: View {
     }
 
     private var filteredImages: [ImageData] {
-        let allImages = currentGallery.orderedImages
-        var imgs = allImages
+        var imgs = currentGallery.orderedImages
         if let category = selectedCategory {
             imgs = imgs.filter { $0.category == category }
         }
