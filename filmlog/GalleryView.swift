@@ -92,10 +92,20 @@ struct GalleryView: View {
                                     .onTapGesture {
                                         selectedCategory = selectedCategory == category ? nil : category
                                     }
-                                    .onLongPressGesture {
-                                        selectedCategoryForEdit = category
-                                        renameText = category.name
-                                        showCategoryEditSheet = true
+                                    .contextMenu {
+                                        Button {
+                                            selectedCategoryForEdit = category
+                                            renameText = category.name
+                                            showCategoryEditSheet = true
+                                        } label: {
+                                            Label("Rename", systemImage: "pencil")
+                                        }
+                                        
+                                        Button(role: .destructive) {
+                                            deleteCategory(category)
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
                                     }
                             }
                         }
@@ -198,21 +208,6 @@ struct GalleryView: View {
                         Form {
                             Section(header: Text("Rename category")) {
                                 TextField("Category name", text: $renameText)
-                            }
-                            Section {
-                                Button("Delete category", role: .destructive) {
-                                    let linkedImages = currentGallery.images.filter { $0.category?.id == category.id }
-                                    if !linkedImages.isEmpty {
-                                        for image in linkedImages {
-                                            image.category = nil
-                                        }
-                                    }
-                                    if let index = currentGallery.categories.firstIndex(where: { $0.id == category.id }) {
-                                        currentGallery.categories.remove(at: index)
-                                    }
-                                    try? modelContext.save()
-                                    showCategoryEditSheet = false
-                                }
                             }
                         }
                         .navigationTitle("Edit category")
@@ -337,6 +332,21 @@ struct GalleryView: View {
             try modelContext.save()
         } catch {
             print("failed to add category: \(error)")
+        }
+    }
+    
+    private func deleteCategory(_ category: Category) {
+        for image in currentGallery.images where image.category?.id == category.id {
+            image.category = nil
+        }
+        if let index = currentGallery.categories.firstIndex(where: { $0.id == category.id }) {
+            currentGallery.categories.remove(at: index)
+        }
+        modelContext.delete(category)
+        do {
+            try modelContext.save()
+        } catch {
+            print("failed to delete category: \(error)")
         }
     }
     
