@@ -108,7 +108,7 @@ struct GalleryView: View {
                     }
                     .padding(.horizontal)
                 }
-                
+
                 ScrollView {
                     if filteredImages.isEmpty {
                         Text("No images found")
@@ -121,16 +121,24 @@ struct GalleryView: View {
                         
                         LazyVGrid(columns: columns, spacing: 6) {
                             ForEach(filteredImages, id: \.id) { image in
-                                ThumbnailView(
-                                    imageData: image,
-                                    size: gridWidth
-                                ).onLongPressGesture {
-                                    print("Long press on \(image.id)")
-                                    selectedImageForEdit = image
-                                    newComment = image.comment ?? ""
-                                    newCategory = image.category
-                                }
-                                .id(image.id)
+                                ThumbnailView(imageData: image, size: gridWidth)
+                                    .contentShape(Rectangle())
+                                    .contextMenu {
+                                        Button {
+                                            selectedImageForEdit = image
+                                            newComment = image.comment ?? ""
+                                            newCategory = image.category
+                                        } label: {
+                                            Label("Edit image", systemImage: "pencil")
+                                        }
+
+                                        Button(role: .destructive) {
+                                            deleteImage(image)
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
+                                    .id(image.id)
                             }
                         }
                         .padding(.horizontal, 8)
@@ -329,6 +337,18 @@ struct GalleryView: View {
             try modelContext.save()
         } catch {
             print("failed to add category: \(error)")
+        }
+    }
+    
+    private func deleteImage(_ image: ImageData) {
+        if let index = currentGallery.images.firstIndex(where: { $0.id == image.id }) {
+            currentGallery.images.remove(at: index)
+        }
+        modelContext.delete(image)
+        do {
+            try modelContext.save()
+        } catch {
+            print("failed to delete image: \(error)")
         }
     }
 
