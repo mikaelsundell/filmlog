@@ -9,12 +9,12 @@ import CoreMotion
 
 class OrientationObserver: ObservableObject {
     @Published var orientation: UIDeviceOrientation = UIDevice.current.orientation
-    @Published var roll: Double = 0.0
+    @Published var levelAngle: Double = 0.0  // Horizon angle
     
     private var cancellable: AnyCancellable?
     private var motionManager = CMMotionManager()
     
-    init(position: AVCaptureDevice.Position = .back) {
+    init() {
         cancellable = NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)
             .compactMap { _ -> UIDeviceOrientation? in
                 let current = UIDevice.current.orientation
@@ -30,28 +30,30 @@ class OrientationObserver: ObservableObject {
     private func startMotionUpdates() {
         if motionManager.isDeviceMotionAvailable {
             motionManager.deviceMotionUpdateInterval = 0.02
-            motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, error in
+            motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
                 guard let self = self, let motion = motion else { return }
+                let g = motion.gravity
                 
                 var angle: Double = 0
                 
                 switch self.orientation {
                 case .portrait:
-                    // In portrait, pitch indicates left/right tilt
-                    angle = motion.attitude.pitch * 180 / .pi
+                    angle = atan2(g.x, g.y) * 180 / .pi
+                    if angle > 90 { angle -= 180 }
+                    if angle < -90 { angle += 180 }
                 case .portraitUpsideDown:
-                    angle = -motion.attitude.pitch * 180 / .pi
+                    angle = atan2(-g.x, -g.y) * 180 / .pi
+                    if angle > 90 { angle -= 180 }
+                    if angle < -90 { angle += 180 }
                 case .landscapeLeft:
-                    // In landscape left, roll is correct
-                    angle = motion.attitude.roll * 180 / .pi
+                    angle = atan2(g.y, -g.x) * 180 / .pi
                 case .landscapeRight:
-                    // In landscape right, roll is reversed
-                    angle = -motion.attitude.roll * 180 / .pi
+                    angle = atan2(-g.y, g.x) * 180 / .pi
                 default:
-                    angle = motion.attitude.roll * 180 / .pi
+                    angle = atan2(g.x, g.y) * 180 / .pi
                 }
                 
-                self.roll = angle
+                self.levelAngle = angle
             }
         }
     }
@@ -184,30 +186,56 @@ struct ShotOverlay: View {
 }
 
 struct LevelIndicator: View {
-    var roll: Double
+    var levelAngle: Double
+    var orientationAngle: Angle
+    var orientation: UIDeviceOrientation
+    
+    @State private var smoothedAngle: Double = 0.0
+    
+    let totalWidthRatio: CGFloat = 0.8
+    let gapRatio: CGFloat = 0.05
+    let sideRatio: CGFloat = 0.10
+    let lineHeight: CGFloat = 2
     
     var body: some View {
         GeometryReader { geo in
-            let isAligned = abs(roll) < 2  // ✅ within ±2° considered level
-            let color = isAligned ? Color.green : Color.red
+            let alpha = 0.15
+            let snapped = (smoothedAngle / 2).rounded() * 2
+            let isAligned = abs(snapped) <= 2
+            
+            let fullWidth = geo.size.width * totalWidthRatio
+            let gap = fullWidth * gapRatio
+            let sideWidth = fullWidth * sideRatio
+            let centerWidth = fullWidth - (2 * sideWidth) - (2 * gap)
             
             ZStack {
                 Rectangle()
-                    .fill(color.opacity(0.8))
-                    .frame(width: geo.size.width, height: 2)
-                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
-                    .rotationEffect(.degrees(roll))
+                    .fill(Color.white.opacity(0.8))
+                    .frame(width: sideWidth, height: lineHeight)
+                    .position(x: geo.size.width / 2 - (centerWidth / 2 + gap + sideWidth / 2),
+                              y: geo.size.height / 2)
                 
-                // ✅ Show angle text for debugging
-                Text("\(String(format: "%.1f°", roll))")
-                    .font(.caption)
-                    .foregroundColor(.white)
-                    .padding(4)
-                    .background(Color.black.opacity(0.5))
-                    .cornerRadius(4)
-                    .position(x: geo.size.width / 2, y: geo.size.height / 2 + 30)
+                Rectangle()
+                    .fill(Color.white.opacity(0.8))
+                    .frame(width: sideWidth, height: lineHeight)
+                    .position(x: geo.size.width / 2 + (centerWidth / 2 + gap + sideWidth / 2),
+                              y: geo.size.height / 2)
+                
+                Rectangle()
+                    .fill(isAligned ? Color.green : Color.white)
+                    .frame(width: centerWidth, height: lineHeight)
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                    .rotationEffect(.degrees(snapped))
             }
-            .animation(.easeInOut(duration: 0.1), value: roll)
+            .rotationEffect(orientationAngle)
+            .animation(.easeInOut(duration: 0.15), value: snapped)
+            .animation(.easeInOut(duration: 0.2), value: isAligned)
+            .onChange(of: levelAngle) { _, newValue in
+                smoothedAngle = smoothedAngle + alpha * (newValue - smoothedAngle)
+            }
+            .onAppear {
+                smoothedAngle = levelAngle
+            }
         }
         .ignoresSafeArea()
     }
@@ -221,7 +249,8 @@ struct ShotCameraView: View {
     @StateObject private var cameraModel = CameraModel()
     @State private var showLenses = false
     @State private var showAspectRatios = false
-    @State private var showLevelLine = false
+    @State private var isLevelOn = false
+    @State private var isSymmetryOn = false
     
     @ObservedObject private var orientationObserver = OrientationObserver()
     
@@ -246,8 +275,12 @@ struct ShotCameraView: View {
                     )
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     
-                    if showLevelLine {
-                        LevelIndicator(roll: orientationObserver.roll)
+                    if isLevelOn {
+                        LevelIndicator(
+                            levelAngle: orientationObserver.levelAngle,
+                            orientationAngle: orientationObserver.rotationAngle,
+                            orientation: orientationObserver.orientation
+                        )
                     }
                 }
                 .ignoresSafeArea()
@@ -258,7 +291,7 @@ struct ShotCameraView: View {
                 Color.clear
                 VStack {
                     HStack {
-                        utils1()
+                        toolsControls()
                         
                         Spacer()
                         
@@ -272,7 +305,7 @@ struct ShotCameraView: View {
                         }
                         Spacer()
 
-                        utils2()
+                        exposureControls()
                     }
                     .padding(.top, 42)
                     .padding(.horizontal)
@@ -402,7 +435,7 @@ struct ShotCameraView: View {
     }
     
     @ViewBuilder
-    private func utils1() -> some View {
+    private func toolsControls() -> some View {
         HStack(spacing: 8) {
             Button(action: { toggleLens() }) {
                 Text(lensLabel(for: cameraModel.currentLens))
@@ -413,32 +446,38 @@ struct ShotCameraView: View {
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.rotationAngle)
             }
-            Button(action: { toggleSymmetry() }) {
+
+            Button(action: {
+                isSymmetryOn.toggle()
+            }) {
                 Text("S")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
-                    .background(Color.black.opacity(0.4))
+                    .background(isSymmetryOn ? Color.blue.opacity(0.7) : Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.rotationAngle)
             }
-            Button(action: { toggleLevel() }) {
+
+            Button(action: {
+                isLevelOn.toggle()
+            }) {
                 Text("L")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
-                    .background(Color.black.opacity(0.4))
+                    .background(isLevelOn ? Color.blue.opacity(0.7) : Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.rotationAngle)
             }
+
             Spacer()
         }
         .frame(width: 120)
     }
     
     @ViewBuilder
-    private func utils2() -> some View {
-
+    private func exposureControls() -> some View {
         HStack(spacing: 8) {
             Spacer()
             Button(action: { increaseExposure() }) {
@@ -557,16 +596,6 @@ struct ShotCameraView: View {
         if let currentIndex = lenses.firstIndex(of: cameraModel.currentLens) {
             let nextIndex = (currentIndex + 1) % lenses.count
             cameraModel.switchCamera(to: lenses[nextIndex])
-        }
-    }
-    
-    func toggleSymmetry() {
-        print("toggle symmetry")
-    }
-    
-    func toggleLevel() {
-        withAnimation {
-            showLevelLine.toggle()
         }
     }
 
