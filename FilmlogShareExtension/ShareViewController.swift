@@ -10,7 +10,8 @@ class ShareViewController: UIViewController {
     
     private var selectedImages: [UIImage] = []
     private let imageStackContainer = UIView()
-    private let commentField = UITextView()
+    private let noteField = UITextView()
+    private let nameField = UITextField()
     private let addButton = UIButton(type: .system)
     private let countBadge = UILabel()
     
@@ -50,12 +51,6 @@ class ShareViewController: UIViewController {
         countBadge.setContentHuggingPriority(.required, for: .horizontal)
         countBadge.setContentCompressionResistancePriority(.required, for: .horizontal)
         
-        let commentLabel = UILabel()
-        commentLabel.text = "Comment"
-        commentLabel.textColor = .white
-        commentLabel.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
-        commentLabel.translatesAutoresizingMaskIntoConstraints = false
-        
         let toolbar = UIToolbar()
         toolbar.sizeToFit()
         toolbar.barStyle = .default
@@ -63,15 +58,28 @@ class ShareViewController: UIViewController {
 
         let flexSpace = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
         let doneButton = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(dismissKeyboard))
-
         toolbar.items = [flexSpace, doneButton]
-        commentField.inputAccessoryView = toolbar
-        commentField.backgroundColor = UIColor(white: 0.15, alpha: 1.0)
-        commentField.textColor = .white
-        commentField.font = UIFont.systemFont(ofSize: 16)
-        commentField.layer.cornerRadius = 8
-        commentField.textContainerInset = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10) // ✅ Padding inside
-        commentField.translatesAutoresizingMaskIntoConstraints = false
+        
+        nameField.placeholder = "Name"
+        nameField.attributedPlaceholder = NSAttributedString(
+            string: "Name",
+            attributes: [.foregroundColor: UIColor(white: 1.0, alpha: 0.5)]
+        )
+        nameField.backgroundColor = UIColor(white: 0.15, alpha: 1.0)
+        nameField.textColor = .white
+        nameField.font = UIFont.systemFont(ofSize: 16)
+        nameField.layer.cornerRadius = 8
+        nameField.translatesAutoresizingMaskIntoConstraints = false
+        nameField.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 0))
+        nameField.leftViewMode = .always
+        
+        noteField.inputAccessoryView = toolbar
+        noteField.backgroundColor = UIColor(white: 0.15, alpha: 1.0)
+        noteField.textColor = .white
+        noteField.font = UIFont.systemFont(ofSize: 16)
+        noteField.layer.cornerRadius = 8
+        noteField.textContainerInset = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
+        noteField.translatesAutoresizingMaskIntoConstraints = false
         
         addButton.setTitle("Add images", for: .normal)
         addButton.setTitleColor(.white, for: .normal)
@@ -84,8 +92,8 @@ class ShareViewController: UIViewController {
         view.addSubview(cancelButton)
         view.addSubview(titleLabel)
         view.addSubview(imageStackContainer)
-        view.addSubview(commentLabel)
-        view.addSubview(commentField)
+        view.addSubview(nameField)
+        view.addSubview(noteField)
         view.addSubview(addButton)
         view.addSubview(countBadge)
         
@@ -106,15 +114,17 @@ class ShareViewController: UIViewController {
             countBadge.heightAnchor.constraint(equalToConstant: 24),
             countBadge.widthAnchor.constraint(greaterThanOrEqualToConstant: 32),
             
-            commentLabel.topAnchor.constraint(equalTo: imageStackContainer.bottomAnchor, constant: 24),
-            commentLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-
-            commentField.topAnchor.constraint(equalTo: commentLabel.bottomAnchor, constant: 8),
-            commentField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            commentField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            commentField.heightAnchor.constraint(equalToConstant: 200),
+            nameField.topAnchor.constraint(equalTo: imageStackContainer.bottomAnchor, constant: 24),
+            nameField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            nameField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            nameField.heightAnchor.constraint(equalToConstant: 44),
             
-            addButton.topAnchor.constraint(equalTo: commentField.bottomAnchor, constant: 20),
+            noteField.topAnchor.constraint(equalTo: nameField.bottomAnchor, constant: 12),
+            noteField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            noteField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            noteField.heightAnchor.constraint(equalToConstant: 200),
+            
+            addButton.topAnchor.constraint(equalTo: noteField.bottomAnchor, constant: 20),
             addButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             addButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             addButton.heightAnchor.constraint(equalToConstant: 50)
@@ -176,21 +186,21 @@ class ShareViewController: UIViewController {
     
     @objc private func addToGallery() {
         for image in selectedImages {
-            saveImageToAppGroup(image, comment: commentField.text)
+            saveImageToAppGroup(image, name: nameField.text, note: noteField.text)
         }
         
         extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
     }
     
     @objc private func dismissKeyboard() {
-        commentField.resignFirstResponder()
+        noteField.resignFirstResponder()
     }
     
     @objc private func cancelAction() {
         extensionContext?.cancelRequest(withError: NSError(domain: "com.filmlog.cancel", code: 0, userInfo: nil))
     }
     
-    private func saveImageToAppGroup(_ image: UIImage, comment: String?) {
+    private func saveImageToAppGroup(_ image: UIImage, name: String?, note: String?) {
         guard let data = image.jpegData(compressionQuality: 0.9) else { return }
         
         let fileManager = FileManager.default
@@ -212,9 +222,14 @@ class ShareViewController: UIViewController {
                     "creator": Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "Unknown"
                 ]
     
-                if let comment = comment, !comment.isEmpty {
-                    metadata["comment"] = comment
+                if let name = name, !name.isEmpty {
+                    metadata["name"] = name
                 }
+                
+                if let note = note, !note.isEmpty {
+                    metadata["note"] = note
+                }
+                
                 let jsonData = try JSONSerialization.data(withJSONObject: metadata, options: [.prettyPrinted])
                 try jsonData.write(to: metadataFileURL)
                 

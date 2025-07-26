@@ -9,7 +9,8 @@ import CoreMotion
 
 class OrientationObserver: ObservableObject {
     @Published var orientation: UIDeviceOrientation = UIDevice.current.orientation
-    @Published var levelAngle: Double = 0.0  // Horizon angle
+    @Published var levelAngle: Double = 0.0
+    @Published var pitchAngle: Double = 0.0
     
     private var cancellable: AnyCancellable?
     private var motionManager = CMMotionManager()
@@ -34,6 +35,8 @@ class OrientationObserver: ObservableObject {
                 guard let self = self, let motion = motion else { return }
                 let g = motion.gravity
                 
+                if g.x.isNaN || g.y.isNaN || g.z.isNaN { return }
+                
                 var angle: Double = 0
                 
                 switch self.orientation {
@@ -54,6 +57,7 @@ class OrientationObserver: ObservableObject {
                 }
                 
                 self.levelAngle = angle
+                self.pitchAngle = atan2(-g.z, sqrt(g.x * g.x + g.y * g.y)) * 180 / .pi
             }
         }
     }
@@ -77,8 +81,6 @@ struct ShotHelper {
         let filmHFov = 2 * atan(CGFloat(filmSize.width) / (2 * focalLength))
         let frameHorizontal = containerSize.height * (tan(filmHFov / 2) / tan((horizontalFov * .pi / 180) / 2))
         let frameVertical = frameHorizontal / filmAspect
-        
-        print("frameVertical: \(frameVertical) x \(frameHorizontal)")
         
         return CGSize(width: frameVertical, height: frameHorizontal)
     }
@@ -187,10 +189,11 @@ struct ShotOverlay: View {
 
 struct LevelIndicator: View {
     var levelAngle: Double
-    var orientationAngle: Angle
-    var orientation: UIDeviceOrientation
+    var pitchAngle: Double
+    let orientation: UIDeviceOrientation
     
-    @State private var smoothedAngle: Double = 0.0
+    @State private var smoothedRoll: Double = 0.0
+    @State private var smoothedPitch: Double = 0.0
     
     let totalWidthRatio: CGFloat = 0.8
     let gapRatio: CGFloat = 0.05
@@ -200,48 +203,91 @@ struct LevelIndicator: View {
     var body: some View {
         GeometryReader { geo in
             let alpha = 0.15
-            let snapped = (smoothedAngle / 2).rounded() * 2
-            let isAligned = abs(snapped) <= 2
+            let snappedRoll = (smoothedRoll / 2).rounded() * 2
+            let snappedPitch = smoothedPitch.clamped(to: -30...30) // limit range
+            
+            let isRollAligned = abs(snappedRoll) <= 2
+            let isPitchAligned = abs(snappedPitch) <= 2
             
             let fullWidth = geo.size.width * totalWidthRatio
             let gap = fullWidth * gapRatio
             let sideWidth = fullWidth * sideRatio
             let centerWidth = fullWidth - (2 * sideWidth) - (2 * gap)
             
+            let maxOffset: CGFloat = 50
+            let pitchOffset = CGFloat(snappedPitch / 30) * maxOffset
+            
             ZStack {
                 Rectangle()
-                    .fill(Color.white.opacity(0.8))
+                    .fill(isPitchAligned ? Color.green.opacity(0.8) : Color.white.opacity(0.8))
                     .frame(width: sideWidth, height: lineHeight)
                     .position(x: geo.size.width / 2 - (centerWidth / 2 + gap + sideWidth / 2),
-                              y: geo.size.height / 2)
+                              y: geo.size.height / 2 - pitchOffset)
                 
                 Rectangle()
-                    .fill(Color.white.opacity(0.8))
+                    .fill(isPitchAligned ? Color.green.opacity(0.8) : Color.white.opacity(0.8))
                     .frame(width: sideWidth, height: lineHeight)
                     .position(x: geo.size.width / 2 + (centerWidth / 2 + gap + sideWidth / 2),
-                              y: geo.size.height / 2)
+                              y: geo.size.height / 2 - pitchOffset)
                 
                 Rectangle()
-                    .fill(isAligned ? Color.green : Color.white)
+                    .fill(isRollAligned ? Color.green : Color.white)
                     .frame(width: centerWidth, height: lineHeight)
                     .position(x: geo.size.width / 2, y: geo.size.height / 2)
-                    .rotationEffect(.degrees(snapped))
+                    .rotationEffect(.degrees(snappedRoll))
             }
-            .rotationEffect(orientationAngle)
-            .animation(.easeInOut(duration: 0.15), value: snapped)
-            .animation(.easeInOut(duration: 0.2), value: isAligned)
+            .rotationEffect(rotationAngle(for: orientation))
+            .animation(.easeInOut(duration: 0.15), value: snappedRoll)
+            .animation(.easeInOut(duration: 0.15), value: snappedPitch)
             .onChange(of: levelAngle) { _, newValue in
-                smoothedAngle = smoothedAngle + alpha * (newValue - smoothedAngle)
+                smoothedRoll += alpha * (newValue - smoothedRoll)
+            }
+            .onChange(of: pitchAngle) { _, newValue in
+                smoothedPitch += alpha * (newValue - smoothedPitch)
             }
             .onAppear {
-                smoothedAngle = levelAngle
+                smoothedRoll = levelAngle
+                smoothedPitch = pitchAngle
             }
+            
+            ZStack {
+                VStack(spacing: 4) {
+                    Text("Roll: \(Int(snappedRoll))°, Pitch: \(Int(snappedPitch))°")
+                        .font(.caption2)
+                        .padding(4)
+                        .background(Color.black.opacity(0.6))
+                        .foregroundColor(.white)
+                        .cornerRadius(4)
+                        .rotationEffect(rotationAngle(for: orientation))
+                }
+                .offset(offset(for: orientation, geo: geo))
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .position(x: geo.size.width / 2, y: geo.size.height / 2)
         }
         .ignoresSafeArea()
     }
+    
+    private func rotationAngle(for orientation: UIDeviceOrientation) -> Angle {
+        switch orientation {
+        case .landscapeLeft: return .degrees(90)
+        case .landscapeRight: return .degrees(-90)
+        case .portraitUpsideDown: return .degrees(180)
+        default: return .degrees(0)
+        }
+    }
+
+    private func offset(for orientation: UIDeviceOrientation, geo: GeometryProxy) -> CGSize {
+        switch orientation {
+        case .landscapeLeft: return CGSize(width: -geo.size.width / 2 + 25, height: 0)
+        case .landscapeRight: return CGSize(width: geo.size.width / 2 - 25, height: 0)
+        case .portraitUpsideDown: return CGSize(width: 0, height: -geo.size.height / 2 + 120)
+        default: return CGSize(width: 0, height: geo.size.height / 2 - 120)
+        }
+    }
 }
 
-struct ShotCameraView: View {
+struct ShotViewfinderView: View {
     @Bindable var shot: Shot
     
     var onCapture: (UIImage) -> Void
@@ -278,7 +324,7 @@ struct ShotCameraView: View {
                     if isLevelOn {
                         LevelIndicator(
                             levelAngle: orientationObserver.levelAngle,
-                            orientationAngle: orientationObserver.rotationAngle,
+                            pitchAngle: orientationObserver.pitchAngle,
                             orientation: orientationObserver.orientation
                         )
                     }
@@ -616,3 +662,8 @@ extension CGSize {
     }
 }
 
+extension Comparable {
+    func clamped(to range: ClosedRange<Self>) -> Self {
+        return min(max(self, range.lowerBound), range.upperBound)
+    }
+}

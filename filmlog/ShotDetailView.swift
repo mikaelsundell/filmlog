@@ -87,10 +87,11 @@ struct ShotDetailView: View {
                     .focused($activeField, equals: .name)
                     .disabled(shot.isLocked)
                 
-                TextField("Note", text: $shot.note, axis: .vertical)
-                    .lineLimit(3...6)
-                    .focused($activeField, equals: .note)
+                TextEditor(text: $shot.note)
+                    .frame(height: 100)
                     .disabled(shot.isLocked)
+                    .focused($activeField, equals: .note)
+                    .offset(x: -4)
             }
             
             Section(header: Text("Location")) {
@@ -201,10 +202,12 @@ struct ShotDetailView: View {
                     ForEach(CameraOptions.focalLengths, id: \.label) { item in
                         Text(item.label).tag(item.value)
                     }
-
+                    
                 }
                 .disabled(shot.isLocked)
-                
+            }
+            
+            Section(header: Text("Focus")) {
                 HStack {
                     Text("Focus Distance")
                     Spacer()
@@ -218,7 +221,7 @@ struct ShotDetailView: View {
                         Text("mm")
                     }
                 }
-                
+
                 HStack {
                     Text("Depth of field")
                     Spacer()
@@ -274,16 +277,25 @@ struct ShotDetailView: View {
                     Text("Hyperfocal distance")
                     Spacer()
 
-                    HStack(spacing: 2) {
+                    HStack(spacing: 8) {
                         TextField("", value: $shot.focusHyperfocalDistance, formatter: focusDistanceFormatter)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
                             .disabled(true)
                         Text("mm")
-                        
+
                         Image(systemName: "function")
                             .foregroundColor(.secondary)
                             .help("This value is automatically calculated and cannot be edited")
+
+                        Button {
+                            shot.focusDistance = shot.focusHyperfocalDistance
+                        } label: {
+                            Image(systemName: "scope")
+                                .foregroundColor(.blue)
+                                .help("Set focus distance to hyperfocal value")
+                        }
+                        .buttonStyle(.borderless)
                     }
                 }
             }
@@ -486,6 +498,8 @@ struct ShotDetailView: View {
         formatter.numberStyle = .decimal
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 0
+        formatter.generatesDecimalNumbers = false
+        formatter.isLenient = true
         return formatter
     }
 

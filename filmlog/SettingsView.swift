@@ -365,7 +365,8 @@ struct SettingsView: View {
                         id: $0.id,
                         timestamp: $0.timestamp,
                         data: $0.data.base64EncodedString(),
-                        comment: $0.comment,
+                        name: $0.name,
+                        note: $0.note,
                         creator: $0.creator,
                         category: $0.category?.id
                     )
@@ -496,7 +497,8 @@ struct SettingsView: View {
                     let img = ImageData(data: imgData)
                     img.id = imgExport.id
                     img.timestamp = imgExport.timestamp
-                    img.comment = imgExport.comment
+                    img.name = imgExport.name
+                    img.note = imgExport.note
                     img.creator = imgExport.creator
                     if let categoryId = imgExport.category {
                         img.category = categoryMap[categoryId]
@@ -608,7 +610,8 @@ struct ImageDataExport: Codable {
     var id: UUID
     var timestamp: Date
     var data: String
-    var comment: String?
+    var name: String?
+    var note: String?
     var creator: String?
     var category: UUID?
 }

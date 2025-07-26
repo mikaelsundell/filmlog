@@ -84,7 +84,7 @@ struct CameraOptions {
             sqrt(width * width + height * height)
         }
         var circleOfConfusion: Double {
-            diagonal / 1730
+            diagonal / 1500
         }
         
         func focusDepthOfField(focalLength: Double, aperture: Double, focusDistance: Double) -> (near: Double, far: Double, hyperfocal: Double, dof: Double) {
@@ -122,6 +122,7 @@ struct CameraOptions {
         ("2.0", 2.0),
         ("2.35", 2.35),
         ("2.39", 2.39),
+        ("2.55", 2.55),
         ("1.43", 1.43),
         ("1.90", 1.90)
     ]
@@ -279,21 +280,23 @@ class ImageData: Codable {
     var timestamp = Date()
     var data: Data
     var referenceCount: Int
-    var comment: String?
+    var name: String?
+    var note: String?
     var creator: String?
 
     @Relationship var category: Category?
 
-    init(data: Data, category: Category? = nil, comment: String? = nil, creator: String? = nil) {
+    init(data: Data, category: Category? = nil, name: String? = nil, note: String? = nil, creator: String? = nil) {
         self.data = data
         self.referenceCount = 1
         self.category = category
-        self.comment = comment
+        self.name = name
+        self.note = note
         self.creator = creator
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, data, referenceCount, category, comment, creator, timestamp
+        case id, data, referenceCount, category, name, note, creator, timestamp
     }
 
     required init(from decoder: Decoder) throws {
@@ -303,7 +306,8 @@ class ImageData: Codable {
         data = try container.decode(Data.self, forKey: .data)
         referenceCount = try container.decodeIfPresent(Int.self, forKey: .referenceCount) ?? 1
         category = try container.decodeIfPresent(Category.self, forKey: .category)
-        comment = try container.decodeIfPresent(String.self, forKey: .comment)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        note = try container.decodeIfPresent(String.self, forKey: .note)
         creator = try container.decodeIfPresent(String.self, forKey: .creator)
     }
 
@@ -314,7 +318,8 @@ class ImageData: Codable {
         try container.encode(data, forKey: .data)
         try container.encode(referenceCount, forKey: .referenceCount)
         try container.encodeIfPresent(category, forKey: .category)
-        try container.encodeIfPresent(comment, forKey: .comment)
+        try container.encodeIfPresent(name, forKey: .name)
+        try container.encodeIfPresent(note, forKey: .note)
         try container.encodeIfPresent(creator, forKey: .creator)
     }
 

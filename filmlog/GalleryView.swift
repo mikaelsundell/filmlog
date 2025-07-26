@@ -43,10 +43,18 @@ struct GalleryView: View {
     @State private var showEditOptions = false
     @State private var showRenameDialog = false
     @State private var renameText = ""
+
+    @State private var showDeleteCategoryAlert = false
+    @State private var categoryToDelete: Category? = nil
     
     @State private var selectedImageForEdit: ImageData? = nil
-    @State private var newComment = ""
+    @State private var newName = ""
+    @State private var newNote = ""
     @State private var newCategory: Category? = nil
+    @FocusState private var selectedImageFocused: Bool
+    
+    @State private var showDeleteImageAlert = false
+    @State private var imageToDelete: ImageData? = nil
     
     @State private var selectedItems: [PhotosPickerItem] = []
 
@@ -100,9 +108,10 @@ struct GalleryView: View {
                                         } label: {
                                             Label("Rename", systemImage: "pencil")
                                         }
-                                        
+
                                         Button(role: .destructive) {
-                                            deleteCategory(category)
+                                            categoryToDelete = category
+                                            showDeleteCategoryAlert = true
                                         } label: {
                                             Label("Delete", systemImage: "trash")
                                         }
@@ -136,14 +145,16 @@ struct GalleryView: View {
                                     .contextMenu {
                                         Button {
                                             selectedImageForEdit = image
-                                            newComment = image.comment ?? ""
+                                            newName = image.name ?? ""
+                                            newNote = image.note ?? ""
                                             newCategory = image.category
                                         } label: {
                                             Label("Edit image", systemImage: "pencil")
                                         }
 
                                         Button(role: .destructive) {
-                                            deleteImage(image)
+                                            imageToDelete = image
+                                            showDeleteImageAlert = true
                                         } label: {
                                             Label("Delete", systemImage: "trash")
                                         }
@@ -192,15 +203,21 @@ struct GalleryView: View {
                     }
                 }
             }
-            .alert("Rename category", isPresented: $showRenameDialog) {
-                TextField("Category name", text: $renameText)
-                Button("Save") {
-                    if let category = selectedCategoryForEdit {
-                        category.name = renameText
-                        try? modelContext.save()
-                    }
+            .alert("Delete Category?", isPresented: $showDeleteCategoryAlert, presenting: categoryToDelete) { category in
+                Button("Delete", role: .destructive) {
+                    deleteCategory(category)
                 }
                 Button("Cancel", role: .cancel) { }
+            } message: { category in
+                Text("Are you sure you want to delete the category \"\(category.name)\"?")
+            }
+            .alert("Delete Image?", isPresented: $showDeleteImageAlert, presenting: imageToDelete) { image in
+                Button("Delete", role: .destructive) {
+                    deleteImage(image)
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: { image in
+                Text("Are you sure you want to delete \"\(image.name ?? "this image")\"?")
             }
             .sheet(isPresented: $showCategoryEditSheet) {
                 if let category = selectedCategoryForEdit {
@@ -231,10 +248,16 @@ struct GalleryView: View {
             .sheet(item: $selectedImageForEdit) { image in
                 NavigationView {
                     Form {
-                        Section(header: Text("Comment")) {
-                            TextField("Enter comment", text: $newComment)
+                        Section(header: Text("Image")) {
+                            TextField("Name", text: $newName)
+                                .focused($selectedImageFocused)
+                            
+                            TextEditor(text: $newNote)
+                                .frame(height: 100)
+                                .focused($selectedImageFocused)
+                                .offset(x: -4)
                         }
-
+                        
                         Section(header: Text("Category")) {
                             Picker("Select category", selection: $newCategory) {
                                 Text("None").tag(Category?.none)
@@ -245,13 +268,14 @@ struct GalleryView: View {
                         }
                     }
                     .onAppear {
-                        print("Show image for edit UUID: \(image.id)")
+                        selectedImageFocused = true
                     }
                     .navigationTitle("Edit image")
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
                             Button("Save") {
-                                image.comment = newComment
+                                image.name = newName
+                                image.note = newNote
                                 image.category = newCategory
                                 try? modelContext.save()
                                 selectedImageForEdit = nil
@@ -260,6 +284,13 @@ struct GalleryView: View {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("Cancel") {
                                 selectedImageForEdit = nil
+                            }
+                        }
+                        ToolbarItemGroup(placement: .keyboard) {
+                            Spacer()
+                            Button("Done") {
+                                selectedImageFocused = false
+                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) // needed for sheets
                             }
                         }
                     }
@@ -317,7 +348,10 @@ struct GalleryView: View {
             imgs = imgs.filter { $0.category == category }
         }
         if !searchText.isEmpty {
-            imgs = imgs.filter { $0.comment?.localizedCaseInsensitiveContains(searchText) == true }
+            imgs = imgs.filter {
+                ($0.note?.localizedCaseInsensitiveContains(searchText) == true) ||
+                ($0.name?.localizedCaseInsensitiveContains(searchText) == true)
+            }
         }
         return imgs
     }
@@ -384,14 +418,16 @@ struct GalleryView: View {
                 let jsonFile = containerURL.appendingPathComponent("\(baseName).json")
 
                 if let data = try? Data(contentsOf: imageFile) {
-                    var comment: String? = nil
+                    var name: String? = nil
+                    var note: String? = nil
                     var creator: String? = nil
                     var timestamp: Date? = nil
 
                     if fileManager.fileExists(atPath: jsonFile.path),
                        let jsonData = try? Data(contentsOf: jsonFile),
                        let jsonObject = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-                        comment = jsonObject["comment"] as? String
+                        name = jsonObject["name"] as? String
+                        note = jsonObject["note"] as? String
                         creator = jsonObject["creator"] as? String
                         timestamp = jsonObject["timestamp"] as? Date
                     }
@@ -399,7 +435,8 @@ struct GalleryView: View {
                     let newImage = ImageData(
                         data: data,
                         category: selectedCategory,
-                        comment: comment,
+                        name: name,
+                        note: note,
                         creator: creator
                     )
                     

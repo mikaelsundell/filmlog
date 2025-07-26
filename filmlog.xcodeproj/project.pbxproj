@@ -20,7 +20,7 @@
 		1F70B3742E30124B0021DB93 /* ShotImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F70B3702E30124B0021DB93 /* ShotImageView.swift */; };
 		1F70B3752E30124B0021DB93 /* ShotDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F70B3712E30124B0021DB93 /* ShotDetailView.swift */; };
 		1F70B3762E30124B0021DB93 /* ShotSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F70B3722E30124B0021DB93 /* ShotSectionView.swift */; };
-		1F70B3772E30124B0021DB93 /* ShotCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F70B3732E30124B0021DB93 /* ShotCameraView.swift */; };
+		1F70B3772E30124B0021DB93 /* ShotViewfinderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F70B3732E30124B0021DB93 /* ShotViewfinderView.swift */; };
 		1F9B3E952E1AE48C005F95A0 /* filmlogApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B3E942E1AE48C005F95A0 /* filmlogApp.swift */; };
 		1F9B3E972E1AE48C005F95A0 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B3E962E1AE48C005F95A0 /* ContentView.swift */; };
 		1F9B3E992E1AE48C005F95A0 /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B3E982E1AE48C005F95A0 /* Item.swift */; };
@@ -88,7 +88,7 @@
 		1F70B3702E30124B0021DB93 /* ShotImageView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShotImageView.swift; sourceTree = "<group>"; };
 		1F70B3712E30124B0021DB93 /* ShotDetailView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShotDetailView.swift; sourceTree = "<group>"; };
 		1F70B3722E30124B0021DB93 /* ShotSectionView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShotSectionView.swift; sourceTree = "<group>"; };
-		1F70B3732E30124B0021DB93 /* ShotCameraView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShotCameraView.swift; sourceTree = "<group>"; };
+		1F70B3732E30124B0021DB93 /* ShotViewfinderView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShotViewfinderView.swift; sourceTree = "<group>"; };
 		1F9B3E912E1AE48C005F95A0 /* filmlog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = filmlog.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1F9B3E942E1AE48C005F95A0 /* filmlogApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = filmlogApp.swift; sourceTree = "<group>"; };
 		1F9B3E962E1AE48C005F95A0 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -189,7 +189,7 @@
 				1F64D2E52E1B1384009EA1A8 /* RollDetailView.swift */,
 				1F64D2EB2E1B17D7009EA1A8 /* PhotoSectionView.swift */,
 				1FD3D14E2E2102F100A1C9EF /* SettingsView.swift */,
-				1F70B3732E30124B0021DB93 /* ShotCameraView.swift */,
+				1F70B3732E30124B0021DB93 /* ShotViewfinderView.swift */,
 				1F70B3712E30124B0021DB93 /* ShotDetailView.swift */,
 				1F70B3702E30124B0021DB93 /* ShotImageView.swift */,
 				1F70B3722E30124B0021DB93 /* ShotSectionView.swift */,
@@ -392,7 +392,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1F62CE112E2160BD002DBAA3 /* CameraPreview.swift in Sources */,
-				1F70B3772E30124B0021DB93 /* ShotCameraView.swift in Sources */,
+				1F70B3772E30124B0021DB93 /* ShotViewfinderView.swift in Sources */,
 				1F9B3E972E1AE48C005F95A0 /* ContentView.swift in Sources */,
 				1F9B3E992E1AE48C005F95A0 /* Item.swift in Sources */,
 				1F9B3E952E1AE48C005F95A0 /* filmlogApp.swift in Sources */,

@@ -66,10 +66,11 @@ struct RollDetailView: View {
                     }
                     .disabled(roll.isLocked)
                 
-                TextField("Note", text: $roll.note, axis: .vertical)
-                    .lineLimit(3...6)
+                TextEditor(text: $roll.note)
+                    .frame(height: 100)
                     .focused($focused)
                     .disabled(roll.isLocked)
+                    .offset(x: -4)
                     .toolbar {
                         ToolbarItemGroup(placement: .keyboard) {
                             Spacer()

@@ -31,7 +31,7 @@ struct PhotoSectionView: View {
                 Rectangle()
                     .fill(Color.secondary.opacity(0.2))
                     .frame(height: 180)
-                    .overlay(Text("No Image").foregroundColor(.gray))
+                    .overlay(Text("No image").foregroundColor(.gray))
                     .cornerRadius(10)
             }
 
@@ -40,11 +40,10 @@ struct PhotoSectionView: View {
                     Button {
                         showCamera = true
                     } label: {
-                        Label {
-                            Text("Take photo")
-                                .foregroundColor(.white)
-                        } icon: {
+                        HStack(spacing: 8) {
                             Image(systemName: "camera")
+                                .foregroundColor(.white)
+                            Text("Take photo")
                                 .foregroundColor(.white)
                         }
                     }
@@ -55,11 +54,10 @@ struct PhotoSectionView: View {
                         matching: .images,
                         photoLibrary: .shared()
                     ) {
-                        Label {
-                            Text("From library")
-                                .foregroundColor(.white)
-                        } icon: {
+                        HStack(spacing: 8) {
                             Image(systemName: "photo")
+                                .foregroundColor(.white)
+                            Text("From library")
                                 .foregroundColor(.white)
                         }
                     }
