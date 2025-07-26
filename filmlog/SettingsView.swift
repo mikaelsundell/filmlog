@@ -395,6 +395,7 @@ struct SettingsView: View {
                     focusNearLimit: shot.focusNearLimit,
                     focusFarLimit: shot.focusFarLimit,
                     focusHyperfocalDistance: shot.focusHyperfocalDistance,
+                    focusHyperfocalNearLimit: shot.focusHyperfocalNearLimit,
                     exposureSky: shot.exposureSky,
                     exposureFoliage: shot.exposureFoliage,
                     exposureHighlights: shot.exposureHighlights,
@@ -528,6 +529,7 @@ struct SettingsView: View {
                 shot.focusNearLimit = shotExport.focusNearLimit
                 shot.focusFarLimit = shotExport.focusFarLimit
                 shot.focusHyperfocalDistance = shotExport.focusHyperfocalDistance
+                shot.focusHyperfocalNearLimit = shotExport.focusHyperfocalNearLimit
                 shot.exposureSky = shotExport.exposureSky
                 shot.exposureFoliage = shotExport.exposureFoliage
                 shot.exposureHighlights = shotExport.exposureHighlights
@@ -653,6 +655,7 @@ struct ShotExport: Codable {
     var focusNearLimit: Double
     var focusFarLimit: Double
     var focusHyperfocalDistance: Double
+    var focusHyperfocalNearLimit: Double
     var exposureSky: String
     var exposureFoliage: String
     var exposureHighlights: String

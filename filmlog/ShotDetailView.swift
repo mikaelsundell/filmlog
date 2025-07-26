@@ -209,95 +209,61 @@ struct ShotDetailView: View {
             
             Section(header: Text("Focus")) {
                 HStack {
-                    Text("Focus Distance")
+                    Text("Focus distance")
                     Spacer()
-
                     HStack(spacing: 2) {
                         TextField("", value: $shot.focusDistance, formatter: focusDistanceFormatter)
-                            .keyboardType(.numberPad)
+                            .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                             .focused($activeField, equals: .focusDistance)
                             .disabled(shot.isLocked)
-                        Text("mm")
+                        Text("mm").frame(width: 32, alignment: .trailing)
                     }
+                    Text("\(shot.focusDistance / 1000, specifier: "%.1f") m")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .frame(width: 50, alignment: .trailing)
                 }
 
+                focusRow(label: "Depth of field", value: shot.focusDepthOfField)
+
+                focusRow(label: "Near", value: shot.focusNearLimit)
+                
+                focusRow(label: "Far", value: shot.focusNearLimit)
+
                 HStack {
-                    Text("Depth of field")
+                    Image(systemName: "function")
+                        .foregroundColor(.secondary)
+                        .help("This value is automatically calculated and cannot be edited")
+
+                    Button {
+                        shot.focusDistance = shot.focusHyperfocalDistance
+                    } label: {
+                        Image(systemName: "scope")
+                            .foregroundColor(.blue)
+                            .help("Set focus distance to hyperfocal value")
+                    }
+                    .buttonStyle(.borderless)
+
+                    Text("Hyperfocal")
                     Spacer()
 
                     HStack(spacing: 2) {
-                        TextField("", value: $shot.focusDepthOfField, formatter: focusDistanceFormatter)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                            .disabled(true)
-                        Text("mm")
-                        
-                        Image(systemName: "function")
-                            .foregroundColor(.secondary)
-                            .help("This value is automatically calculated and cannot be edited")
+                        Text(shot.focusHyperfocalDistance > 1_000_000
+                             ? "∞"
+                             : (focusDistanceFormatter.string(from: NSNumber(value: shot.focusHyperfocalDistance)) ?? "0"))
+                        Text("mm").frame(width: 32, alignment: .trailing)
                     }
+                    
+                    Text(shot.focusHyperfocalDistance > 1_000_000
+                         ? "∞"
+                         : String(format: "%.1f m", shot.focusHyperfocalDistance / 1000))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .frame(width: 50, alignment: .trailing)
                 }
-                
-                HStack {
-                    Text("Near limit")
-                    Spacer()
 
-                    HStack(spacing: 2) {
-                        TextField("", value: $shot.focusNearLimit, formatter: focusDistanceFormatter)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                            .disabled(true)
-                        Text("mm")
-                        
-                        Image(systemName: "function")
-                            .foregroundColor(.secondary)
-                            .help("This value is automatically calculated and cannot be edited")
-                    }
-                }
-                
-                HStack {
-                    Text("Far limit")
-                    Spacer()
-
-                    HStack(spacing: 2) {
-                        TextField("", value: $shot.focusFarLimit, formatter: focusDistanceFormatter)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                            .disabled(true)
-                        Text("mm")
-                        
-                        Image(systemName: "function")
-                            .foregroundColor(.secondary)
-                            .help("This value is automatically calculated and cannot be edited")
-                    }
-                }
-                
-                HStack {
-                    Text("Hyperfocal distance")
-                    Spacer()
-
-                    HStack(spacing: 8) {
-                        TextField("", value: $shot.focusHyperfocalDistance, formatter: focusDistanceFormatter)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                            .disabled(true)
-                        Text("mm")
-
-                        Image(systemName: "function")
-                            .foregroundColor(.secondary)
-                            .help("This value is automatically calculated and cannot be edited")
-
-                        Button {
-                            shot.focusDistance = shot.focusHyperfocalDistance
-                        } label: {
-                            Image(systemName: "scope")
-                                .foregroundColor(.blue)
-                                .help("Set focus distance to hyperfocal value")
-                        }
-                        .buttonStyle(.borderless)
-                    }
-                }
+                focusRow(label: "Near", value: shot.focusHyperfocalNearLimit)
             }
             
             Section(header: Text("Lightmeter")) {
@@ -421,6 +387,32 @@ struct ShotDetailView: View {
             }
         }
     }
+    
+    @ViewBuilder
+    private func focusRow(label: String, value: Double) -> some View {
+        HStack {
+            Image(systemName: "function")
+                .foregroundColor(.secondary)
+                .help("This value is automatically calculated and cannot be edited")
+
+            Text(label)
+            Spacer()
+
+            HStack(spacing: 2) {
+                Text(value > 1_000_000
+                     ? "∞"
+                     : (focusDistanceFormatter.string(from: NSNumber(value: value)) ?? "0"))
+                Text("mm").frame(width: 32, alignment: .trailing)
+            }
+
+            Text(value > 1_000_000
+                 ? "∞"
+                 : String(format: "%.1f m", value / 1000))
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .frame(width: 50, alignment: .trailing)
+        }
+    }
 
     private func createNextShot(count: Int) {
         for _ in 0..<count {
@@ -437,29 +429,49 @@ struct ShotDetailView: View {
         }
     }
     
+    
     private func updateDof() {
-        guard shot.focusDistance > 0 else {
+        let focusDistance = shot.focusDistance
+        
+        guard focusDistance > 0 else {
             shot.focusDepthOfField = 0
             return
         }
-        
+
         guard let filmSize = CameraOptions.filmSizes.first(where: { $0.label == shot.filmSize })?.value,
               let aperture = CameraOptions.fStops.first(where: { $0.label == shot.fstop })?.value,
               let focalLength = CameraOptions.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value else {
             shot.focusDepthOfField = 0
             return
         }
-        
+
         let result = filmSize.focusDepthOfField(
             focalLength: focalLength,
             aperture: aperture,
-            focusDistance: shot.focusDistance
+            focusDistance: focusDistance
         )
         
+        let coc = filmSize.circleOfConfusion
+
+        print("""
+        DOF Debug:
+        Film size: \(filmSize)
+        Focal length: \(focalLength) mm
+        Focus distance: f/\(focusDistance)
+        Aperture: f/\(aperture)
+        Hyperfocal: \(result.hyperfocal) mm
+        Hyperfocal near: \(result.hyperfocalNear) mm
+        Near: \(result.near) mm
+        Far: \(result.far) mm
+        DOF: \(result.dof) mm
+        CoC: \(coc)
+        """)
+
         shot.focusDepthOfField = result.dof.isInfinite ? -1.0 : result.dof
         shot.focusNearLimit = result.near
         shot.focusFarLimit = result.far
         shot.focusHyperfocalDistance = result.hyperfocal
+        shot.focusHyperfocalNearLimit = result.hyperfocalNear
     }
     
     private func replaceImage(for imageRef: inout ImageData?, with newData: Data) {

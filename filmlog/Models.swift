@@ -84,31 +84,33 @@ struct CameraOptions {
             sqrt(width * width + height * height)
         }
         var circleOfConfusion: Double {
-            diagonal / 1500
+            diagonal / 1442
         }
         
-        func focusDepthOfField(focalLength: Double, aperture: Double, focusDistance: Double) -> (near: Double, far: Double, hyperfocal: Double, dof: Double) {
+        func focusDepthOfField(
+            focalLength: Double,
+            aperture: Double,
+            focusDistance: Double
+        ) -> (near: Double, far: Double, hyperfocal: Double, hyperfocalNear: Double, dof: Double) {
+            
             let f = focalLength
             let N = aperture
             let D = focusDistance
 
-            // hyperfocal distance
             let H = (f * f) / (N * circleOfConfusion) + f
-
-            // near limit
             let near = (H * D) / (H + (D - f))
 
-            // far limit
             let far: Double
             if H > (D - f) {
                 far = (H * D) / (H - (D - f))
             } else {
                 far = Double.infinity
             }
-
-            // depth of field
             let dof = far.isInfinite ? Double.infinity : max(0, far - near)
-            return (near, far, H, dof)
+            
+            let hyperfocalNear = H / 2
+
+            return (near, far, H, hyperfocalNear, dof)
         }
         
         static let defaultFilmSize = CameraOptions.FilmSize(width: 36.0, height: 24.0)
@@ -488,6 +490,7 @@ class Shot: Codable {
     var focusNearLimit: Double
     var focusFarLimit: Double
     var focusHyperfocalDistance: Double
+    var focusHyperfocalNearLimit: Double
     var exposureSky: String
     var exposureFoliage: String
     var exposureHighlights: String
@@ -518,6 +521,7 @@ class Shot: Codable {
          focusNearLimit: Double = 0.0,
          focusFarLimit: Double = 0.0,
          focusHyperfocalDistance: Double = 0.0,
+         focusHyperfocalNearLimit: Double = 0.0,
          exposureSky: String = "-",
          exposureFoliage: String = "-",
          exposureHighlights: String = "-",
@@ -545,6 +549,7 @@ class Shot: Codable {
         self.focusNearLimit = focusNearLimit
         self.focusFarLimit = focusFarLimit
         self.focusHyperfocalDistance = focusHyperfocalDistance
+        self.focusHyperfocalNearLimit = focusHyperfocalNearLimit
         self.exposureSky = exposureSky
         self.exposureFoliage = exposureFoliage
         self.exposureHighlights = exposureHighlights
@@ -576,6 +581,7 @@ class Shot: Codable {
         newFrame.focusNearLimit = self.focusNearLimit
         newFrame.focusFarLimit = self.focusFarLimit
         newFrame.focusHyperfocalDistance = self.focusHyperfocalDistance
+        newFrame.focusHyperfocalNearLimit = self.focusHyperfocalNearLimit
         newFrame.exposureSky = self.exposureSky
         newFrame.exposureFoliage = self.exposureFoliage
         newFrame.exposureHighlights = self.exposureHighlights
@@ -589,7 +595,7 @@ class Shot: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, aspectRatio, filmSize, name, note, location, elevation, colorTemperature, fstop, shutter, exposureCompensation, lensName, lensFocalLength, focusDistance, focusDepthOfField, focusNearLimit, focusFarLimit, focusHyperfocalDistance, exposureSky, exposureFoliage, exposureHighlights, exposureMidGray, exposureShadows, exposureSkinKey, exposureSkinFill, photoImage, lightMeterImage, isLocked
+        case id, timestamp, aspectRatio, filmSize, name, note, location, elevation, colorTemperature, fstop, shutter, exposureCompensation, lensName, lensFocalLength, focusDistance, focusDepthOfField, focusNearLimit, focusFarLimit, focusHyperfocalDistance, focusHyperfocalNearLimit, exposureSky, exposureFoliage, exposureHighlights, exposureMidGray, exposureShadows, exposureSkinKey, exposureSkinFill, photoImage, lightMeterImage, isLocked
     }
 
     required init(from decoder: Decoder) throws {
@@ -613,6 +619,7 @@ class Shot: Codable {
         focusNearLimit = try container.decode(Double.self, forKey: .focusNearLimit)
         focusFarLimit = try container.decode(Double.self, forKey: .focusFarLimit)
         focusHyperfocalDistance = try container.decode(Double.self, forKey: .focusHyperfocalDistance)
+        focusHyperfocalNearLimit = try container.decode(Double.self, forKey: .focusHyperfocalNearLimit)
         exposureSky = try container.decode(String.self, forKey: .exposureSky)
         exposureFoliage = try container.decode(String.self, forKey: .exposureFoliage)
         exposureHighlights = try container.decode(String.self, forKey: .exposureHighlights)
@@ -646,6 +653,7 @@ class Shot: Codable {
         try container.encode(focusNearLimit, forKey: .focusNearLimit)
         try container.encode(focusFarLimit, forKey: .focusFarLimit)
         try container.encode(focusHyperfocalDistance, forKey: .focusHyperfocalDistance)
+        try container.encode(focusHyperfocalNearLimit, forKey: .focusHyperfocalNearLimit)
         try container.encode(exposureSky, forKey: .exposureSky)
         try container.encode(exposureFoliage, forKey: .exposureFoliage)
         try container.encode(exposureHighlights, forKey: .exposureHighlights)
