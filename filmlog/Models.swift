@@ -83,8 +83,9 @@ struct CameraOptions {
         var diagonal: Double {
             sqrt(width * width + height * height)
         }
+        
         var circleOfConfusion: Double {
-            diagonal / 1442
+            diagonal / Self.defaultCocFactor
         }
         
         func focusDepthOfField(
@@ -113,6 +114,8 @@ struct CameraOptions {
             return (near, far, H, hyperfocalNear, dof)
         }
         
+        static let defaultInfinity: Double = 1000000
+        static let defaultCocFactor: Double = 1442
         static let defaultFilmSize = CameraOptions.FilmSize(width: 36.0, height: 24.0)
     }
 

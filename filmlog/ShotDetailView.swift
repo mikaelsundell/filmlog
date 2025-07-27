@@ -229,7 +229,7 @@ struct ShotDetailView: View {
 
                 focusRow(label: "Near", value: shot.focusNearLimit)
                 
-                focusRow(label: "Far", value: shot.focusNearLimit)
+                focusRow(label: "Far", value: shot.focusFarLimit)
 
                 HStack {
                     Image(systemName: "function")
@@ -399,13 +399,17 @@ struct ShotDetailView: View {
             Spacer()
 
             HStack(spacing: 2) {
-                Text(value > 1_000_000
+                Text(value > CameraOptions.FilmSize.defaultInfinity
                      ? "∞"
                      : (focusDistanceFormatter.string(from: NSNumber(value: value)) ?? "0"))
-                Text("mm").frame(width: 32, alignment: .trailing)
+
+                if value <= CameraOptions.FilmSize.defaultInfinity {
+                    Text("mm")
+                        .frame(width: 32, alignment: .trailing)
+                }
             }
 
-            Text(value > 1_000_000
+            Text(value > CameraOptions.FilmSize.defaultInfinity
                  ? "∞"
                  : String(format: "%.1f m", value / 1000))
                 .font(.caption)
@@ -450,23 +454,7 @@ struct ShotDetailView: View {
             aperture: aperture,
             focusDistance: focusDistance
         )
-        
-        let coc = filmSize.circleOfConfusion
-
-        print("""
-        DOF Debug:
-        Film size: \(filmSize)
-        Focal length: \(focalLength) mm
-        Focus distance: f/\(focusDistance)
-        Aperture: f/\(aperture)
-        Hyperfocal: \(result.hyperfocal) mm
-        Hyperfocal near: \(result.hyperfocalNear) mm
-        Near: \(result.near) mm
-        Far: \(result.far) mm
-        DOF: \(result.dof) mm
-        CoC: \(coc)
-        """)
-
+    
         shot.focusDepthOfField = result.dof.isInfinite ? -1.0 : result.dof
         shot.focusNearLimit = result.near
         shot.focusFarLimit = result.far
@@ -493,7 +481,7 @@ struct ShotDetailView: View {
         formatter.minimumFractionDigits = 2
         formatter.maximumFractionDigits = 2
         formatter.positivePrefix = "+"
-        formatter.negativePrefix = ""
+        formatter.negativePrefix = "-"
         return formatter
     }
     
