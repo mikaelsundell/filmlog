@@ -43,14 +43,25 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
     @Published var horizontalFov: CGFloat = 0
     @Published var aspectRatio: CGFloat = 0
     @Published var currentLens: CameraLensType = .wide  // default lens
-
+    @Published var currentExposureBias: Float = 0.0 {
+        didSet {
+            UserDefaults.standard.set(currentExposureBias, forKey: "exposureBias")
+        }
+    }
+    
     private var saveCapturedToFile = false
 
     func configure() {
         Task {
             do {
                 try await checkCameraPermission()
+                if let raw = UserDefaults.standard.string(forKey: "selectedLens"),
+                   let storedLens = CameraLensType(rawValue: raw) {
+                    currentLens = storedLens
+                }
+                currentExposureBias = UserDefaults.standard.float(forKey: "exposureBias")
                 configureCamera(for: currentLens)
+                adjustExposure(to: currentExposureBias)
             } catch {
                 DispatchQueue.main.async {
                     self.onImageCaptured?(.failure(.permissionDenied))
@@ -61,10 +72,28 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
 
     func switchCamera(to lens: CameraLensType) {
         currentLens = lens
+        UserDefaults.standard.set(lens.rawValue, forKey: "selectedLens")
         configureCamera(for: lens)
     }
     
-    func adjustExposure(by step: Float) {
+    func adjustExposure(to bias: Float) {
+        sessionQueue.async {
+            guard let device = self.session.inputs.compactMap({ ($0 as? AVCaptureDeviceInput)?.device }).first else {
+                return
+            }
+
+            do {
+                try device.lockForConfiguration()
+                let clampedBias = max(min(bias, device.maxExposureTargetBias), device.minExposureTargetBias)
+                device.setExposureTargetBias(clampedBias, completionHandler: nil)
+                device.unlockForConfiguration()
+            } catch {
+                print("failed to set exposure: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    func resetExposure() {
         sessionQueue.async {
             guard let device = self.session.inputs.compactMap({ ($0 as? AVCaptureDeviceInput)?.device }).first else {
                 return
@@ -73,22 +102,17 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
             do {
                 try device.lockForConfiguration()
 
-                let currentBias = device.exposureTargetBias
                 let minBias = device.minExposureTargetBias
                 let maxBias = device.maxExposureTargetBias
-                let newBias = max(min(currentBias + step, maxBias), minBias)
+                let clampedZero = max(min(0, maxBias), minBias)
 
-                device.setExposureTargetBias(newBias, completionHandler: nil)
+                device.setExposureTargetBias(clampedZero, completionHandler: nil)
                 device.unlockForConfiguration()
 
             } catch {
-                print("failed to adjust exposure: \(error.localizedDescription)")
+                print("failed to reset exposure: \(error.localizedDescription)")
             }
         }
-    }
-
-    func resetExposure() {
-        adjustExposure(by: -100)
     }
 
     func capturePhoto() {

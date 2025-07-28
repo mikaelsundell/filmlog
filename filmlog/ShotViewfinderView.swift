@@ -322,10 +322,9 @@ struct ShotViewfinderView: View {
     var onCapture: (UIImage) -> Void
     @Environment(\.dismiss) private var dismiss
     @StateObject private var cameraModel = CameraModel()
-    @State private var showLenses = false
-    @State private var showAspectRatios = false
-    @State private var showLevel = false
-    @State private var showSymmetry = false
+    @AppStorage("showSymmetry") private var showSymmetry: Bool = false
+    @AppStorage("showLevel") private var showLevel: Bool = false
+    @AppStorage("selectedLens") private var selectedLensRawValue: String = CameraLensType.wide.rawValue
     
     @ObservedObject private var orientationObserver = OrientationObserver()
     
@@ -443,17 +442,17 @@ struct ShotViewfinderView: View {
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
             }
-            Button(action: { showLenses.toggle() }) {
-                Text("\(shot.lensFocalLength)")
-                    .font(.system(size: 12))
-                    .foregroundColor(.white)
-                    .frame(width: 50)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 4)
-                    .background(Color.black.opacity(0.4))
-                    .cornerRadius(4)
-                    .rotationEffect(orientationObserver.orientation.angle)
-            }
+
+            Text("\(shot.lensFocalLength)")
+                .font(.system(size: 12))
+                .foregroundColor(.white)
+                .frame(width: 50)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
+                .background(Color.black.opacity(0.4))
+                .cornerRadius(4)
+                .rotationEffect(orientationObserver.orientation.angle)
+ 
             Button(action: {
                 if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == shot.lensFocalLength }),
                    currentIndex < CameraOptions.focalLengths.count - 1 {
@@ -484,17 +483,17 @@ struct ShotViewfinderView: View {
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
             }
-            Button(action: { showAspectRatios.toggle() }) {
-                Text("\(shot.aspectRatio)")
-                    .font(.system(size: 12))
-                    .foregroundColor(.white)
-                    .frame(width: 50)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 4)
-                    .background(Color.black.opacity(0.4))
-                    .cornerRadius(4)
-                    .rotationEffect(orientationObserver.orientation.angle)
-            }
+
+            Text("\(shot.aspectRatio)")
+                .font(.system(size: 12))
+                .foregroundColor(.white)
+                .frame(width: 50)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
+                .background(Color.black.opacity(0.4))
+                .cornerRadius(4)
+                .rotationEffect(orientationObserver.orientation.angle)
+   
             Button(action: {
                 if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == shot.aspectRatio }),
                    currentIndex < CameraOptions.aspectRatios.count - 1 {
@@ -526,10 +525,9 @@ struct ShotViewfinderView: View {
             Button(action: {
                 showSymmetry.toggle()
             }) {
-                Text("S")
-                    .font(.system(size: 12, weight: .bold))
+                Image(systemName: "square.grid.3x3")
                     .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 36, height: 36)
                     .background(showSymmetry ? Color.blue.opacity(0.7) : Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
@@ -538,10 +536,9 @@ struct ShotViewfinderView: View {
             Button(action: {
                 showLevel.toggle()
             }) {
-                Text("L")
-                    .font(.system(size: 12, weight: .bold))
+                Image(systemName: "gyroscope")
                     .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 36, height: 36)
                     .background(showLevel ? Color.blue.opacity(0.7) : Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
@@ -556,20 +553,29 @@ struct ShotViewfinderView: View {
     private func exposureControls() -> some View {
         HStack(spacing: 8) {
             Spacer()
-            Button(action: { increaseExposure() }) {
-                Text("+")
-                    .font(.system(size: 12, weight: .bold))
+            
+            Button(action: { resetExposure() }) {
+                Image(systemName: "arrow.counterclockwise")
                     .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 36, height: 36)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
             }
-            Button(action: { decreaseExposure() }) {
-                Text("-")
-                    .font(.system(size: 12, weight: .bold))
+            
+            Button(action: { increaseExposure() }) {
+                Image(systemName: "plus.circle")
                     .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 36, height: 36)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
+                    .rotationEffect(orientationObserver.orientation.angle)
+            }
+            
+            Button(action: { decreaseExposure() }) {
+                Image(systemName: "minus.circle")
+                    .foregroundColor(.white)
+                    .frame(width: 36, height: 36)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
@@ -672,17 +678,25 @@ struct ShotViewfinderView: View {
         let lenses: [CameraLensType] = [.ultraWide, .wide]
         if let currentIndex = lenses.firstIndex(of: cameraModel.currentLens) {
             let nextIndex = (currentIndex + 1) % lenses.count
-            cameraModel.switchCamera(to: lenses[nextIndex])
+            let newLens = lenses[nextIndex]
+            cameraModel.switchCamera(to: newLens)
+            selectedLensRawValue = newLens.rawValue
         }
     }
-
-    func increaseExposure() {
-        cameraModel.adjustExposure(by: 0.25) // +0.25 EV
-    }
     
-    func decreaseExposure()
-    {
-        cameraModel.adjustExposure(by: -0.25) // -0.25 EV
+    func increaseExposure() {
+        cameraModel.currentExposureBias += 0.25 // +0.25 ev
+        cameraModel.adjustExposure(to: cameraModel.currentExposureBias)
+    }
+
+    func decreaseExposure() {
+        cameraModel.currentExposureBias -= 0.25 // -0.25 ev
+        cameraModel.adjustExposure(to: cameraModel.currentExposureBias)
+    }
+
+    func resetExposure() {
+        cameraModel.currentExposureBias = 0.0
+        cameraModel.adjustExposure(to: 0.0)
     }
 
 }
