@@ -248,6 +248,13 @@ struct RollDetailView: View {
                 }
                 .help(roll.isLocked ? "Unlock to edit roll info" : "Lock to prevent editing")
                 
+                Button(action: {
+                        generatePDF()
+                    }) {
+                        Image(systemName: "doc.richtext")
+                    }
+                .help("Export roll as PDF")
+                
                 Button(role: .destructive) {
                     showDeleteAlert = true
                 } label: {
@@ -289,6 +296,83 @@ struct RollDetailView: View {
     private func cleanupImage(_ image: ImageData?) {
         if let img = image, img.decrementReference() {
             modelContext.delete(img)
+        }
+    }
+    
+    private func generatePDF() {
+        let pageWidth: CGFloat = 595.2
+        let pageHeight: CGFloat = 841.8
+        let margin: CGFloat = 40
+        let contentWidth = pageWidth - (margin * 2)
+        
+        let pdfMetaData = [
+            kCGPDFContextCreator: "FilmLog App",
+            kCGPDFContextAuthor: "FilmLog"
+        ]
+        let format = UIGraphicsPDFRendererFormat()
+        format.documentInfo = pdfMetaData as [String: Any]
+        
+        let renderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: pageWidth, height: pageHeight), format: format)
+        
+        let data = renderer.pdfData { context in
+            context.beginPage()
+            
+            var yOffset: CGFloat = margin
+            if let icon = UIImage(named: "AppIcon") {
+                icon.draw(in: CGRect(x: margin, y: yOffset, width: 40, height: 40))
+            }
+            
+            let title = "Roll - \(roll.name.isEmpty ? "Untitled" : roll.name)"
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateStyle = .medium
+            let dateText = dateFormatter.string(from: roll.timestamp)
+            
+            let titleAttrs: [NSAttributedString.Key: Any] = [.font: UIFont.boldSystemFont(ofSize: 18)]
+            title.draw(at: CGPoint(x: margin + 50, y: yOffset), withAttributes: titleAttrs)
+            
+            let dateAttrs: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 12), .foregroundColor: UIColor.gray]
+            dateText.draw(at: CGPoint(x: margin + 50, y: yOffset + 22), withAttributes: dateAttrs)
+            
+            yOffset += 60
+            
+            for shot in roll.orderedShots {
+                if yOffset + 120 > pageHeight - margin {
+                    context.beginPage()
+                    yOffset = margin
+                }
+                
+                if let imageData = shot.photoImage?.data, let uiImage = UIImage(data: imageData) {
+                    uiImage.draw(in: CGRect(x: margin, y: yOffset, width: 100, height: 80))
+                }
+                
+                let metadataX = margin + 110
+                let textY = yOffset
+                
+                let metadata = """
+                Name: \(shot.name)
+                Lens: \(shot.lensFocalLength) \(shot.lensName)
+                Aperture: \(shot.fstop), Shutter: \(shot.shutter)
+                Focus: \(Int(shot.focusDistance))mm, DOF: \(Int(shot.focusDepthOfField))mm
+                """
+                
+                metadata.draw(in: CGRect(x: metadataX, y: textY, width: contentWidth - 120, height: 80),
+                              withAttributes: [.font: UIFont.systemFont(ofSize: 12)])
+                
+                yOffset += 100
+            }
+        }
+        
+        let tmpURL = FileManager.default.temporaryDirectory.appendingPathComponent("Roll-\(roll.name).pdf")
+        do {
+            try data.write(to: tmpURL)
+            let activityVC = UIActivityViewController(activityItems: [tmpURL], applicationActivities: nil)
+            if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootVC = scene.windows.first?.rootViewController {
+                rootVC.present(activityVC, animated: true)
+            }
+            
+        } catch {
+            print("failed to save PDF: \(error)")
         }
     }
 }

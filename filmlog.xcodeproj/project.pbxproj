@@ -189,10 +189,10 @@
 				1F64D2E52E1B1384009EA1A8 /* RollDetailView.swift */,
 				1F64D2EB2E1B17D7009EA1A8 /* PhotoSectionView.swift */,
 				1FD3D14E2E2102F100A1C9EF /* SettingsView.swift */,
-				1F70B3732E30124B0021DB93 /* ShotViewfinderView.swift */,
 				1F70B3712E30124B0021DB93 /* ShotDetailView.swift */,
 				1F70B3702E30124B0021DB93 /* ShotImageView.swift */,
 				1F70B3722E30124B0021DB93 /* ShotSectionView.swift */,
+				1F70B3732E30124B0021DB93 /* ShotViewfinderView.swift */,
 			);
 			path = filmlog;
 			sourceTree = "<group>";

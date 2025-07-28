@@ -61,45 +61,25 @@ class OrientationObserver: ObservableObject {
             }
         }
     }
-    
-    var rotationAngle: Angle {
-        switch orientation {
-        case .landscapeLeft: return .degrees(90)
-        case .landscapeRight: return .degrees(-90)
-        case .portraitUpsideDown: return .degrees(180)
-        default: return .degrees(0)
-        }
-    }
 }
 
 struct ShotHelper {
-    static func calculateFrame(containerSize: CGSize,
-                               focalLength: CGFloat,
-                               filmSize: CameraOptions.FilmSize,
-                               horizontalFov: CGFloat) -> CGSize {
+    static func frameSize(containerSize: CGSize,
+                          focalLength: CGFloat,
+                          filmSize: CameraOptions.FilmSize,
+                          horizontalFov: CGFloat) -> CGSize {
         let filmAspect = CGFloat(filmSize.aspectRatio)
         let filmHFov = 2 * atan(CGFloat(filmSize.width) / (2 * focalLength))
-        let frameHorizontal = containerSize.height * (tan(filmHFov / 2) / tan((horizontalFov * .pi / 180) / 2))
+        let frameHorizontal = containerSize.width * (tan(filmHFov / 2) / tan((horizontalFov * .pi / 180) / 2))
         let frameVertical = frameHorizontal / filmAspect
-        
-        return CGSize(width: frameVertical, height: frameHorizontal)
+        return CGSize(width: frameHorizontal, height: frameVertical)
     }
     
-    static func calculateAspectFrame(containerSize: CGSize,
-                                     frameSize: CGSize,
-                                     aspectRatio: CGFloat,
-                                     orientation: UIDeviceOrientation) -> CGSize? {
-        
-        guard aspectRatio > 0 else { return nil }
-        if orientation.isLandscape {
-            let height = frameSize.height
-            let width = height / aspectRatio
-            return CGSize(width: width, height: height)
-        } else {
-            let width = frameSize.width
-            let height = width / aspectRatio
-            return CGSize(width: width, height: height)
-        }
+    static func ratioSize(frameSize: CGSize,
+                          frameRatio: CGFloat) -> CGSize {
+        let width = frameSize.width
+        let height = width / frameRatio
+        return CGSize(width: width, height: height)
     }
 }
 
@@ -109,23 +89,25 @@ struct ShotOverlay: View {
     let filmSize: CameraOptions.FilmSize
     let horizontalFov: CGFloat
     let orientation: UIDeviceOrientation
+    let showSymmetry: Bool
     
     var body: some View {
         GeometryReader { geo in
-            let frameSize = ShotHelper.calculateFrame(
-                containerSize: geo.size,
+            let frameSize = ShotHelper.frameSize(
+                containerSize: geo.size.switchOrientation(), // to native
                 focalLength: focalLength,
                 filmSize: filmSize,
                 horizontalFov: horizontalFov
             )
             
-            let aspectSize = ShotHelper.calculateAspectFrame(
-                containerSize: geo.size,
+            let ratioSize = ShotHelper.ratioSize(
                 frameSize: frameSize,
-                aspectRatio: aspectRatio,
-                orientation: orientation
+                frameRatio: aspectRatio > 0.0 ? aspectRatio : filmSize.aspectRatio
             )
-
+            
+            let targetSize = frameSize.switchOrientation() // to potrait
+            let targetRatio = ratioSize.switchOrientation() // to potrait
+            
             ZStack {
                 Color.black.opacity(0.6)
                 .mask {
@@ -133,22 +115,87 @@ struct ShotOverlay: View {
                         .fill(Color.white)
                         .overlay(
                             Rectangle()
-                                .frame(width: frameSize.width, height: frameSize.height)
+                                .frame(width: targetSize.width, height: targetSize.height)
                                 .blendMode(.destinationOut)
                         )
                         .compositingGroup()
                 }
-                .animation(.easeInOut(duration: 0.3), value: frameSize)
-
-                if let aspectSize {
-                    Rectangle()
-                        .stroke(Color.blue, lineWidth: 2)
-                        .frame(width: aspectSize.width, height: aspectSize.height)
-                }
+                .animation(.easeInOut(duration: 0.3), value: targetSize)
                 
+                if showSymmetry {
+                    Canvas { context, size in
+                        context.translateBy(x: size.width / 2, y: size.height / 2)
+                        context.rotate(by: .degrees(-90))
+                        context.translateBy(x: -ratioSize.width / 2, y: -ratioSize.height / 2)
+
+                        let w = ratioSize.width
+                        let h = ratioSize.height
+                        let d = CGSize(width: w - 1, height: h - 1)
+                        let angle = .pi / 2 - atan(d.width / d.height)
+                        let length = d.height * tan(angle)
+                        let hypo = d.height * cos(angle)
+                        let cross = CGSize(width: hypo * sin(angle), height: hypo * cos(angle))
+
+                        var lines = Path()
+                        lines.move(to: .zero) // diagonals
+                        lines.addLine(to: CGPoint(x: w, y: h))
+
+                        lines.move(to: CGPoint(x: 0, y: h))
+                        lines.addLine(to: CGPoint(x: w, y: 0))
+                        
+                        lines.move(to: .zero) // reciprocals
+                        lines.addLine(to: CGPoint(x: length, y: h))
+                        
+                        lines.move(to: CGPoint(x: 0, y: h))
+                        lines.addLine(to: CGPoint(x: length, y: 0))
+                        
+                        lines.move(to: CGPoint(x: w, y: 0))
+                        lines.addLine(to: CGPoint(x: w - length, y: h))
+                        
+                        lines.move(to: CGPoint(x: w, y: h))
+                        lines.addLine(to: CGPoint(x: w - length, y: 0))
+                        
+                        lines.move(to: CGPoint(x: cross.width, y: 0)) // cross
+                        lines.addLine(to: CGPoint(x: cross.width, y: h))
+                        
+                        lines.move(to: CGPoint(x: w - cross.width, y: 0))
+                        lines.addLine(to: CGPoint(x: w - cross.width, y: h))
+                        
+                        lines.move(to: CGPoint(x: 0, y: cross.height))
+                        lines.addLine(to: CGPoint(x: w, y: cross.height))
+                        
+                        lines.move(to: CGPoint(x: 0, y: h - cross.height))
+                        lines.addLine(to: CGPoint(x: w, y: h - cross.height))
+                        
+                        context.stroke(lines, with: .color(.white.opacity(0.25)), lineWidth: 2)
+                        
+                        var extended = Path()
+                        
+                        extended.move(to: CGPoint(x: length, y: 0)) // inner cross
+                        extended.addLine(to: CGPoint(x: length, y: ratioSize.height))
+                        
+                        extended.move(to: CGPoint(x: ratioSize.width - length, y: 0))
+                        extended.addLine(to: CGPoint(x: ratioSize.width - length, y: ratioSize.height))
+                        
+                        let dashStyle = StrokeStyle(
+                            lineWidth: 1,
+                            lineCap: .butt,
+                            dash: [5, 3]
+                        )
+                        
+                        context.stroke(extended, with: .color(.white.opacity(0.25)), style: dashStyle)
+
+                    }
+                    .frame(width: targetRatio.width, height: targetRatio.height)
+                }
+
+                Rectangle()
+                    .stroke(Color.blue, lineWidth: 2)
+                    .frame(width: targetRatio.width, height: targetRatio.height)
+    
                 Rectangle()
                     .stroke(Color.white, lineWidth: 2)
-                    .frame(width: frameSize.width, height: frameSize.height)
+                    .frame(width: targetSize.width, height: targetSize.height)
                 
                 VStack(spacing: 4) {
                     Text("\(Int(filmSize.width)) mm x \(Int(filmSize.height)) mm " +
@@ -159,21 +206,12 @@ struct ShotOverlay: View {
                         .background(Color.black.opacity(0.6))
                         .foregroundColor(.white)
                         .cornerRadius(4)
-                        .rotationEffect(rotationAngle(for: orientation))
+                        .rotationEffect(orientation.angle)
                 }
                 .offset(offset(for: orientation, geo: geo))
             }
             .frame(width: geo.size.width, height: geo.size.height)
             .position(x: geo.size.width / 2, y: geo.size.height / 2)
-        }
-    }
-    
-    private func rotationAngle(for orientation: UIDeviceOrientation) -> Angle {
-        switch orientation {
-        case .landscapeLeft: return .degrees(90)
-        case .landscapeRight: return .degrees(-90)
-        case .portraitUpsideDown: return .degrees(180)
-        default: return .degrees(0)
         }
     }
 
@@ -236,7 +274,7 @@ struct LevelIndicator: View {
                     .position(x: geo.size.width / 2, y: geo.size.height / 2)
                     .rotationEffect(.degrees(snappedRoll))
             }
-            .rotationEffect(rotationAngle(for: orientation))
+            .rotationEffect(orientation.angle)
             .animation(.easeInOut(duration: 0.15), value: snappedRoll)
             .animation(.easeInOut(duration: 0.15), value: snappedPitch)
             .onChange(of: levelAngle) { _, newValue in
@@ -258,7 +296,7 @@ struct LevelIndicator: View {
                         .background(Color.black.opacity(0.6))
                         .foregroundColor(.white)
                         .cornerRadius(4)
-                        .rotationEffect(rotationAngle(for: orientation))
+                        .rotationEffect(orientation.angle)
                 }
                 .offset(offset(for: orientation, geo: geo))
             }
@@ -266,15 +304,6 @@ struct LevelIndicator: View {
             .position(x: geo.size.width / 2, y: geo.size.height / 2)
         }
         .ignoresSafeArea()
-    }
-    
-    private func rotationAngle(for orientation: UIDeviceOrientation) -> Angle {
-        switch orientation {
-        case .landscapeLeft: return .degrees(90)
-        case .landscapeRight: return .degrees(-90)
-        case .portraitUpsideDown: return .degrees(180)
-        default: return .degrees(0)
-        }
     }
 
     private func offset(for orientation: UIDeviceOrientation, geo: GeometryProxy) -> CGSize {
@@ -295,8 +324,8 @@ struct ShotViewfinderView: View {
     @StateObject private var cameraModel = CameraModel()
     @State private var showLenses = false
     @State private var showAspectRatios = false
-    @State private var isLevelOn = false
-    @State private var isSymmetryOn = false
+    @State private var showLevel = false
+    @State private var showSymmetry = false
     
     @ObservedObject private var orientationObserver = OrientationObserver()
     
@@ -317,11 +346,12 @@ struct ShotViewfinderView: View {
                         focalLength: CameraOptions.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value ?? 0,
                         filmSize: CameraOptions.filmSizes.first(where: { $0.label == shot.filmSize })?.value ?? CameraOptions.FilmSize.defaultFilmSize,
                         horizontalFov: cameraModel.horizontalFov,
-                        orientation: orientationObserver.orientation
+                        orientation: orientationObserver.orientation,
+                        showSymmetry: showSymmetry
                     )
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     
-                    if isLevelOn {
+                    if showLevel {
                         LevelIndicator(
                             levelAngle: orientationObserver.levelAngle,
                             pitchAngle: orientationObserver.pitchAngle,
@@ -422,7 +452,7 @@ struct ShotViewfinderView: View {
                     .padding(.vertical, 4)
                     .background(Color.black.opacity(0.4))
                     .cornerRadius(4)
-                    .rotationEffect(orientationObserver.rotationAngle)
+                    .rotationEffect(orientationObserver.orientation.angle)
             }
             Button(action: {
                 if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == shot.lensFocalLength }),
@@ -463,7 +493,7 @@ struct ShotViewfinderView: View {
                     .padding(.vertical, 4)
                     .background(Color.black.opacity(0.4))
                     .cornerRadius(4)
-                    .rotationEffect(orientationObserver.rotationAngle)
+                    .rotationEffect(orientationObserver.orientation.angle)
             }
             Button(action: {
                 if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == shot.aspectRatio }),
@@ -490,31 +520,31 @@ struct ShotViewfinderView: View {
                     .frame(width: 32, height: 32)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.rotationAngle)
+                    .rotationEffect(orientationObserver.orientation.angle)
             }
 
             Button(action: {
-                isSymmetryOn.toggle()
+                showSymmetry.toggle()
             }) {
                 Text("S")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
-                    .background(isSymmetryOn ? Color.blue.opacity(0.7) : Color.black.opacity(0.4))
+                    .background(showSymmetry ? Color.blue.opacity(0.7) : Color.black.opacity(0.4))
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.rotationAngle)
+                    .rotationEffect(orientationObserver.orientation.angle)
             }
 
             Button(action: {
-                isLevelOn.toggle()
+                showLevel.toggle()
             }) {
                 Text("L")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
-                    .background(isLevelOn ? Color.blue.opacity(0.7) : Color.black.opacity(0.4))
+                    .background(showLevel ? Color.blue.opacity(0.7) : Color.black.opacity(0.4))
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.rotationAngle)
+                    .rotationEffect(orientationObserver.orientation.angle)
             }
 
             Spacer()
@@ -533,7 +563,7 @@ struct ShotViewfinderView: View {
                     .frame(width: 32, height: 32)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.rotationAngle)
+                    .rotationEffect(orientationObserver.orientation.angle)
             }
             Button(action: { decreaseExposure() }) {
                 Text("-")
@@ -542,7 +572,7 @@ struct ShotViewfinderView: View {
                     .frame(width: 32, height: 32)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.rotationAngle)
+                    .rotationEffect(orientationObserver.orientation.angle)
             }
         }
         .frame(width: 120)
@@ -552,13 +582,14 @@ struct ShotViewfinderView: View {
         let containerSize = UIScreen.main.bounds.size
         let filmSize = CameraOptions.filmSizes.first(where: { $0.label == shot.filmSize })?.value ?? CameraOptions.FilmSize.defaultFilmSize
         let focalLength = CameraOptions.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value ?? 0
-        let frameSize = ShotHelper.calculateFrame(
-            containerSize: containerSize,
+        let frameSize = ShotHelper.frameSize(
+            containerSize: containerSize.switchOrientation(), // to native
             focalLength: focalLength,
             filmSize: filmSize,
             horizontalFov: cameraModel.horizontalFov
         )
-        let croppedImage = cropImage(image, targetSize: frameSize, containerSize: containerSize, orientation: orientationObserver.orientation)
+        let targetSize = frameSize.switchOrientation() // to potrait
+        let croppedImage = cropImage(image, targetSize: targetSize, containerSize: containerSize, orientation: orientationObserver.orientation)
         onCapture(croppedImage)
         dismiss()
     }
@@ -573,10 +604,10 @@ struct ShotViewfinderView: View {
         let width = CGFloat(cgImage.width)
         let height = CGFloat(cgImage.height)
         
-        let landscapeContainerSize = containerSize.landscape()
-        let containerRatio = landscapeContainerSize.width / landscapeContainerSize.height
+        let size = containerSize.switchOrientation() // to native
+        let ratio = size.width / size.height
         
-        let newHeight = width / containerRatio
+        let newHeight = width / ratio
         let offsetY = max((height - newHeight) / 2, 0)
         let landscapeRect = CGRect(x: 0, y: offsetY, width: width, height: newHeight)
         
@@ -585,12 +616,12 @@ struct ShotViewfinderView: View {
         let cropWidth = CGFloat(nativeImage.width)
         let cropHeight = CGFloat(nativeImage.height)
         
-        let scaleX = cropWidth / landscapeContainerSize.width
-        let scaleY = cropHeight / landscapeContainerSize.height
+        let scaleX = cropWidth / size.width
+        let scaleY = cropHeight / size.height
         
-        let landscapeTargetSize = targetSize.landscape()
-        let targetCropWidth = landscapeTargetSize.width * scaleX
-        let targetCropHeight = landscapeTargetSize.height * scaleY
+        let targetSize = targetSize.switchOrientation() // to potrait
+        let targetCropWidth = targetSize.width * scaleX
+        let targetCropHeight = targetSize.height * scaleY
         
         let cropX = max((cropWidth - targetCropWidth) / 2, 0)
         let cropY = max((cropHeight - targetCropHeight) / 2, 0)
@@ -657,7 +688,7 @@ struct ShotViewfinderView: View {
 }
 
 extension CGSize {
-    func landscape() -> CGSize {
+    func switchOrientation() -> CGSize {
         return CGSize(width: self.height, height: self.width)
     }
 }
@@ -665,5 +696,16 @@ extension CGSize {
 extension Comparable {
     func clamped(to range: ClosedRange<Self>) -> Self {
         return min(max(self, range.lowerBound), range.upperBound)
+    }
+}
+
+extension UIDeviceOrientation {
+    var angle: Angle {
+        switch self {
+        case .landscapeLeft: return .degrees(90)
+        case .landscapeRight: return .degrees(-90)
+        case .portraitUpsideDown: return .degrees(180)
+        default: return .degrees(0)
+        }
     }
 }
