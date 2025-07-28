@@ -89,6 +89,7 @@ struct ShotOverlay: View {
     let filmSize: CameraOptions.FilmSize
     let horizontalFov: CGFloat
     let orientation: UIDeviceOrientation
+    let showCenter: Bool
     let showSymmetry: Bool
     
     var body: some View {
@@ -122,14 +123,39 @@ struct ShotOverlay: View {
                 }
                 .animation(.easeInOut(duration: 0.3), value: targetSize)
                 
+                let w = ratioSize.width
+                let h = ratioSize.height
+                
+                if showCenter {
+                    Canvas { context, size in
+                        context.translateBy(x: size.width / 2, y: size.height / 2)
+                        context.rotate(by: .degrees(-90))
+                        context.translateBy(x: -ratioSize.width / 2, y: -ratioSize.height / 2)
+
+                        let center = CGPoint(x: w / 2, y: h / 2)
+                        let diagonal = sqrt(w * w + h * h)
+                        let size: CGFloat = diagonal * 0.05
+                        
+                        var lines = Path()
+                        
+                        lines.move(to: CGPoint(x: center.x - size / 2, y: center.y))
+                        lines.addLine(to: CGPoint(x: center.x + size / 2, y: center.y))
+
+                        lines.move(to: CGPoint(x: center.x, y: center.y - size / 2))
+                        lines.addLine(to: CGPoint(x: center.x, y: center.y + size / 2))
+
+                        context.stroke(lines, with: .color(.white.opacity(0.25)), lineWidth: 2)
+                    }
+                    .frame(width: targetRatio.width, height: targetRatio.height)
+                }
+                
                 if showSymmetry {
                     Canvas { context, size in
                         context.translateBy(x: size.width / 2, y: size.height / 2)
                         context.rotate(by: .degrees(-90))
                         context.translateBy(x: -ratioSize.width / 2, y: -ratioSize.height / 2)
 
-                        let w = ratioSize.width
-                        let h = ratioSize.height
+
                         let d = CGSize(width: w - 1, height: h - 1)
                         let angle = .pi / 2 - atan(d.width / d.height)
                         let length = d.height * tan(angle)
@@ -167,6 +193,16 @@ struct ShotOverlay: View {
                         lines.move(to: CGPoint(x: 0, y: h - cross.height))
                         lines.addLine(to: CGPoint(x: w, y: h - cross.height))
                         
+                        let center = CGPoint(x: w / 2, y: h / 2)
+                        let diagonal = sqrt(w * w + h * h)
+                        let size: CGFloat = diagonal * 0.05
+                        
+                        lines.move(to: CGPoint(x: center.x - size / 2, y: center.y))
+                        lines.addLine(to: CGPoint(x: center.x + size / 2, y: center.y))
+
+                        lines.move(to: CGPoint(x: center.x, y: center.y - size / 2))
+                        lines.addLine(to: CGPoint(x: center.x, y: center.y + size / 2))
+
                         context.stroke(lines, with: .color(.white.opacity(0.25)), lineWidth: 2)
                         
                         var extended = Path()
@@ -322,6 +358,7 @@ struct ShotViewfinderView: View {
     var onCapture: (UIImage) -> Void
     @Environment(\.dismiss) private var dismiss
     @StateObject private var cameraModel = CameraModel()
+    @AppStorage("showCenter") private var showCenter: Bool = false
     @AppStorage("showSymmetry") private var showSymmetry: Bool = false
     @AppStorage("showLevel") private var showLevel: Bool = false
     @AppStorage("selectedLens") private var selectedLensRawValue: String = CameraLensType.wide.rawValue
@@ -346,6 +383,7 @@ struct ShotViewfinderView: View {
                         filmSize: CameraOptions.filmSizes.first(where: { $0.label == shot.filmSize })?.value ?? CameraOptions.FilmSize.defaultFilmSize,
                         horizontalFov: cameraModel.horizontalFov,
                         orientation: orientationObserver.orientation,
+                        showCenter: showCenter,
                         showSymmetry: showSymmetry
                     )
                     .frame(width: geometry.size.width, height: geometry.size.height)
@@ -516,18 +554,30 @@ struct ShotViewfinderView: View {
                 Text(lensLabel(for: cameraModel.currentLens))
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 28, height: 28)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
             }
+            
+            Button(action: {
+                showCenter.toggle()
+            }) {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundColor(.white)
+                    .frame(width: 28, height: 28)
+                    .background(showCenter ? Color.blue.opacity(0.7) : Color.black.opacity(0.4))
+                    .clipShape(Circle())
+                    .rotationEffect(orientationObserver.orientation.angle)
+            }
+
 
             Button(action: {
                 showSymmetry.toggle()
             }) {
                 Image(systemName: "square.grid.3x3")
                     .foregroundColor(.white)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 28, height: 28)
                     .background(showSymmetry ? Color.blue.opacity(0.7) : Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
@@ -538,7 +588,7 @@ struct ShotViewfinderView: View {
             }) {
                 Image(systemName: "gyroscope")
                     .foregroundColor(.white)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 28, height: 28)
                     .background(showLevel ? Color.blue.opacity(0.7) : Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
@@ -557,7 +607,7 @@ struct ShotViewfinderView: View {
             Button(action: { resetExposure() }) {
                 Image(systemName: "arrow.counterclockwise")
                     .foregroundColor(.white)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 28, height: 28)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
@@ -566,7 +616,7 @@ struct ShotViewfinderView: View {
             Button(action: { increaseExposure() }) {
                 Image(systemName: "plus.circle")
                     .foregroundColor(.white)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 28, height: 28)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
@@ -575,7 +625,7 @@ struct ShotViewfinderView: View {
             Button(action: { decreaseExposure() }) {
                 Image(systemName: "minus.circle")
                     .foregroundColor(.white)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 28, height: 28)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
