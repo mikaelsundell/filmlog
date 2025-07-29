@@ -55,9 +55,11 @@ class OrientationObserver: ObservableObject {
                 default:
                     angle = atan2(g.x, g.y) * 180 / .pi
                 }
+                DispatchQueue.main.async {
+                    self.levelAngle = angle
+                    self.pitchAngle = atan2(-g.z, sqrt(g.x * g.x + g.y * g.y)) * 180 / .pi
+                }
                 
-                self.levelAngle = angle
-                self.pitchAngle = atan2(-g.z, sqrt(g.x * g.x + g.y * g.y)) * 180 / .pi
             }
         }
     }
@@ -68,13 +70,19 @@ struct ShotHelper {
                           focalLength: CGFloat,
                           filmSize: CameraOptions.FilmSize,
                           horizontalFov: CGFloat) -> CGSize {
-        let filmAspect = CGFloat(filmSize.aspectRatio)
+        guard focalLength > 0, horizontalFov > 0 else {
+            return .zero
+        }
         let filmHFov = 2 * atan(CGFloat(filmSize.width) / (2 * focalLength))
         let frameHorizontal = containerSize.width * (tan(filmHFov / 2) / tan((horizontalFov * .pi / 180) / 2))
-        let frameVertical = frameHorizontal / filmAspect
-        return CGSize(width: frameHorizontal, height: frameVertical)
+        let frameVertical = frameHorizontal / CGFloat(filmSize.aspectRatio)
+        if frameHorizontal.isFinite && frameVertical.isFinite && frameHorizontal > 0 && frameVertical > 0 {
+            return CGSize(width: frameHorizontal, height: frameVertical)
+        } else {
+            return .zero
+        }
     }
-    
+
     static func ratioSize(frameSize: CGSize,
                           frameRatio: CGFloat) -> CGSize {
         let width = frameSize.width
@@ -144,7 +152,7 @@ struct ShotOverlay: View {
                         lines.move(to: CGPoint(x: center.x, y: center.y - size / 2))
                         lines.addLine(to: CGPoint(x: center.x, y: center.y + size / 2))
 
-                        context.stroke(lines, with: .color(.white.opacity(0.25)), lineWidth: 2)
+                        context.stroke(lines, with: .color(.white), lineWidth: 2)
                     }
                     .frame(width: targetRatio.width, height: targetRatio.height)
                 }
@@ -192,16 +200,6 @@ struct ShotOverlay: View {
                         
                         lines.move(to: CGPoint(x: 0, y: h - cross.height))
                         lines.addLine(to: CGPoint(x: w, y: h - cross.height))
-                        
-                        let center = CGPoint(x: w / 2, y: h / 2)
-                        let diagonal = sqrt(w * w + h * h)
-                        let size: CGFloat = diagonal * 0.05
-                        
-                        lines.move(to: CGPoint(x: center.x - size / 2, y: center.y))
-                        lines.addLine(to: CGPoint(x: center.x + size / 2, y: center.y))
-
-                        lines.move(to: CGPoint(x: center.x, y: center.y - size / 2))
-                        lines.addLine(to: CGPoint(x: center.x, y: center.y + size / 2))
 
                         context.stroke(lines, with: .color(.white.opacity(0.25)), lineWidth: 2)
                         
@@ -225,13 +223,28 @@ struct ShotOverlay: View {
                     .frame(width: targetRatio.width, height: targetRatio.height)
                 }
 
-                Rectangle()
-                    .stroke(Color.blue, lineWidth: 2)
-                    .frame(width: targetRatio.width, height: targetRatio.height)
-    
-                Rectangle()
-                    .stroke(Color.white, lineWidth: 2)
-                    .frame(width: targetSize.width, height: targetSize.height)
+                ZStack {
+                    Color.black.opacity(0.6)
+                        .mask {
+                            Rectangle()
+                                .fill(Color.white)
+                                .overlay(
+                                    Rectangle()
+                                        .frame(width: targetRatio.width, height: targetRatio.height)
+                                        .blendMode(.destinationOut)
+                                )
+                                .compositingGroup()
+                        }
+                        .frame(width: targetSize.width, height: targetSize.height)
+
+                    Rectangle()
+                        .stroke(Color.white, lineWidth: 2)
+                        .frame(width: targetRatio.width, height: targetRatio.height)
+
+                    Rectangle()
+                        .stroke(Color.white.opacity(0.4), lineWidth: 1)
+                        .frame(width: targetSize.width, height: targetSize.height)
+                }
                 
                 VStack(spacing: 4) {
                     Text("\(Int(filmSize.width)) mm x \(Int(filmSize.height)) mm " +
@@ -367,6 +380,8 @@ struct ShotViewfinderView: View {
     
     var body: some View {
         ZStack(alignment: .bottom) {
+            Color.clear
+            
             CameraPreview(session: cameraModel.session)
                .animation(.easeInOut(duration: 0.3), value: orientationObserver.orientation)
                .ignoresSafeArea()
@@ -399,6 +414,18 @@ struct ShotViewfinderView: View {
                 .ignoresSafeArea()
             }
             .ignoresSafeArea()
+            
+            Color.clear
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onEnded { gesture in
+                            let tapPoint = gesture.location
+                            cameraModel.focus(at: tapPoint, viewSize: UIScreen.main.bounds.size)
+                        }
+                )
+                .allowsHitTesting(true)
+                .ignoresSafeArea()
             
             ZStack {
                 Color.clear
@@ -462,6 +489,10 @@ struct ShotViewfinderView: View {
                     print("camera error: \(error.localizedDescription)")
                 }
             }
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
+        .onDisappear {
+            UIApplication.shared.isIdleTimerDisabled = false
         }
     }
     
@@ -469,9 +500,9 @@ struct ShotViewfinderView: View {
     private func focalLengthControls() -> some View {
         HStack(spacing: 4) {
             Button(action: {
-                if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == shot.lensFocalLength }),
-                   currentIndex > 0 {
-                    shot.lensFocalLength = CameraOptions.focalLengths[currentIndex - 1].label
+                if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == shot.lensFocalLength }) {
+                    let newIndex = (currentIndex - 1 + CameraOptions.focalLengths.count) % CameraOptions.focalLengths.count
+                    shot.lensFocalLength = CameraOptions.focalLengths[newIndex].label
                 }
             }) {
                 Image(systemName: "chevron.left")
@@ -490,11 +521,11 @@ struct ShotViewfinderView: View {
                 .background(Color.black.opacity(0.4))
                 .cornerRadius(4)
                 .rotationEffect(orientationObserver.orientation.angle)
- 
+
             Button(action: {
-                if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == shot.lensFocalLength }),
-                   currentIndex < CameraOptions.focalLengths.count - 1 {
-                    shot.lensFocalLength = CameraOptions.focalLengths[currentIndex + 1].label
+                if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == shot.lensFocalLength }) {
+                    let newIndex = (currentIndex + 1) % CameraOptions.focalLengths.count
+                    shot.lensFocalLength = CameraOptions.focalLengths[newIndex].label
                 }
             }) {
                 Image(systemName: "chevron.right")
@@ -510,9 +541,9 @@ struct ShotViewfinderView: View {
     private func aspectRatioControls() -> some View {
         HStack(spacing: 0) {
             Button(action: {
-                if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == shot.aspectRatio }),
-                   currentIndex > 0 {
-                    shot.aspectRatio = CameraOptions.aspectRatios[currentIndex - 1].label
+                if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == shot.aspectRatio }) {
+                    let newIndex = (currentIndex - 1 + CameraOptions.aspectRatios.count) % CameraOptions.aspectRatios.count
+                    shot.aspectRatio = CameraOptions.aspectRatios[newIndex].label
                 }
             }) {
                 Image(systemName: "chevron.left")
@@ -531,11 +562,11 @@ struct ShotViewfinderView: View {
                 .background(Color.black.opacity(0.4))
                 .cornerRadius(4)
                 .rotationEffect(orientationObserver.orientation.angle)
-   
+
             Button(action: {
-                if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == shot.aspectRatio }),
-                   currentIndex < CameraOptions.aspectRatios.count - 1 {
-                    shot.aspectRatio = CameraOptions.aspectRatios[currentIndex + 1].label
+                if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == shot.aspectRatio }) {
+                    let newIndex = (currentIndex + 1) % CameraOptions.aspectRatios.count
+                    shot.aspectRatio = CameraOptions.aspectRatios[newIndex].label
                 }
             }) {
                 Image(systemName: "chevron.right")
@@ -596,7 +627,7 @@ struct ShotViewfinderView: View {
 
             Spacer()
         }
-        .frame(width: 120)
+        .frame(width: 140)
     }
     
     @ViewBuilder
@@ -631,7 +662,7 @@ struct ShotViewfinderView: View {
                     .rotationEffect(orientationObserver.orientation.angle)
             }
         }
-        .frame(width: 120)
+        .frame(width: 140)
     }
 
     private func captureImage(image: UIImage) {
@@ -719,7 +750,7 @@ struct ShotViewfinderView: View {
     
     private func lensLabel(for lens: CameraLensType) -> String {
         switch lens {
-        case .ultraWide: return "x0.5"
+        case .ultraWide: return "x.5"
         case .wide: return "x1"
         }
     }

@@ -122,6 +122,7 @@ struct CameraOptions {
     
     static let aspectRatios: [(label: String, value: Double)] = [
         ("-", 0.0),
+        ("1:0", 1.0),
         ("3:2", 3.0 / 2.0),
         ("16:9", 16.0 / 9.0),
         ("2.0", 2.0),
@@ -481,6 +482,7 @@ class Shot: Codable {
     var name: String
     var note: String
     var location: LocationOptions.Location?
+    var locationTimestamp: Date?
     var elevation: Double
     var colorTemperature: Double
     var fstop: String
@@ -512,6 +514,7 @@ class Shot: Codable {
          name: String = "",
          note: String = "",
          location: LocationOptions.Location? = nil,
+         locationTimestamp: Date? = nil,
          elevation: Double = 0.0,
          colorTemperature: Double = 0.0,
          fstop: String = "f/2.8",
@@ -540,6 +543,7 @@ class Shot: Codable {
         self.name = name
         self.note = note
         self.location = location
+        self.locationTimestamp = locationTimestamp
         self.elevation = elevation
         self.colorTemperature = colorTemperature
         self.fstop = fstop
@@ -572,6 +576,7 @@ class Shot: Codable {
         newFrame.name = self.name
         newFrame.note = self.note
         newFrame.location = self.location
+        newFrame.locationTimestamp = self.locationTimestamp
         newFrame.elevation = self.elevation
         newFrame.colorTemperature = self.colorTemperature
         newFrame.fstop = self.fstop
@@ -592,13 +597,22 @@ class Shot: Codable {
         newFrame.exposureShadows = self.exposureShadows
         newFrame.exposureSkinKey = self.exposureSkinKey
         newFrame.exposureSkinFill = self.exposureSkinFill
-        newFrame.photoImage = self.photoImage // shared reference
-        newFrame.lightMeterImage = self.lightMeterImage
+        
+        if let photo = self.photoImage {
+            photo.incrementReference()
+            newFrame.photoImage = photo
+        }
+
+        if let meter = self.lightMeterImage {
+            meter.incrementReference()
+            newFrame.lightMeterImage = meter
+        }
+        
         return newFrame
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, aspectRatio, filmSize, name, note, location, elevation, colorTemperature, fstop, shutter, exposureCompensation, lensName, lensFocalLength, focusDistance, focusDepthOfField, focusNearLimit, focusFarLimit, focusHyperfocalDistance, focusHyperfocalNearLimit, exposureSky, exposureFoliage, exposureHighlights, exposureMidGray, exposureShadows, exposureSkinKey, exposureSkinFill, photoImage, lightMeterImage, isLocked
+        case id, timestamp, aspectRatio, filmSize, name, note, location, locationTimestamp, elevation, colorTemperature, fstop, shutter, exposureCompensation, lensName, lensFocalLength, focusDistance, focusDepthOfField, focusNearLimit, focusFarLimit, focusHyperfocalDistance, focusHyperfocalNearLimit, exposureSky, exposureFoliage, exposureHighlights, exposureMidGray, exposureShadows, exposureSkinKey, exposureSkinFill, photoImage, lightMeterImage, isLocked
     }
 
     required init(from decoder: Decoder) throws {
@@ -610,6 +624,7 @@ class Shot: Codable {
         name = try container.decode(String.self, forKey: .name)
         note = try container.decode(String.self, forKey: .note)
         location = try container.decodeIfPresent(LocationOptions.Location.self, forKey: .location)
+        locationTimestamp = try container.decodeIfPresent(Date.self, forKey: .locationTimestamp)
         colorTemperature = try container.decode(Double.self, forKey: .colorTemperature)
         elevation = try container.decode(Double.self, forKey: .elevation)
         fstop = try container.decode(String.self, forKey: .fstop)
@@ -644,6 +659,7 @@ class Shot: Codable {
         try container.encode(name, forKey: .name)
         try container.encode(note, forKey: .note)
         try container.encode(location, forKey: .location)
+        try container.encode(locationTimestamp, forKey: .locationTimestamp)
         try container.encode(elevation, forKey: .elevation)
         try container.encode(colorTemperature, forKey: .colorTemperature)
         try container.encode(fstop, forKey: .fstop)

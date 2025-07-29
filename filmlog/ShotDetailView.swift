@@ -299,19 +299,23 @@ struct ShotDetailView: View {
                 .listRowBackground(Color.clear)
                 .confirmationDialog("Choose an option", isPresented: $showDialog) {
                     Button("Add one shot") {
-                        createNextShot(count: 1)
+                        addNextShot(count: 1)
                         dismiss()
                     }
-                    Button("Add 2 shots") {
-                        createNextShot(count: 2)
+                    Button("Copy to next shot") {
+                        copyNextShot(count: 1)
                         dismiss()
                     }
-                    Button("Add 5 shots") {
-                        createNextShot(count: 5)
+                    Button("Copy to 2 shots") {
+                        copyNextShot(count: 2)
                         dismiss()
                     }
-                    Button("Add 10 shots") {
-                        createNextShot(count: 10)
+                    Button("Copy to 5 shots") {
+                        copyNextShot(count: 5)
+                        dismiss()
+                    }
+                    Button("Copy to 10 shots") {
+                        copyNextShot(count: 10)
                         dismiss()
                     }
                     Button("Cancel", role: .cancel) {}
@@ -323,6 +327,7 @@ struct ShotDetailView: View {
         .onAppear {
             locationManager.currentLocation = nil
             if shot.location == nil {
+                shot.locationTimestamp = Date()
                 shot.elevation = 0
                 shot.colorTemperature = 0
             }
@@ -345,6 +350,37 @@ struct ShotDetailView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
+                
+                Button(action: {
+                    showDialog = true
+                }) {
+                    Label("Add shot", systemImage: "plus")
+                }
+                .listRowBackground(Color.clear)
+                .confirmationDialog("Choose an option", isPresented: $showDialog) {
+                    Button("Add one shot") {
+                        addNextShot(count: 1)
+                        dismiss()
+                    }
+                    Button("Copy to next shot") {
+                        copyNextShot(count: 1)
+                        dismiss()
+                    }
+                    Button("Copy to 2 shots") {
+                        copyNextShot(count: 2)
+                        dismiss()
+                    }
+                    Button("Copy to 5 shots") {
+                        copyNextShot(count: 5)
+                        dismiss()
+                    }
+                    Button("Copy to 10 shots") {
+                        copyNextShot(count: 10)
+                        dismiss()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                }
+                
                 Button(action: { shot.isLocked.toggle() }) {
                     Image(systemName: shot.isLocked ? "lock.fill" : "lock.open")
                 }
@@ -417,8 +453,17 @@ struct ShotDetailView: View {
                 .frame(width: 50, alignment: .trailing)
         }
     }
+    
+    private func addNextShot(count: Int) {
+        for _ in 0..<count {
+            let newShot = Shot()
+            newShot.roll = roll
+            modelContext.insert(newShot)
+            roll.shots.append(newShot)
+        }
+    }
 
-    private func createNextShot(count: Int) {
+    private func copyNextShot(count: Int) {
         for _ in 0..<count {
             let newShot = shot.copy()
             newShot.roll = roll

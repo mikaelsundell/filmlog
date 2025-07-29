@@ -4,6 +4,17 @@
 
 import SwiftUI
 import PhotosUI
+import QuickLook
+
+class PDFPreviewController: NSObject, QLPreviewControllerDataSource {
+    var fileURL: URL!
+    func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
+        return 1
+    }
+    func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
+        return fileURL as QLPreviewItem
+    }
+}
 
 struct RollDetailView: View {
     @Bindable var roll: Roll
@@ -107,14 +118,14 @@ struct RollDetailView: View {
                     .datePickerStyle(.compact)
                     .disabled(roll.isLocked)
                 
-                Picker("Film Size", selection: $roll.filmSize) {
+                Picker("Film size", selection: $roll.filmSize) {
                     ForEach(CameraOptions.filmSizes, id: \.label) { size in
                         Text(size.label).tag(size.label)
                     }
                 }
                 .disabled(roll.isLocked)
                 
-                Picker("Film Stock", selection: $roll.filmStock) {
+                Picker("Film stock", selection: $roll.filmStock) {
                     ForEach(CameraOptions.filmStocks, id: \.self) { stock in
                         Text(stock).tag(stock)
                     }
@@ -242,18 +253,18 @@ struct RollDetailView: View {
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 Button(action: {
+                    generatePDF()
+                }) {
+                    Image(systemName: "doc.richtext")
+                }
+                .help("Export roll as PDF")
+                
+                Button(action: {
                     roll.isLocked.toggle()
                 }) {
                     Image(systemName: roll.isLocked ? "lock.fill" : "lock.open")
                 }
                 .help(roll.isLocked ? "Unlock to edit roll info" : "Lock to prevent editing")
-                
-                Button(action: {
-                        generatePDF()
-                    }) {
-                        Image(systemName: "doc.richtext")
-                    }
-                .help("Export roll as PDF")
                 
                 Button(role: .destructive) {
                     showDeleteAlert = true
@@ -304,77 +315,149 @@ struct RollDetailView: View {
         let pageHeight: CGFloat = 841.8
         let margin: CGFloat = 40
         let contentWidth = pageWidth - (margin * 2)
-        
+        let imageMaxWidth: CGFloat = 120
+
         let pdfMetaData = [
             kCGPDFContextCreator: "FilmLog App",
             kCGPDFContextAuthor: "FilmLog"
         ]
         let format = UIGraphicsPDFRendererFormat()
         format.documentInfo = pdfMetaData as [String: Any]
-        
+
         let renderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: pageWidth, height: pageHeight), format: format)
-        
+
         let data = renderer.pdfData { context in
             context.beginPage()
-            
             var yOffset: CGFloat = margin
+
             if let icon = UIImage(named: "AppIcon") {
                 icon.draw(in: CGRect(x: margin, y: yOffset, width: 40, height: 40))
             }
-            
+
             let title = "Roll - \(roll.name.isEmpty ? "Untitled" : roll.name)"
             let dateFormatter = DateFormatter()
             dateFormatter.dateStyle = .medium
             let dateText = dateFormatter.string(from: roll.timestamp)
-            
-            let titleAttrs: [NSAttributedString.Key: Any] = [.font: UIFont.boldSystemFont(ofSize: 18)]
-            title.draw(at: CGPoint(x: margin + 50, y: yOffset), withAttributes: titleAttrs)
-            
-            let dateAttrs: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 12), .foregroundColor: UIColor.gray]
-            dateText.draw(at: CGPoint(x: margin + 50, y: yOffset + 22), withAttributes: dateAttrs)
-            
+
+            title.draw(at: CGPoint(x: margin + 50, y: yOffset), withAttributes: [
+                .font: UIFont.boldSystemFont(ofSize: 18)
+            ])
+            dateText.draw(at: CGPoint(x: margin + 50, y: yOffset + 22), withAttributes: [
+                .font: UIFont.systemFont(ofSize: 12),
+                .foregroundColor: UIColor.gray
+            ])
             yOffset += 60
-            
-            for shot in roll.orderedShots {
-                if yOffset + 120 > pageHeight - margin {
+
+            if let rollImage = UIImage(named: "RollPlaceholder") {
+                let aspectRatio = rollImage.size.height / rollImage.size.width
+                let imageHeight = imageMaxWidth * aspectRatio
+                rollImage.draw(in: CGRect(x: margin, y: yOffset, width: imageMaxWidth, height: imageHeight))
+            }
+
+            let rollDetails = """
+            Name: \(roll.name)
+            Note: \(roll.note)
+            Status: \(roll.status)
+
+            Camera:
+            Counter
+            Push/ pull
+            Film date
+            Film size
+            Film stock
+            """
+
+            rollDetails.draw(in: CGRect(x: margin + imageMaxWidth + 10, y: yOffset, width: contentWidth - imageMaxWidth - 10, height: 100), withAttributes: [
+                .font: UIFont.systemFont(ofSize: 12)
+            ])
+
+            yOffset += 120
+
+            let line = UIBezierPath(rect: CGRect(x: margin, y: yOffset, width: contentWidth, height: 1))
+            UIColor.black.setFill()
+            line.fill()
+            yOffset += 20
+
+            for (index, shot) in roll.orderedShots.enumerated() {
+                if yOffset + 150 > pageHeight - margin {
                     context.beginPage()
                     yOffset = margin
                 }
-                
+
                 if let imageData = shot.photoImage?.data, let uiImage = UIImage(data: imageData) {
-                    uiImage.draw(in: CGRect(x: margin, y: yOffset, width: 100, height: 80))
+                    let aspectRatio = uiImage.size.height / uiImage.size.width
+                    let imgHeight = imageMaxWidth * aspectRatio
+                    uiImage.draw(in: CGRect(x: margin, y: yOffset, width: imageMaxWidth, height: imgHeight))
+                } else {
+                    // Draw black placeholder
+                    UIColor.black.setFill()
+                    UIBezierPath(rect: CGRect(x: margin, y: yOffset, width: imageMaxWidth, height: 80)).fill()
+                    "Frame #\(index + 1)".draw(in: CGRect(x: margin + 10, y: yOffset + 30, width: 100, height: 20),
+                                               withAttributes: [.font: UIFont.boldSystemFont(ofSize: 12), .foregroundColor: UIColor.white])
                 }
-                
-                let metadataX = margin + 110
-                let textY = yOffset
-                
-                let metadata = """
-                Name: \(shot.name)
-                Lens: \(shot.lensFocalLength) \(shot.lensName)
-                Aperture: \(shot.fstop), Shutter: \(shot.shutter)
-                Focus: \(Int(shot.focusDistance))mm, DOF: \(Int(shot.focusDepthOfField))mm
-                """
-                
-                metadata.draw(in: CGRect(x: metadataX, y: textY, width: contentWidth - 120, height: 80),
-                              withAttributes: [.font: UIFont.systemFont(ofSize: 12)])
-                
-                yOffset += 100
+
+                let x1 = margin + imageMaxWidth + 10
+                let columnWidth = (contentWidth - imageMaxWidth - 10) / 4
+
+                let metadata = [
+                    """
+                    Name: \(shot.name)
+                    Note: \(shot.note)
+                    """,
+                    """
+                    Location:
+                    Long/lat
+                    Elevation
+                    Color temperature
+                    """,
+                    """
+                    Camera:
+                    F-Stop: \(shot.fstop)
+                    Shutter: \(shot.shutter)
+                    Compensation
+                    """,
+                    """
+                    Lens:
+                    \(shot.lensName)
+                    Focal length: \(shot.lensFocalLength)
+                    """
+                ]
+
+                for i in 0..<4 {
+                    metadata[i].draw(in: CGRect(x: x1 + CGFloat(i) * columnWidth, y: yOffset, width: columnWidth, height: 100),
+                                     withAttributes: [.font: UIFont.systemFont(ofSize: 10)])
+                }
+
+                "Aspect ratio: \(String(format: "%.2f", shot.aspectRatio))"
+                    .draw(at: CGPoint(x: x1, y: yOffset + 90),
+                          withAttributes: [.font: UIFont.systemFont(ofSize: 10), .foregroundColor: UIColor.gray])
+
+                yOffset += 110
             }
+
+            let footerText = "Date: \(dateFormatter.string(from: Date()))"
+            footerText.draw(at: CGPoint(x: margin, y: pageHeight - margin - 20),
+                            withAttributes: [.font: UIFont.systemFont(ofSize: 10), .foregroundColor: UIColor.gray])
         }
-        
+
         let tmpURL = FileManager.default.temporaryDirectory.appendingPathComponent("Roll-\(roll.name).pdf")
         do {
             try data.write(to: tmpURL)
-            let activityVC = UIActivityViewController(activityItems: [tmpURL], applicationActivities: nil)
+
+            let previewController = QLPreviewController()
+            let previewDataSource = PDFPreviewController()
+            previewDataSource.fileURL = tmpURL
+            previewController.dataSource = previewDataSource
+
             if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
                let rootVC = scene.windows.first?.rootViewController {
-                rootVC.present(activityVC, animated: true)
+                rootVC.present(previewController, animated: true)
             }
-            
         } catch {
             print("failed to save PDF: \(error)")
         }
     }
+
 }
 
 extension Shot {

@@ -55,11 +55,13 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
         Task {
             do {
                 try await checkCameraPermission()
-                if let raw = UserDefaults.standard.string(forKey: "selectedLens"),
-                   let storedLens = CameraLensType(rawValue: raw) {
-                    currentLens = storedLens
+                DispatchQueue.main.async {
+                    if let raw = UserDefaults.standard.string(forKey: "selectedLens"),
+                       let storedLens = CameraLensType(rawValue: raw) {
+                        self.currentLens = storedLens
+                    }
+                    self.currentExposureBias = UserDefaults.standard.float(forKey: "exposureBias")
                 }
-                currentExposureBias = UserDefaults.standard.float(forKey: "exposureBias")
                 configureCamera(for: currentLens)
                 adjustExposure(to: currentExposureBias)
             } catch {
@@ -112,6 +114,27 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
             } catch {
                 print("failed to reset exposure: \(error.localizedDescription)")
             }
+        }
+    }
+    
+    func focus(at point: CGPoint, viewSize: CGSize) {
+        let focusPoint = CGPoint(x: point.y / viewSize.height, y: 1.0 - point.x / viewSize.width)
+        guard let device = AVCaptureDevice.default(for: .video) else { return }
+        do {
+            try device.lockForConfiguration()
+            
+            if device.isFocusPointOfInterestSupported {
+                device.focusPointOfInterest = focusPoint
+                device.focusMode = .autoFocus
+            }
+            
+            if device.isExposurePointOfInterestSupported {
+                device.exposurePointOfInterest = focusPoint
+                device.exposureMode = .continuousAutoExposure
+            }
+            device.unlockForConfiguration()
+        } catch {
+            print("focus error: \(error.localizedDescription)")
         }
     }
 
@@ -202,6 +225,8 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
         let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
         let width = CGFloat(dimensions.width)
         let height = CGFloat(dimensions.height)
+
+        guard height != 0 else { return }
         let aspectRatio = width / height
 
         DispatchQueue.main.async {
