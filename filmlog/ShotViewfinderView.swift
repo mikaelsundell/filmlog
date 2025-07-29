@@ -7,6 +7,23 @@ import AVFoundation
 import Combine
 import CoreMotion
 
+enum ToggleMode: Int, CaseIterable {
+    case off = 0
+    case partial = 1
+    case full = 2
+    var color: Color {
+        switch self {
+        case .off: return Color.black.opacity(0.4)
+        case .partial: return Color.blue.opacity(0.4)
+        case .full: return Color.blue.opacity(1.0)
+        }
+    }
+    func next() -> ToggleMode {
+        let all = Self.allCases
+        return all[(self.rawValue + 1) % all.count]
+    }
+}
+
 class OrientationObserver: ObservableObject {
     @Published var orientation: UIDeviceOrientation = UIDevice.current.orientation
     @Published var levelAngle: Double = 0.0
@@ -97,8 +114,8 @@ struct ShotOverlay: View {
     let filmSize: CameraOptions.FilmSize
     let horizontalFov: CGFloat
     let orientation: UIDeviceOrientation
-    let showCenter: Bool
-    let showSymmetry: Bool
+    let centerMode: ToggleMode
+    let symmetryMode: ToggleMode
     
     var body: some View {
         GeometryReader { geo in
@@ -134,15 +151,15 @@ struct ShotOverlay: View {
                 let w = ratioSize.width
                 let h = ratioSize.height
                 
-                if showCenter {
+                if centerMode != .off {
                     Canvas { context, size in
                         context.translateBy(x: size.width / 2, y: size.height / 2)
                         context.rotate(by: .degrees(-90))
                         context.translateBy(x: -ratioSize.width / 2, y: -ratioSize.height / 2)
 
                         let center = CGPoint(x: w / 2, y: h / 2)
-                        let diagonal = sqrt(w * w + h * h)
-                        let size: CGFloat = diagonal * 0.05
+                        let diagonal = sqrt(geo.size.width * geo.size.width + geo.size.height * geo.size.height)
+                        let size: CGFloat = diagonal * 0.04
                         
                         var lines = Path()
                         
@@ -151,13 +168,16 @@ struct ShotOverlay: View {
 
                         lines.move(to: CGPoint(x: center.x, y: center.y - size / 2))
                         lines.addLine(to: CGPoint(x: center.x, y: center.y + size / 2))
+                        
+                        let opacity = centerMode == .full ? 0.8 : 0.5
+                        let lineWidth: CGFloat = centerMode == .full ? 2 : 1
 
-                        context.stroke(lines, with: .color(.white), lineWidth: 2)
+                        context.stroke(lines, with: .color(.white.opacity(opacity)), lineWidth: lineWidth)
                     }
                     .frame(width: targetRatio.width, height: targetRatio.height)
                 }
                 
-                if showSymmetry {
+                if symmetryMode != .off {
                     Canvas { context, size in
                         context.translateBy(x: size.width / 2, y: size.height / 2)
                         context.rotate(by: .degrees(-90))
@@ -201,7 +221,10 @@ struct ShotOverlay: View {
                         lines.move(to: CGPoint(x: 0, y: h - cross.height))
                         lines.addLine(to: CGPoint(x: w, y: h - cross.height))
 
-                        context.stroke(lines, with: .color(.white.opacity(0.25)), lineWidth: 2)
+                        let opacity = symmetryMode == .full ? 0.8 : 0.5
+                        let lineWidth: CGFloat = symmetryMode == .full ? 2 : 1
+
+                        context.stroke(lines, with: .color(.white.opacity(opacity)), lineWidth: lineWidth)
                         
                         var extended = Path()
                         
@@ -217,8 +240,7 @@ struct ShotOverlay: View {
                             dash: [5, 3]
                         )
                         
-                        context.stroke(extended, with: .color(.white.opacity(0.25)), style: dashStyle)
-
+                        context.stroke(extended, with: .color(.white.opacity(opacity)), style: dashStyle)
                     }
                     .frame(width: targetRatio.width, height: targetRatio.height)
                 }
@@ -278,6 +300,7 @@ struct LevelIndicator: View {
     var levelAngle: Double
     var pitchAngle: Double
     let orientation: UIDeviceOrientation
+    let levelMode: ToggleMode
     
     @State private var smoothedRoll: Double = 0.0
     @State private var smoothedPitch: Double = 0.0
@@ -285,7 +308,6 @@ struct LevelIndicator: View {
     let totalWidthRatio: CGFloat = 0.8
     let gapRatio: CGFloat = 0.05
     let sideRatio: CGFloat = 0.10
-    let lineHeight: CGFloat = 2
     
     var body: some View {
         GeometryReader { geo in
@@ -305,20 +327,23 @@ struct LevelIndicator: View {
             let pitchOffset = CGFloat(snappedPitch / 30) * maxOffset
             
             ZStack {
+                let opacity = levelMode == .full ? 0.8 : 0.5
+                let lineHeight: CGFloat = levelMode == .full ? 2 : 1
+
                 Rectangle()
-                    .fill(isPitchAligned ? Color.green.opacity(0.8) : Color.white.opacity(0.8))
+                    .fill((isPitchAligned ? Color.green : Color.white).opacity(opacity))
                     .frame(width: sideWidth, height: lineHeight)
                     .position(x: geo.size.width / 2 - (centerWidth / 2 + gap + sideWidth / 2),
                               y: geo.size.height / 2 - pitchOffset)
-                
+
                 Rectangle()
-                    .fill(isPitchAligned ? Color.green.opacity(0.8) : Color.white.opacity(0.8))
+                    .fill((isPitchAligned ? Color.green : Color.white).opacity(opacity))
                     .frame(width: sideWidth, height: lineHeight)
                     .position(x: geo.size.width / 2 + (centerWidth / 2 + gap + sideWidth / 2),
                               y: geo.size.height / 2 - pitchOffset)
-                
+
                 Rectangle()
-                    .fill(isRollAligned ? Color.green : Color.white)
+                    .fill((isRollAligned ? Color.green : Color.white).opacity(opacity))
                     .frame(width: centerWidth, height: lineHeight)
                     .position(x: geo.size.width / 2, y: geo.size.height / 2)
                     .rotationEffect(.degrees(snappedRoll))
@@ -371,9 +396,25 @@ struct ShotViewfinderView: View {
     var onCapture: (UIImage) -> Void
     @Environment(\.dismiss) private var dismiss
     @StateObject private var cameraModel = CameraModel()
-    @AppStorage("showCenter") private var showCenter: Bool = false
-    @AppStorage("showSymmetry") private var showSymmetry: Bool = false
-    @AppStorage("showLevel") private var showLevel: Bool = false
+    
+    @AppStorage("centerMode") private var centerModeRawValue: Int = ToggleMode.off.rawValue
+    private var centerMode: ToggleMode {
+        get { ToggleMode(rawValue: centerModeRawValue) ?? .off }
+        set { centerModeRawValue = newValue.rawValue }
+    }
+    
+    @AppStorage("symmetryMode") private var symmetryModeRawValue: Int = ToggleMode.off.rawValue
+    private var symmetryMode: ToggleMode {
+        get { ToggleMode(rawValue: symmetryModeRawValue) ?? .off }
+        set { symmetryModeRawValue = newValue.rawValue }
+    }
+    
+    @AppStorage("levelMode") private var levelModeRawValue: Int = ToggleMode.off.rawValue
+    private var levelMode: ToggleMode {
+        get { ToggleMode(rawValue: levelModeRawValue) ?? .off }
+        set { levelModeRawValue = newValue.rawValue }
+    }
+    
     @AppStorage("selectedLens") private var selectedLensRawValue: String = CameraLensType.wide.rawValue
     
     @ObservedObject private var orientationObserver = OrientationObserver()
@@ -398,16 +439,17 @@ struct ShotViewfinderView: View {
                         filmSize: CameraOptions.filmSizes.first(where: { $0.label == shot.filmSize })?.value ?? CameraOptions.FilmSize.defaultFilmSize,
                         horizontalFov: cameraModel.horizontalFov,
                         orientation: orientationObserver.orientation,
-                        showCenter: showCenter,
-                        showSymmetry: showSymmetry
+                        centerMode: centerMode,
+                        symmetryMode: symmetryMode
                     )
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     
-                    if showLevel {
+                    if levelMode != .off {
                         LevelIndicator(
                             levelAngle: orientationObserver.levelAngle,
                             pitchAngle: orientationObserver.pitchAngle,
-                            orientation: orientationObserver.orientation
+                            orientation: orientationObserver.orientation,
+                            levelMode: levelMode
                         )
                     }
                 }
@@ -592,35 +634,34 @@ struct ShotViewfinderView: View {
             }
             
             Button(action: {
-                showCenter.toggle()
+                centerModeRawValue = centerMode.next().rawValue
             }) {
                 Image(systemName: "plus.circle.fill")
                     .foregroundColor(.white)
                     .frame(width: 28, height: 28)
-                    .background(showCenter ? Color.blue.opacity(0.7) : Color.black.opacity(0.4))
+                    .background(centerMode.color)
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
             }
-
-
+            
             Button(action: {
-                showSymmetry.toggle()
+                symmetryModeRawValue = symmetryMode.next().rawValue
             }) {
                 Image(systemName: "square.grid.3x3")
                     .foregroundColor(.white)
                     .frame(width: 28, height: 28)
-                    .background(showSymmetry ? Color.blue.opacity(0.7) : Color.black.opacity(0.4))
+                    .background(symmetryMode.color)
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
             }
 
             Button(action: {
-                showLevel.toggle()
+                levelModeRawValue = levelMode.next().rawValue
             }) {
                 Image(systemName: "gyroscope")
                     .foregroundColor(.white)
                     .frame(width: 28, height: 28)
-                    .background(showLevel ? Color.blue.opacity(0.7) : Color.black.opacity(0.4))
+                    .background(levelMode.color)
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
             }
