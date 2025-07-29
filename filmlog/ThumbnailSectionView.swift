@@ -5,7 +5,7 @@
 import SwiftUI
 import PhotosUI
 
-struct PhotoSectionView: View {
+struct ThumbnailSectionView: View {
     var data: Data?
     var label: String
     var isLocked: Bool = false
@@ -67,7 +67,8 @@ struct PhotoSectionView: View {
         }
         .fullScreenCover(isPresented: $showCamera) {
             CameraPicker { image in
-                if let data = image.jpegData(compressionQuality: 0.9) {
+                let scaled = image.resized(maxDimension: 512) // for UI only
+                if let data = scaled.jpegData(compressionQuality: 0.75) {
                     onImagePicked(data)
                 }
                 showCamera = false
@@ -86,6 +87,21 @@ struct PhotoSectionView: View {
                     }
                 }
             }
+        }
+    }
+}
+
+extension UIImage {
+    func resized(maxDimension: CGFloat) -> UIImage {
+        let maxSide = max(size.width, size.height)
+        guard maxSide > maxDimension else { return self }
+
+        let scale = maxDimension / maxSide
+        let newSize = CGSize(width: size.width * scale, height: size.height * scale)
+
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        return renderer.image { _ in
+            self.draw(in: CGRect(origin: .zero, size: newSize))
         }
     }
 }

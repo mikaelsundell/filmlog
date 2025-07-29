@@ -66,7 +66,8 @@ struct ShotDetailView: View {
                     shot: shot,
                     isLocked: shot.isLocked,
                     onImagePicked: { newData in
-                        replaceImage(for: &shot.photoImage, with: newData)
+                        let newImage = ImageData(data: newData)
+                        shot.updateImage(to: newImage, context: modelContext)
                     }
                 )
                 
@@ -226,9 +227,7 @@ struct ShotDetailView: View {
                 }
 
                 focusRow(label: "Depth of field", value: shot.focusDepthOfField)
-
                 focusRow(label: "Near", value: shot.focusNearLimit)
-                
                 focusRow(label: "Far", value: shot.focusFarLimit)
 
                 HStack {
@@ -267,12 +266,13 @@ struct ShotDetailView: View {
             }
             
             Section(header: Text("Lightmeter")) {
-                PhotoSectionView(
+                ThumbnailSectionView(
                     data: shot.lightMeterImage?.data,
                     label: "Add photo",
                     isLocked: shot.isLocked
                 ) { newData in
-                    replaceImage(for: &shot.lightMeterImage, with: newData)
+                    let newImage = ImageData(data: newData)
+                    shot.updateLightMeterImage(to: newImage, context: modelContext)
                 }
                 
                 evPicker(title: "Sky", selection: $shot.exposureSky)
@@ -394,6 +394,18 @@ struct ShotDetailView: View {
                     }
                     .help("Delete this shot")
                 }
+
+                Menu {
+                    Button {
+                        generatePDF()
+                    } label: {
+                        Label("Export as PDF", systemImage: "doc.richtext")
+                    }
+
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .help("More actions")
             }
             ToolbarItem(placement: .keyboard) {
                 HStack {
@@ -407,9 +419,7 @@ struct ShotDetailView: View {
         .alert("Are you sure?", isPresented: $showDeleteAlert) {
             Button("Delete", role: .destructive) {
                 withAnimation {
-                    cleanupImage(shot.photoImage)
-                    cleanupImage(shot.lightMeterImage)
-                    modelContext.delete(shot)
+                    modelContext.safelyDelete(shot)
                     onDelete?()
                     dismiss()
                 }
@@ -455,18 +465,37 @@ struct ShotDetailView: View {
     }
     
     private func addNextShot(count: Int) {
+        let baseName = "Untitled"
+        let names = Set(roll.shots.map { $0.name })
+        
         for _ in 0..<count {
+            var name = baseName
+            var suffix = 1
+            while names.contains(name) {
+                name = "\(baseName) \(suffix)"
+                suffix += 1
+            }
             let newShot = Shot()
-            newShot.roll = roll
+            newShot.name = name
             modelContext.insert(newShot)
             roll.shots.append(newShot)
         }
     }
 
     private func copyNextShot(count: Int) {
+        let baseName = shot.name.isEmpty ? "Copy" : shot.name
+        let names = Set(roll.shots.map { $0.name })
+
         for _ in 0..<count {
-            let newShot = shot.copy()
-            newShot.roll = roll
+            var name = baseName
+            var suffix = 1
+            while names.contains(name) {
+                name = "\(baseName) \(suffix)"
+                suffix += 1
+            }
+
+            let newShot = shot.copy(context: modelContext)
+            newShot.name = name
             modelContext.insert(newShot)
             roll.shots.append(newShot)
         }
@@ -507,17 +536,8 @@ struct ShotDetailView: View {
         shot.focusHyperfocalNearLimit = result.hyperfocalNear
     }
     
-    private func replaceImage(for imageRef: inout ImageData?, with newData: Data) {
-        if let oldImage = imageRef, oldImage.decrementReference() {
-            modelContext.delete(oldImage)
-        }
-        imageRef = ImageData(data: newData)
-    }
-    
-    private func cleanupImage(_ image: ImageData?) {
-        if let img = image, img.decrementReference() {
-            modelContext.delete(img)
-        }
+    private func generatePDF() {
+        
     }
 
     private var elevationFormatter: NumberFormatter {

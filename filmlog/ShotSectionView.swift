@@ -17,7 +17,7 @@ struct ShotSectionView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            if let imageData = shot.photoImage?.data, let uiImage = UIImage(data: imageData) {
+            if let imageData = shot.image?.data, let uiImage = UIImage(data: imageData) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
@@ -73,7 +73,7 @@ struct ShotSectionView: View {
             }
         }
         .fullScreenCover(isPresented: $showFullImage) {
-            if let imageData = shot.photoImage?.data,
+            if let imageData = shot.image?.data,
                let uiImage = UIImage(data: imageData) {
                 ShotImageView(image: uiImage)
             } else {

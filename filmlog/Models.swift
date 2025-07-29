@@ -123,14 +123,14 @@ struct CameraOptions {
     static let aspectRatios: [(label: String, value: Double)] = [
         ("-", 0.0),
         ("1:0", 1.0),
+        ("1.43", 1.43),
+        ("1.77", 16.0 / 9.0),
+        ("1.90", 1.90),
         ("3:2", 3.0 / 2.0),
-        ("16:9", 16.0 / 9.0),
         ("2.0", 2.0),
         ("2.35", 2.35),
         ("2.39", 2.39),
         ("2.55", 2.55),
-        ("1.43", 1.43),
-        ("1.90", 1.90)
     ]
     
     static let cameras: [String] = [
@@ -397,7 +397,6 @@ class Roll: Codable {
     var isLocked: Bool
 
     @Relationship var image: ImageData?
-    @Relationship var lightMeterImage: ImageData?
     @Relationship var shots: [Shot] = []
     
     var orderedShots: [Shot] {
@@ -425,13 +424,30 @@ class Roll: Codable {
         self.filmSize = filmSize
         self.filmStock = filmStock
         self.image = image
-        self.lightMeterImage = lightMeterImage
         self.status = status
         self.isLocked = isLocked
     }
+    
+    func cleanup(context: ModelContext) {
+        if let img = image, img.decrementReference() {
+            context.delete(img)
+        }
+    }
+
+    func updateImage(to newImage: ImageData?, context: ModelContext) {
+        if let current = self.image {
+            if current.decrementReference() {
+                context.delete(current)
+            }
+        }
+        if let newImage = newImage {
+            newImage.incrementReference()
+        }
+        self.image = newImage
+    }
 
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, name, note, camera, counter, pushPull, filmDate, filmSize, filmStock, image, lightMeterImage, status, isLocked, shots
+        case id, timestamp, name, note, camera, counter, pushPull, filmDate, filmSize, filmStock, image, status, isLocked, shots
     }
 
     required init(from decoder: Decoder) throws {
@@ -447,7 +463,6 @@ class Roll: Codable {
         filmSize = try container.decode(String.self, forKey: .filmSize)
         filmStock = try container.decode(String.self, forKey: .filmStock)
         image = try container.decodeIfPresent(ImageData.self, forKey: .image)
-        lightMeterImage = try container.decodeIfPresent(ImageData.self, forKey: .lightMeterImage)
         status = try container.decode(String.self, forKey: .status)
         isLocked = try container.decode(Bool.self, forKey: .isLocked)
         shots = try container.decodeIfPresent([Shot].self, forKey: .shots) ?? []
@@ -466,7 +481,6 @@ class Roll: Codable {
         try container.encode(filmSize, forKey: .filmSize)
         try container.encode(filmStock, forKey: .filmStock)
         try container.encodeIfPresent(image, forKey: .image)
-        try container.encodeIfPresent(lightMeterImage, forKey: .lightMeterImage)
         try container.encode(status, forKey: .status)
         try container.encode(isLocked, forKey: .isLocked)
         try container.encode(shots, forKey: .shots)
@@ -505,9 +519,8 @@ class Shot: Codable {
     var exposureSkinFill: String
     var isLocked: Bool
 
-    @Relationship var photoImage: ImageData?
+    @Relationship var image: ImageData?
     @Relationship var lightMeterImage: ImageData?
-    @Relationship var roll: Roll?
 
     init(filmSize: String = "",
          aspectRatio: String = "-",
@@ -535,7 +548,7 @@ class Shot: Codable {
          exposureShadows: String = "-",
          exposureSkinKey: String = "-",
          exposureSkinFill: String = "-",
-         photoImage: ImageData? = nil,
+         image: ImageData? = nil,
          lightMeterImage: ImageData? = nil,
          isLocked: Bool = false) {
         self.filmSize = filmSize
@@ -564,125 +577,167 @@ class Shot: Codable {
         self.exposureShadows = exposureShadows
         self.exposureSkinKey = exposureSkinKey
         self.exposureSkinFill = exposureSkinFill
-        self.photoImage = photoImage
+        self.image = image
         self.lightMeterImage = lightMeterImage
         self.isLocked = isLocked
     }
-
-    func copy() -> Shot {
-        let newFrame = Shot()
-        newFrame.filmSize = self.filmSize
-        newFrame.aspectRatio = self.aspectRatio
-        newFrame.name = self.name
-        newFrame.note = self.note
-        newFrame.location = self.location
-        newFrame.locationTimestamp = self.locationTimestamp
-        newFrame.elevation = self.elevation
-        newFrame.colorTemperature = self.colorTemperature
-        newFrame.fstop = self.fstop
-        newFrame.shutter = self.shutter
-        newFrame.exposureCompensation = self.exposureCompensation
-        newFrame.lensName = self.lensName
-        newFrame.lensFocalLength = self.lensFocalLength
-        newFrame.focusDistance = self.focusDistance
-        newFrame.focusDepthOfField = self.focusDepthOfField
-        newFrame.focusNearLimit = self.focusNearLimit
-        newFrame.focusFarLimit = self.focusFarLimit
-        newFrame.focusHyperfocalDistance = self.focusHyperfocalDistance
-        newFrame.focusHyperfocalNearLimit = self.focusHyperfocalNearLimit
-        newFrame.exposureSky = self.exposureSky
-        newFrame.exposureFoliage = self.exposureFoliage
-        newFrame.exposureHighlights = self.exposureHighlights
-        newFrame.exposureMidGray = self.exposureMidGray
-        newFrame.exposureShadows = self.exposureShadows
-        newFrame.exposureSkinKey = self.exposureSkinKey
-        newFrame.exposureSkinFill = self.exposureSkinFill
-        
-        if let photo = self.photoImage {
-            photo.incrementReference()
-            newFrame.photoImage = photo
+    
+    func cleanup(context: ModelContext) {
+        if let img = image, img.decrementReference() {
+            context.delete(img)
         }
-
-        if let meter = self.lightMeterImage {
-            meter.incrementReference()
-            newFrame.lightMeterImage = meter
+        if let meter = lightMeterImage, meter.decrementReference() {
+            context.delete(meter)
         }
-        
-        return newFrame
+    }
+
+    func copy(context: ModelContext) -> Shot {
+        let newShot = Shot()
+        newShot.filmSize = self.filmSize
+        newShot.aspectRatio = self.aspectRatio
+        newShot.name = self.name
+        newShot.note = self.note
+        newShot.location = self.location
+        newShot.locationTimestamp = self.locationTimestamp
+        newShot.elevation = self.elevation
+        newShot.colorTemperature = self.colorTemperature
+        newShot.fstop = self.fstop
+        newShot.shutter = self.shutter
+        newShot.exposureCompensation = self.exposureCompensation
+        newShot.lensName = self.lensName
+        newShot.lensFocalLength = self.lensFocalLength
+        newShot.focusDistance = self.focusDistance
+        newShot.focusDepthOfField = self.focusDepthOfField
+        newShot.focusNearLimit = self.focusNearLimit
+        newShot.focusFarLimit = self.focusFarLimit
+        newShot.focusHyperfocalDistance = self.focusHyperfocalDistance
+        newShot.focusHyperfocalNearLimit = self.focusHyperfocalNearLimit
+        newShot.exposureSky = self.exposureSky
+        newShot.exposureFoliage = self.exposureFoliage
+        newShot.exposureHighlights = self.exposureHighlights
+        newShot.exposureMidGray = self.exposureMidGray
+        newShot.exposureShadows = self.exposureShadows
+        newShot.exposureSkinKey = self.exposureSkinKey
+        newShot.exposureSkinFill = self.exposureSkinFill
+
+        newShot.updateImage(to: self.image, context: context)
+        newShot.updateLightMeterImage(to: self.lightMeterImage, context: context)
+
+        return newShot
+    }
+
+    func updateImage(to newImage: ImageData?, context: ModelContext) {
+        if let current = self.image {
+            if current.decrementReference() {
+                context.delete(current)
+            }
+        }
+        if let newImage = newImage {
+            newImage.incrementReference()
+        }
+        self.image = newImage
+    }
+
+    func updateLightMeterImage(to newImage: ImageData?, context: ModelContext) {
+        if let current = self.lightMeterImage {
+            if current.decrementReference() {
+                context.delete(current)
+            }
+        }
+        if let newImage = newImage {
+            newImage.incrementReference()
+        }
+        self.lightMeterImage = newImage
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, aspectRatio, filmSize, name, note, location, locationTimestamp, elevation, colorTemperature, fstop, shutter, exposureCompensation, lensName, lensFocalLength, focusDistance, focusDepthOfField, focusNearLimit, focusFarLimit, focusHyperfocalDistance, focusHyperfocalNearLimit, exposureSky, exposureFoliage, exposureHighlights, exposureMidGray, exposureShadows, exposureSkinKey, exposureSkinFill, photoImage, lightMeterImage, isLocked
+        case id, timestamp, filmSize, aspectRatio, name, note, location, locationTimestamp, elevation,
+             colorTemperature, fstop, shutter, exposureCompensation, lensName, lensFocalLength,
+             focusDistance, focusDepthOfField, focusNearLimit, focusFarLimit, focusHyperfocalDistance,
+             focusHyperfocalNearLimit, exposureSky, exposureFoliage, exposureHighlights, exposureMidGray,
+             exposureShadows, exposureSkinKey, exposureSkinFill, image, lightMeterImage, isLocked
     }
 
     required init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(UUID.self, forKey: .id)
-        timestamp = try container.decode(Date.self, forKey: .timestamp)
-        filmSize = try container.decode(String.self, forKey: .filmSize)
-        aspectRatio = try container.decode(String.self, forKey: .aspectRatio)
-        name = try container.decode(String.self, forKey: .name)
-        note = try container.decode(String.self, forKey: .note)
-        location = try container.decodeIfPresent(LocationOptions.Location.self, forKey: .location)
-        locationTimestamp = try container.decodeIfPresent(Date.self, forKey: .locationTimestamp)
-        colorTemperature = try container.decode(Double.self, forKey: .colorTemperature)
-        elevation = try container.decode(Double.self, forKey: .elevation)
-        fstop = try container.decode(String.self, forKey: .fstop)
-        shutter = try container.decode(String.self, forKey: .shutter)
-        exposureCompensation = try container.decode(String.self, forKey: .exposureCompensation)
-        lensName = try container.decode(String.self, forKey: .lensName)
-        lensFocalLength = try container.decode(String.self, forKey: .lensFocalLength)
-        focusDistance = try container.decode(Double.self, forKey: .focusDistance)
-        focusDepthOfField = try container.decode(Double.self, forKey: .focusDepthOfField)
-        focusNearLimit = try container.decode(Double.self, forKey: .focusNearLimit)
-        focusFarLimit = try container.decode(Double.self, forKey: .focusFarLimit)
-        focusHyperfocalDistance = try container.decode(Double.self, forKey: .focusHyperfocalDistance)
-        focusHyperfocalNearLimit = try container.decode(Double.self, forKey: .focusHyperfocalNearLimit)
-        exposureSky = try container.decode(String.self, forKey: .exposureSky)
-        exposureFoliage = try container.decode(String.self, forKey: .exposureFoliage)
-        exposureHighlights = try container.decode(String.self, forKey: .exposureHighlights)
-        exposureMidGray = try container.decode(String.self, forKey: .exposureMidGray)
-        exposureShadows = try container.decode(String.self, forKey: .exposureShadows)
-        exposureSkinKey = try container.decode(String.self, forKey: .exposureSkinKey)
-        exposureSkinFill = try container.decode(String.self, forKey: .exposureSkinFill)
-        photoImage = try container.decodeIfPresent(ImageData.self, forKey: .photoImage)
-        lightMeterImage = try container.decodeIfPresent(ImageData.self, forKey: .lightMeterImage)
-        isLocked = try container.decode(Bool.self, forKey: .isLocked)
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        timestamp = try c.decode(Date.self, forKey: .timestamp)
+        filmSize = try c.decode(String.self, forKey: .filmSize)
+        aspectRatio = try c.decode(String.self, forKey: .aspectRatio)
+        name = try c.decode(String.self, forKey: .name)
+        note = try c.decode(String.self, forKey: .note)
+        location = try c.decodeIfPresent(LocationOptions.Location.self, forKey: .location)
+        locationTimestamp = try c.decodeIfPresent(Date.self, forKey: .locationTimestamp)
+        elevation = try c.decode(Double.self, forKey: .elevation)
+        colorTemperature = try c.decode(Double.self, forKey: .colorTemperature)
+        fstop = try c.decode(String.self, forKey: .fstop)
+        shutter = try c.decode(String.self, forKey: .shutter)
+        exposureCompensation = try c.decode(String.self, forKey: .exposureCompensation)
+        lensName = try c.decode(String.self, forKey: .lensName)
+        lensFocalLength = try c.decode(String.self, forKey: .lensFocalLength)
+        focusDistance = try c.decode(Double.self, forKey: .focusDistance)
+        focusDepthOfField = try c.decode(Double.self, forKey: .focusDepthOfField)
+        focusNearLimit = try c.decode(Double.self, forKey: .focusNearLimit)
+        focusFarLimit = try c.decode(Double.self, forKey: .focusFarLimit)
+        focusHyperfocalDistance = try c.decode(Double.self, forKey: .focusHyperfocalDistance)
+        focusHyperfocalNearLimit = try c.decode(Double.self, forKey: .focusHyperfocalNearLimit)
+        exposureSky = try c.decode(String.self, forKey: .exposureSky)
+        exposureFoliage = try c.decode(String.self, forKey: .exposureFoliage)
+        exposureHighlights = try c.decode(String.self, forKey: .exposureHighlights)
+        exposureMidGray = try c.decode(String.self, forKey: .exposureMidGray)
+        exposureShadows = try c.decode(String.self, forKey: .exposureShadows)
+        exposureSkinKey = try c.decode(String.self, forKey: .exposureSkinKey)
+        exposureSkinFill = try c.decode(String.self, forKey: .exposureSkinFill)
+        image = try c.decodeIfPresent(ImageData.self, forKey: .image)
+        lightMeterImage = try c.decodeIfPresent(ImageData.self, forKey: .lightMeterImage)
+        isLocked = try c.decode(Bool.self, forKey: .isLocked)
     }
 
     func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
-        try container.encode(timestamp, forKey: .timestamp)
-        try container.encode(filmSize, forKey: .filmSize)
-        try container.encode(aspectRatio, forKey: .aspectRatio)
-        try container.encode(name, forKey: .name)
-        try container.encode(note, forKey: .note)
-        try container.encode(location, forKey: .location)
-        try container.encode(locationTimestamp, forKey: .locationTimestamp)
-        try container.encode(elevation, forKey: .elevation)
-        try container.encode(colorTemperature, forKey: .colorTemperature)
-        try container.encode(fstop, forKey: .fstop)
-        try container.encode(shutter, forKey: .shutter)
-        try container.encode(exposureCompensation, forKey: .exposureCompensation)
-        try container.encode(lensName, forKey: .lensName)
-        try container.encode(lensFocalLength, forKey: .lensFocalLength)
-        try container.encode(focusDistance, forKey: .focusDistance)
-        try container.encode(focusDepthOfField, forKey: .focusDepthOfField)
-        try container.encode(focusNearLimit, forKey: .focusNearLimit)
-        try container.encode(focusFarLimit, forKey: .focusFarLimit)
-        try container.encode(focusHyperfocalDistance, forKey: .focusHyperfocalDistance)
-        try container.encode(focusHyperfocalNearLimit, forKey: .focusHyperfocalNearLimit)
-        try container.encode(exposureSky, forKey: .exposureSky)
-        try container.encode(exposureFoliage, forKey: .exposureFoliage)
-        try container.encode(exposureHighlights, forKey: .exposureHighlights)
-        try container.encode(exposureMidGray, forKey: .exposureMidGray)
-        try container.encode(exposureShadows, forKey: .exposureShadows)
-        try container.encode(exposureSkinKey, forKey: .exposureSkinKey)
-        try container.encode(exposureSkinFill, forKey: .exposureSkinFill)
-        try container.encodeIfPresent(photoImage, forKey: .photoImage)
-        try container.encodeIfPresent(lightMeterImage, forKey: .lightMeterImage)
-        try container.encode(isLocked, forKey: .isLocked)
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(timestamp, forKey: .timestamp)
+        try c.encode(filmSize, forKey: .filmSize)
+        try c.encode(aspectRatio, forKey: .aspectRatio)
+        try c.encode(name, forKey: .name)
+        try c.encode(note, forKey: .note)
+        try c.encode(location, forKey: .location)
+        try c.encode(locationTimestamp, forKey: .locationTimestamp)
+        try c.encode(elevation, forKey: .elevation)
+        try c.encode(colorTemperature, forKey: .colorTemperature)
+        try c.encode(fstop, forKey: .fstop)
+        try c.encode(shutter, forKey: .shutter)
+        try c.encode(exposureCompensation, forKey: .exposureCompensation)
+        try c.encode(lensName, forKey: .lensName)
+        try c.encode(lensFocalLength, forKey: .lensFocalLength)
+        try c.encode(focusDistance, forKey: .focusDistance)
+        try c.encode(focusDepthOfField, forKey: .focusDepthOfField)
+        try c.encode(focusNearLimit, forKey: .focusNearLimit)
+        try c.encode(focusFarLimit, forKey: .focusFarLimit)
+        try c.encode(focusHyperfocalDistance, forKey: .focusHyperfocalDistance)
+        try c.encode(focusHyperfocalNearLimit, forKey: .focusHyperfocalNearLimit)
+        try c.encode(exposureSky, forKey: .exposureSky)
+        try c.encode(exposureFoliage, forKey: .exposureFoliage)
+        try c.encode(exposureHighlights, forKey: .exposureHighlights)
+        try c.encode(exposureMidGray, forKey: .exposureMidGray)
+        try c.encode(exposureShadows, forKey: .exposureShadows)
+        try c.encode(exposureSkinKey, forKey: .exposureSkinKey)
+        try c.encode(exposureSkinFill, forKey: .exposureSkinFill)
+        try c.encodeIfPresent(image, forKey: .image)
+        try c.encodeIfPresent(lightMeterImage, forKey: .lightMeterImage)
+        try c.encode(isLocked, forKey: .isLocked)
     }
 }
 
+extension ModelContext {
+    func safelyDelete(_ shot: Shot) {
+        shot.cleanup(context: self)
+        self.delete(shot)
+    }
+    
+    func safelyDelete(_ roll: Roll) {
+        roll.cleanup(context: self)
+        self.delete(roll)
+    }
+
+}

@@ -102,12 +102,19 @@ struct ContentView: View {
                     Button(action: addRoll) {
                         Label("Add roll", systemImage: "plus")
                     }
+
                     NavigationLink(destination: GalleryView()) {
                         Label("Gallery", systemImage: "photo")
                     }
-                    NavigationLink(destination: SettingsView()) {
-                        Label("Settings", systemImage: "gear")
+
+                    Menu {
+                        NavigationLink(destination: SettingsView()) {
+                            Label("Settings", systemImage: "gear")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
+                    .help("More actions")
                 }
             }
         }
@@ -115,7 +122,15 @@ struct ContentView: View {
 
     private func addRoll() {
         withAnimation {
-            let newRoll = Roll()
+            let baseName = "Untitled"
+            var name = baseName
+            var index = 1
+            let names = Set(rolls.map { $0.name })
+            while names.contains(name) {
+                name = "\(baseName) \(index)"
+                index += 1
+            }
+            let newRoll = Roll(name: name)
             modelContext.insert(newRoll)
         }
     }

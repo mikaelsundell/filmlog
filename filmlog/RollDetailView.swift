@@ -64,8 +64,13 @@ struct RollDetailView: View {
             
             Section(header: Text("Roll")) {
                 VStack(alignment: .leading) {
-                    PhotoSectionView(data: roll.image?.data, label: "Add photo", isLocked: roll.isLocked) { newImageData in
-                        replaceImage(for: &roll.image, with: newImageData)
+                    ThumbnailSectionView(
+                        data: roll.image?.data,
+                        label: "Add photo",
+                        isLocked: roll.isLocked
+                    ) { newData in
+                        let newImage = ImageData(data: newData)
+                        roll.updateImage(to: newImage, context: modelContext)
                     }
                 }
                 
@@ -233,11 +238,12 @@ struct RollDetailView: View {
                 }
             }
         }
-        .navigationTitle("\(roll.status.capitalized) roll \(index + 1)")
+        .navigationTitle("\(roll.status.capitalized) \(roll.name.isEmpty ? "roll" : roll.name)")
         .sheet(isPresented: $showCamera) {
             CameraPicker { image in
                 if let data = image.jpegData(compressionQuality: 0.9) {
-                    replaceImage(for: &roll.image, with: data)
+                    let newImage = ImageData(data: data)
+                    roll.updateImage(to: newImage, context: modelContext)
                 }
             }
         }
@@ -245,7 +251,8 @@ struct RollDetailView: View {
             if let selectedItem {
                 Task {
                     if let data = try? await selectedItem.loadTransferable(type: Data.self) {
-                        replaceImage(for: &roll.image, with: data)
+                        let newImage = ImageData(data: data)
+                        roll.updateImage(to: newImage, context: modelContext)
                     }
                 }
             }
@@ -253,32 +260,36 @@ struct RollDetailView: View {
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 Button(action: {
-                    generatePDF()
-                }) {
-                    Image(systemName: "doc.richtext")
-                }
-                .help("Export roll as PDF")
-                
-                Button(action: {
                     roll.isLocked.toggle()
                 }) {
                     Image(systemName: roll.isLocked ? "lock.fill" : "lock.open")
                 }
                 .help(roll.isLocked ? "Unlock to edit roll info" : "Lock to prevent editing")
-                
+
                 Button(role: .destructive) {
                     showDeleteAlert = true
                 } label: {
                     Image(systemName: "trash")
                 }
                 .help("Delete this roll")
+
+                Menu {
+                    Button {
+                        generatePDF()
+                    } label: {
+                        Label("Export as PDF", systemImage: "doc.richtext")
+                    }
+
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .help("More actions")
             }
         }
         .alert("Are you sure?", isPresented: $showDeleteAlert) {
             Button("Delete", role: .destructive) {
                 withAnimation {
-                    cleanupImage(roll.image)
-                    modelContext.delete(roll)
+                    modelContext.safelyDelete(roll)
                     selectedRoll = nil
                     dismiss()
                 }
@@ -292,21 +303,9 @@ struct RollDetailView: View {
     private func addShot() {
         withAnimation {
             let newShot = Shot()
+            newShot.name = "Untitled"
             newShot.filmSize = roll.filmSize
             roll.shots.append(newShot)
-        }
-    }
-
-    private func replaceImage(for imageRef: inout ImageData?, with newData: Data) {
-        if let oldImage = imageRef, oldImage.decrementReference() {
-            modelContext.delete(oldImage)
-        }
-        imageRef = ImageData(data: newData)
-    }
-
-    private func cleanupImage(_ image: ImageData?) {
-        if let img = image, img.decrementReference() {
-            modelContext.delete(img)
         }
     }
     
@@ -384,12 +383,11 @@ struct RollDetailView: View {
                     yOffset = margin
                 }
 
-                if let imageData = shot.photoImage?.data, let uiImage = UIImage(data: imageData) {
+                if let imageData = shot.image?.data, let uiImage = UIImage(data: imageData) {
                     let aspectRatio = uiImage.size.height / uiImage.size.width
                     let imgHeight = imageMaxWidth * aspectRatio
                     uiImage.draw(in: CGRect(x: margin, y: yOffset, width: imageMaxWidth, height: imgHeight))
                 } else {
-                    // Draw black placeholder
                     UIColor.black.setFill()
                     UIBezierPath(rect: CGRect(x: margin, y: yOffset, width: imageMaxWidth, height: 80)).fill()
                     "Frame #\(index + 1)".draw(in: CGRect(x: margin + 10, y: yOffset + 30, width: 100, height: 20),

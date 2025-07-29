@@ -200,49 +200,42 @@ struct SettingsView: View {
     }
     
     private func calculateAppDataStats() {
-        var rollCount = 0;
-        var shotCount = 0;
-        var imageCount = 0;
-        var galleryCount = 0;
-        var categoryCount = 0;
+        var shotCount = 0
+        var galleryCount = 0
+        var categoryCount = 0
         var totalImageSize = 0
-        
-        for roll in rolls {
-            rollCount += roll.shots.count
-            if let img = roll.image {
-                imageCount += 1
-                totalImageSize += img.data.count
-            }
-            for shot in roll.shots {
-                shotCount += 1
-                if let img = shot.photoImage {
-                    imageCount += 1
-                    totalImageSize += img.data.count
-                }
-                if let img = shot.lightMeterImage {
-                    imageCount += 1
-                    totalImageSize += img.data.count
-                }
+
+        var uniqueImageIDs = Set<UUID>()
+        func addImageIfUnique(_ image: ImageData?) {
+            guard let image = image else { return }
+            if uniqueImageIDs.insert(image.id).inserted {
+                totalImageSize += image.data.count
             }
         }
-    
+
+        for roll in rolls {
+            for shot in roll.shots {
+                shotCount += 1
+                addImageIfUnique(shot.image)
+                addImageIfUnique(shot.lightMeterImage)
+            }
+            addImageIfUnique(roll.image)
+        }
+
         for gallery in galleries {
             galleryCount += 1
             for image in gallery.images {
-                imageCount += 1
-                totalImageSize += image.data.count
+                addImageIfUnique(image)
             }
-            for _ in gallery.categories {
-                categoryCount += 1
-            }
+            categoryCount += gallery.categories.count
         }
-        
+
         appDataStats = AppDataStats(
             rolls: rolls.count,
             shots: shotCount,
             galleries: galleryCount,
             categories: categoryCount,
-            images: imageCount,
+            images: uniqueImageIDs.count,
             totalSize: totalImageSize
         )
     }
@@ -344,7 +337,7 @@ struct SettingsView: View {
                 
                 for shot in roll.shots {
                     shotMap[shot.id] = shot
-                    if let img = shot.photoImage { imageMap[img.id] = img }
+                    if let img = shot.image { imageMap[img.id] = img }
                     if let img = shot.lightMeterImage { imageMap[img.id] = img }
                 }
             }
@@ -383,6 +376,7 @@ struct SettingsView: View {
                     name: shot.name,
                     note: shot.note,
                     location: shot.location,
+                    locationTimestamp: shot.locationTimestamp,
                     elevation: shot.elevation,
                     colorTemperature: shot.colorTemperature,
                     fstop: shot.fstop,
@@ -403,7 +397,7 @@ struct SettingsView: View {
                     exposureShadows: shot.exposureShadows,
                     exposureSkinKey: shot.exposureSkinKey,
                     exposureSkinFill: shot.exposureSkinFill,
-                    photoImage: shot.photoImage?.id,
+                    image: shot.image?.id,
                     lightMeterImage: shot.lightMeterImage?.id,
                     isLocked: shot.isLocked
                 )
@@ -537,7 +531,7 @@ struct SettingsView: View {
                 shot.exposureShadows = shotExport.exposureShadows
                 shot.exposureSkinKey = shotExport.exposureSkinKey
                 shot.exposureSkinFill = shotExport.exposureSkinFill
-                shot.photoImage = shotExport.photoImage.flatMap { imageMap[$0] }
+                shot.image = shotExport.image.flatMap { imageMap[$0] }
                 shot.lightMeterImage = shotExport.lightMeterImage.flatMap { imageMap[$0] }
                 shot.isLocked = shotExport.isLocked
 
@@ -643,6 +637,7 @@ struct ShotExport: Codable {
     var name: String
     var note: String
     var location: LocationOptions.Location?
+    var locationTimestamp: Date?
     var elevation: Double
     var colorTemperature: Double
     var fstop: String
@@ -663,7 +658,7 @@ struct ShotExport: Codable {
     var exposureShadows: String
     var exposureSkinKey: String
     var exposureSkinFill: String
-    var photoImage: UUID?
+    var image: UUID?
     var lightMeterImage: UUID?
     var isLocked: Bool
 }
