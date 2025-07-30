@@ -378,12 +378,13 @@ struct SettingsView: View {
                     note: shot.note,
                     location: shot.location,
                     locationTimestamp: shot.locationTimestamp,
-                    elevation: shot.elevation,
-                    colorTemperature: shot.colorTemperature,
-                    fstop: shot.fstop,
+                    locationColorTemperature: shot.locationColorTemperature,
+                    locationElevation: shot.locationElevation,
+                    aperture: shot.aperture,
                     shutter: shot.shutter,
                     exposureCompensation: shot.exposureCompensation,
                     lensName: shot.lensName,
+                    lensFilter: shot.lensFilter,
                     lensFocalLength: shot.lensFocalLength,
                     focusDistance: shot.focusDistance,
                     focusDepthOfField: shot.focusDepthOfField,
@@ -512,12 +513,14 @@ struct SettingsView: View {
                 shot.name = shotExport.name
                 shot.note = shotExport.note
                 shot.location = shotExport.location
-                shot.elevation = shotExport.elevation
-                shot.colorTemperature = shotExport.colorTemperature
-                shot.fstop = shotExport.fstop
+                shot.locationTimestamp = shotExport.locationTimestamp
+                shot.locationColorTemperature = shotExport.locationColorTemperature
+                shot.locationElevation = shotExport.locationElevation
+                shot.aperture = shotExport.aperture
                 shot.shutter = shotExport.shutter
                 shot.exposureCompensation = shotExport.exposureCompensation
                 shot.lensName = shotExport.lensName
+                shot.lensFilter = shotExport.lensFilter
                 shot.lensFocalLength = shotExport.lensFocalLength
                 shot.focusDistance = shotExport.focusDistance
                 shot.focusDepthOfField = shotExport.focusDepthOfField
@@ -640,12 +643,13 @@ struct ShotExport: Codable {
     var note: String
     var location: LocationOptions.Location?
     var locationTimestamp: Date?
-    var elevation: Double
-    var colorTemperature: Double
-    var fstop: String
+    var locationColorTemperature: Int?
+    var locationElevation: Double?
+    var aperture: String
     var shutter: String
     var exposureCompensation: String
     var lensName: String
+    var lensFilter: String
     var lensFocalLength: String
     var focusDistance: Double
     var focusDepthOfField: Double

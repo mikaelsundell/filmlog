@@ -50,16 +50,11 @@ struct LocationOptions {
             return rad2deg(elevationRad)
         }
         
-        func colorTemperature(for date: Date = Date(), timeZone: TimeZone = .current) -> Double {
+        func colorTemperature(for date: Date = Date(), timeZone: TimeZone = .current) -> Int {
             let elevationAngle = elevation(for: date, timeZone: timeZone)
             let clampedElevation = max(elevationAngle, 0.0)
-            
-            // empirical formula: 6500K at high sun, warmer when low
-            // CCT = 2000K to 6500K approx
-            // Formula: 2000 + (4500 * (clampedElevation / 60))
-            // But to make it smoother, use an exponential approach
-            let cct = 2000 + (4500 * (1.0 - exp(-0.045 * clampedElevation)))
-            return cct
+            let cctDouble = 2000.0 + (4500.0 * (1.0 - exp(-0.045 * clampedElevation)))
+            return Int(round(cctDouble))
         }
     }
 }
@@ -119,16 +114,41 @@ struct CameraOptions {
         static let defaultFilmSize = CameraOptions.FilmSize(width: 36.0, height: 24.0)
     }
     
-    struct FilmStock {
-        let speed: Double
+    struct AspectRatio: Equatable {
+        let numerator: Int
+        let denominator: Int
+
+        var ratio: Double {
+            return Double(numerator) / Double(denominator)
+        }
         
-        static let defaultFilmStock = CameraOptions.FilmStock(speed: 100)
+        static let defaultAspectRatio = CameraOptions.AspectRatio(numerator: 0, denominator: 1)
     }
     
-    struct FStop: Equatable {
+    struct FilmStock {
+        let speed: Double
+        let colorTemperature: Double
+        
+        static let defaultFilmStock = CameraOptions.FilmStock(speed: 100, colorTemperature: 5600)
+    }
+    
+    struct Filter: Equatable {
+        let exposureCompensation: Double
+        let colorTemperatureShift: Double
+        
+        static let defaultFilter = Filter(exposureCompensation: 0.0, colorTemperatureShift: 0.0)
+    }
+    
+    struct FocalLength: Equatable {
+        let length: Double
+        
+        static let defaultFocalLength = FocalLength(length: 50)
+    }
+    
+    struct Aperture: Equatable {
         let fstop: Double
         
-        static let defaultFStop = CameraOptions.FStop(fstop: 2.8)
+        static let defaultAperture = CameraOptions.Aperture(fstop: 2.8)
     }
     
     struct Shutter: Equatable {
@@ -142,17 +162,23 @@ struct CameraOptions {
         static let defaultShutter = CameraOptions.Shutter(numerator: 1, denominator: 125)
     }
     
-    static let aspectRatios: [(label: String, value: Double)] = [
-        ("-", 0.0),
-        ("1:0", 1.0),
-        ("1.43", 1.43),
-        ("1.77", 16.0 / 9.0),
-        ("1.90", 1.90),
-        ("3:2", 3.0 / 2.0),
-        ("2.0", 2.0),
-        ("2.35", 2.35),
-        ("2.39", 2.39),
-        ("2.55", 2.55),
+    static let aspectRatios: [(label: String, value: AspectRatio)] = [
+        ("-", AspectRatio(numerator: 0, denominator: 1)),
+        ("1:1", AspectRatio(numerator: 1, denominator: 1)),
+        ("5:4", AspectRatio(numerator: 5, denominator: 4)),
+        ("4:3", AspectRatio(numerator: 4, denominator: 3)),
+        ("3:2", AspectRatio(numerator: 3, denominator: 2)),
+        ("16:10", AspectRatio(numerator: 16, denominator: 10)),
+        ("16:9", AspectRatio(numerator: 16, denominator: 9)),
+        ("1.43", AspectRatio(numerator: 143, denominator: 100)),
+        ("1.66", AspectRatio(numerator: 166, denominator: 100)),
+        ("1.85", AspectRatio(numerator: 185, denominator: 100)),
+        ("1.90", AspectRatio(numerator: 190, denominator: 100)),
+        ("2.00", AspectRatio(numerator: 200, denominator: 100)),
+        ("2.20", AspectRatio(numerator: 220, denominator: 100)),
+        ("2.35", AspectRatio(numerator: 235, denominator: 100)),
+        ("2.39", AspectRatio(numerator: 239, denominator: 100)),
+        ("2.55", AspectRatio(numerator: 255, denominator: 100))
     ]
     
     static let cameras: [String] = [
@@ -174,16 +200,6 @@ struct CameraOptions {
         "Mamiya RB67",
         "Yashica Mat-124G",
         "Other"];
-    
-    static let colorTemperatures: [Int] =
-        [0,
-         3200,
-         4300,
-         5000,
-         5600,
-         6500,
-         500,
-         9000];
     
     static let filmSizes: [(label: String, value: FilmSize)] = [
         ("135 (35mm)", FilmSize(width: 36.0, height: 24.0)),
@@ -207,48 +223,70 @@ struct CameraOptions {
     ]
     
     static let filmStocks: [(label: String, value: FilmStock)] = [
-        ("Vision3 50D 5203", FilmStock(speed: 50)),
-        ("Vision3 250D 5207", FilmStock(speed: 250)),
-        ("Vision3 200T 5213", FilmStock(speed: 200)),
-        ("Vision3 500T 5219", FilmStock(speed: 500)),
-        ("Kodak Ektachrome", FilmStock(speed: 100)),
-        ("Kodak Double X 5222", FilmStock(speed: 250)),
-        ("EI 50", FilmStock(speed: 50)),
-        ("EI 100", FilmStock(speed: 100)),
-        ("EI 200", FilmStock(speed: 200)),
-        ("EI 400", FilmStock(speed: 400)),
-        ("EI 800", FilmStock(speed: 800)),
-        ("EI 1600", FilmStock(speed: 1600)),
-        ("EI 3200", FilmStock(speed: 3200)),
+        ("Vision3 50D 5203", FilmStock(speed: 50, colorTemperature: 5600)),
+        ("Vision3 250D 5207", FilmStock(speed: 250, colorTemperature: 5600)),
+        ("Vision3 200T 5213", FilmStock(speed: 200, colorTemperature: 3200)),
+        ("Vision3 500T 5219", FilmStock(speed: 500, colorTemperature: 3200)),
+        ("Kodak Ektachrome", FilmStock(speed: 100, colorTemperature: 5600)),
+        ("Kodak Double X 5222", FilmStock(speed: 250, colorTemperature: 5600)),
+        ("EI 50", FilmStock(speed: 50, colorTemperature: 5600)),
+        ("EI 100", FilmStock(speed: 100, colorTemperature: 5600)),
+        ("EI 200", FilmStock(speed: 200, colorTemperature: 5600)),
+        ("EI 400", FilmStock(speed: 400, colorTemperature: 5600)),
+        ("EI 800", FilmStock(speed: 800, colorTemperature: 5600)),
+        ("EI 1600", FilmStock(speed: 1600, colorTemperature: 5600)),
+        ("EI 3200", FilmStock(speed: 3200, colorTemperature: 5600)),
     ]
     
-    static let focalLengths: [(label: String, value: Double)] = [
-        ("19mm", 19),
-        ("20mm", 20),
-        ("24mm", 24),
-        ("28mm", 28),
-        ("35mm", 35),
-        ("40mm", 40),
-        ("50mm", 50),
-        ("70mm", 70),
-        ("80mm", 80),
-        ("85mm", 85),
-        ("105mm", 105),
-        ("135mm", 135),
-        ("200mm", 200),
-        ("300mm", 300)
+    static let filters: [(label: String, value: Filter)] = [
+        ("-", Filter(exposureCompensation: 0, colorTemperatureShift: 0)),
+        ("85", Filter(exposureCompensation: -0.6, colorTemperatureShift: -2100)),
+        ("85B", Filter(exposureCompensation: -0.6, colorTemperatureShift: -2300)),
+        ("85C", Filter(exposureCompensation: -0.3, colorTemperatureShift: -1700)),
+        ("80A", Filter(exposureCompensation: -1.0, colorTemperatureShift: +2300)),
+        ("80B", Filter(exposureCompensation: -1.0, colorTemperatureShift: +1900)),
+        ("80C", Filter(exposureCompensation: -0.6, colorTemperatureShift: +1200)),
+        ("81A", Filter(exposureCompensation: -0.3, colorTemperatureShift: -300)),
+        ("81B", Filter(exposureCompensation: -0.3, colorTemperatureShift: -450)),
+        ("81C", Filter(exposureCompensation: -0.3, colorTemperatureShift: -600)),
+        ("82A", Filter(exposureCompensation: -0.3, colorTemperatureShift: +200)),
+        ("82B", Filter(exposureCompensation: -0.3, colorTemperatureShift: +400)),
+        ("82C", Filter(exposureCompensation: -0.3, colorTemperatureShift: +600)),
+        ("ND 0.3", Filter(exposureCompensation: -1.0, colorTemperatureShift: 0)),
+        ("ND 0.6", Filter(exposureCompensation: -2.0, colorTemperatureShift: 0)),
+        ("ND 0.9", Filter(exposureCompensation: -3.0, colorTemperatureShift: 0)),
+        ("PL", Filter(exposureCompensation: -1.0, colorTemperatureShift: 0))
+    ]
+    
+    static let focalLengths: [(label: String, value: FocalLength)] = [
+        ("12mm", FocalLength(length: 12)),
+        ("14mm", FocalLength(length: 14)),
+        ("19mm", FocalLength(length: 19)),
+        ("20mm", FocalLength(length: 20)),
+        ("24mm", FocalLength(length: 24)),
+        ("28mm", FocalLength(length: 28)),
+        ("35mm", FocalLength(length: 35)),
+        ("40mm", FocalLength(length: 40)),
+        ("50mm", FocalLength(length: 50)),
+        ("70mm", FocalLength(length: 70)),
+        ("80mm", FocalLength(length: 80)),
+        ("85mm", FocalLength(length: 85)),
+        ("105mm", FocalLength(length: 105)),
+        ("135mm", FocalLength(length: 135)),
+        ("200mm", FocalLength(length: 200)),
+        ("300mm", FocalLength(length: 300)),
     ]
 
-    static let fStops: [(label: String, value: FStop)] = [
-        ("f/1.4", FStop(fstop: 1.4)),
-        ("f/2", FStop(fstop: 2.0)),
-        ("f/2.8", FStop(fstop: 2.8)),
-        ("f/4", FStop(fstop: 4)),
-        ("f/5.6", FStop(fstop: 5.6)),
-        ("f/8", FStop(fstop: 8)),
-        ("f/11", FStop(fstop: 11)),
-        ("f/16", FStop(fstop: 16)),
-        ("f/22", FStop(fstop: 22))
+    static let apertures: [(label: String, value: Aperture)] = [
+        ("f/1.4", Aperture(fstop: 1.4)),
+        ("f/2", Aperture(fstop: 2.0)),
+        ("f/2.8", Aperture(fstop: 2.8)),
+        ("f/4", Aperture(fstop: 4)),
+        ("f/5.6", Aperture(fstop: 5.6)),
+        ("f/8", Aperture(fstop: 8)),
+        ("f/11", Aperture(fstop: 11)),
+        ("f/16", Aperture(fstop: 16)),
+        ("f/22", Aperture(fstop: 22))
     ]
     
     static let lensNames: [String] = [
@@ -261,18 +299,22 @@ struct CameraOptions {
     ]
     
     static let shutters: [(label: String, value: Shutter)] = [
-        ("-", Shutter(numerator: 0, denominator: 1)),
-        ("1/1000", Shutter(numerator: 1, denominator: 1000)),
-        ("1/500", Shutter(numerator: 1, denominator: 500)),
-        ("1/250", Shutter(numerator: 1, denominator: 250)),
-        ("1/125", Shutter(numerator: 1, denominator: 125)),
-        ("1/60", Shutter(numerator: 1, denominator: 60)),
-        ("1/50", Shutter(numerator: 1, denominator: 50)),
-        ("1/30", Shutter(numerator: 1, denominator: 30)),
-        ("1/15", Shutter(numerator: 1, denominator: 15)),
-        ("1/8", Shutter(numerator: 1, denominator: 8)),
-        ("1/4", Shutter(numerator: 1, denominator: 4)),
+        ("24 fps", Shutter(numerator: 1, denominator: 48)),
+        ("25 fps", Shutter(numerator: 1, denominator: 50)),
+        ("30 fps", Shutter(numerator: 1, denominator: 60)),
+        ("50 fps", Shutter(numerator: 1, denominator: 100)),
+        ("60 fps", Shutter(numerator: 1, denominator: 120)),
         ("1/2", Shutter(numerator: 1, denominator: 2)),
+        ("1/4", Shutter(numerator: 1, denominator: 4)),
+        ("1/8", Shutter(numerator: 1, denominator: 8)),
+        ("1/15", Shutter(numerator: 1, denominator: 15)),
+        ("1/30", Shutter(numerator: 1, denominator: 30)),
+        ("1/50", Shutter(numerator: 1, denominator: 50)),
+        ("1/60", Shutter(numerator: 1, denominator: 60)),
+        ("1/125", Shutter(numerator: 1, denominator: 125)),
+        ("1/250", Shutter(numerator: 1, denominator: 250)),
+        ("1/500", Shutter(numerator: 1, denominator: 500)),
+        ("1/1000", Shutter(numerator: 1, denominator: 1000)),
         ("1", Shutter(numerator: 1, denominator: 1)),
         ("2", Shutter(numerator: 2, denominator: 1)),
         ("4", Shutter(numerator: 4, denominator: 1)),
@@ -467,6 +509,7 @@ class Roll: Codable {
             if current.decrementReference() {
                 context.delete(current)
             }
+            
         }
         if let newImage = newImage {
             newImage.incrementReference()
@@ -526,12 +569,13 @@ class Shot: Codable {
     var note: String
     var location: LocationOptions.Location?
     var locationTimestamp: Date?
-    var elevation: Double
-    var colorTemperature: Double
-    var fstop: String
+    var locationColorTemperature: Int?
+    var locationElevation: Double?
+    var aperture: String
     var shutter: String
     var exposureCompensation: String
     var lensName: String
+    var lensFilter: String
     var lensFocalLength: String
     var focusDistance: Double
     var focusDepthOfField: Double
@@ -558,12 +602,13 @@ class Shot: Codable {
          note: String = "",
          location: LocationOptions.Location? = nil,
          locationTimestamp: Date? = nil,
-         elevation: Double = 0.0,
-         colorTemperature: Double = 0.0,
-         fstop: String = "f/2.8",
+         locationColorTemperature: Int? = 0,
+         locationElevation: Double? = 0.0,
+         aperture: String = "f/2.8",
          shutter: String = "1/125",
          exposureCompensation: String = "0",
          lensName: String = "Other",
+         lensFilter: String = "-",
          lensFocalLength: String = "50mm",
          focusDistance: Double = 500,
          focusDepthOfField: Double = 0.0,
@@ -588,12 +633,13 @@ class Shot: Codable {
         self.note = note
         self.location = location
         self.locationTimestamp = locationTimestamp
-        self.elevation = elevation
-        self.colorTemperature = colorTemperature
-        self.fstop = fstop
+        self.locationColorTemperature = locationColorTemperature
+        self.locationElevation = locationElevation
+        self.aperture = aperture
         self.shutter = shutter
         self.exposureCompensation = exposureCompensation
         self.lensName = lensName
+        self.lensFilter = lensFilter
         self.lensFocalLength = lensFocalLength
         self.focusDistance = focusDistance
         self.focusDepthOfField = focusDepthOfField
@@ -631,12 +677,13 @@ class Shot: Codable {
         newShot.note = self.note
         newShot.location = self.location
         newShot.locationTimestamp = self.locationTimestamp
-        newShot.elevation = self.elevation
-        newShot.colorTemperature = self.colorTemperature
-        newShot.fstop = self.fstop
+        newShot.locationColorTemperature = self.locationColorTemperature
+        newShot.locationElevation = self.locationElevation
+        newShot.aperture = self.aperture
         newShot.shutter = self.shutter
         newShot.exposureCompensation = self.exposureCompensation
         newShot.lensName = self.lensName
+        newShot.lensFilter = self.lensFilter
         newShot.lensFocalLength = self.lensFocalLength
         newShot.focusDistance = self.focusDistance
         newShot.focusDepthOfField = self.focusDepthOfField
@@ -683,83 +730,85 @@ class Shot: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, filmSize, filmStock, aspectRatio, name, note, location, locationTimestamp, elevation,
-             colorTemperature, fstop, shutter, exposureCompensation, lensName, lensFocalLength,
+        case id, timestamp, filmSize, filmStock, aspectRatio, name, note, location, locationTimestamp, locationColorTemperature,
+             locationElevation, aperture, shutter, exposureCompensation, lensName, lensFilter, lensFocalLength,
              focusDistance, focusDepthOfField, focusNearLimit, focusFarLimit, focusHyperfocalDistance,
              focusHyperfocalNearLimit, exposureSky, exposureFoliage, exposureHighlights, exposureMidGray,
              exposureShadows, exposureSkinKey, exposureSkinFill, image, lightMeterImage, isLocked
     }
 
     required init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decode(UUID.self, forKey: .id)
-        timestamp = try c.decode(Date.self, forKey: .timestamp)
-        filmSize = try c.decode(String.self, forKey: .filmSize)
-        filmStock = try c.decode(String.self, forKey: .filmStock)
-        aspectRatio = try c.decode(String.self, forKey: .aspectRatio)
-        name = try c.decode(String.self, forKey: .name)
-        note = try c.decode(String.self, forKey: .note)
-        location = try c.decodeIfPresent(LocationOptions.Location.self, forKey: .location)
-        locationTimestamp = try c.decodeIfPresent(Date.self, forKey: .locationTimestamp)
-        elevation = try c.decode(Double.self, forKey: .elevation)
-        colorTemperature = try c.decode(Double.self, forKey: .colorTemperature)
-        fstop = try c.decode(String.self, forKey: .fstop)
-        shutter = try c.decode(String.self, forKey: .shutter)
-        exposureCompensation = try c.decode(String.self, forKey: .exposureCompensation)
-        lensName = try c.decode(String.self, forKey: .lensName)
-        lensFocalLength = try c.decode(String.self, forKey: .lensFocalLength)
-        focusDistance = try c.decode(Double.self, forKey: .focusDistance)
-        focusDepthOfField = try c.decode(Double.self, forKey: .focusDepthOfField)
-        focusNearLimit = try c.decode(Double.self, forKey: .focusNearLimit)
-        focusFarLimit = try c.decode(Double.self, forKey: .focusFarLimit)
-        focusHyperfocalDistance = try c.decode(Double.self, forKey: .focusHyperfocalDistance)
-        focusHyperfocalNearLimit = try c.decode(Double.self, forKey: .focusHyperfocalNearLimit)
-        exposureSky = try c.decode(String.self, forKey: .exposureSky)
-        exposureFoliage = try c.decode(String.self, forKey: .exposureFoliage)
-        exposureHighlights = try c.decode(String.self, forKey: .exposureHighlights)
-        exposureMidGray = try c.decode(String.self, forKey: .exposureMidGray)
-        exposureShadows = try c.decode(String.self, forKey: .exposureShadows)
-        exposureSkinKey = try c.decode(String.self, forKey: .exposureSkinKey)
-        exposureSkinFill = try c.decode(String.self, forKey: .exposureSkinFill)
-        image = try c.decodeIfPresent(ImageData.self, forKey: .image)
-        lightMeterImage = try c.decodeIfPresent(ImageData.self, forKey: .lightMeterImage)
-        isLocked = try c.decode(Bool.self, forKey: .isLocked)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        filmSize = try container.decode(String.self, forKey: .filmSize)
+        filmStock = try container.decode(String.self, forKey: .filmStock)
+        aspectRatio = try container.decode(String.self, forKey: .aspectRatio)
+        name = try container.decode(String.self, forKey: .name)
+        note = try container.decode(String.self, forKey: .note)
+        location = try container.decodeIfPresent(LocationOptions.Location.self, forKey: .location)
+        locationTimestamp = try container.decodeIfPresent(Date.self, forKey: .locationTimestamp)
+        locationColorTemperature = try container.decode(Int.self, forKey: .locationColorTemperature)
+        locationElevation = try container.decode(Double.self, forKey: .locationElevation)
+        aperture = try container.decode(String.self, forKey: .aperture)
+        shutter = try container.decode(String.self, forKey: .shutter)
+        exposureCompensation = try container.decode(String.self, forKey: .exposureCompensation)
+        lensName = try container.decode(String.self, forKey: .lensName)
+        lensFilter = try container.decode(String.self, forKey: .lensFilter)
+        lensFocalLength = try container.decode(String.self, forKey: .lensFocalLength)
+        focusDistance = try container.decode(Double.self, forKey: .focusDistance)
+        focusDepthOfField = try container.decode(Double.self, forKey: .focusDepthOfField)
+        focusNearLimit = try container.decode(Double.self, forKey: .focusNearLimit)
+        focusFarLimit = try container.decode(Double.self, forKey: .focusFarLimit)
+        focusHyperfocalDistance = try container.decode(Double.self, forKey: .focusHyperfocalDistance)
+        focusHyperfocalNearLimit = try container.decode(Double.self, forKey: .focusHyperfocalNearLimit)
+        exposureSky = try container.decode(String.self, forKey: .exposureSky)
+        exposureFoliage = try container.decode(String.self, forKey: .exposureFoliage)
+        exposureHighlights = try container.decode(String.self, forKey: .exposureHighlights)
+        exposureMidGray = try container.decode(String.self, forKey: .exposureMidGray)
+        exposureShadows = try container.decode(String.self, forKey: .exposureShadows)
+        exposureSkinKey = try container.decode(String.self, forKey: .exposureSkinKey)
+        exposureSkinFill = try container.decode(String.self, forKey: .exposureSkinFill)
+        image = try container.decodeIfPresent(ImageData.self, forKey: .image)
+        lightMeterImage = try container.decodeIfPresent(ImageData.self, forKey: .lightMeterImage)
+        isLocked = try container.decode(Bool.self, forKey: .isLocked)
     }
 
     func encode(to encoder: Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(id, forKey: .id)
-        try c.encode(timestamp, forKey: .timestamp)
-        try c.encode(filmSize, forKey: .filmSize)
-        try c.encode(filmStock, forKey: .filmStock)
-        try c.encode(aspectRatio, forKey: .aspectRatio)
-        try c.encode(name, forKey: .name)
-        try c.encode(note, forKey: .note)
-        try c.encode(location, forKey: .location)
-        try c.encode(locationTimestamp, forKey: .locationTimestamp)
-        try c.encode(elevation, forKey: .elevation)
-        try c.encode(colorTemperature, forKey: .colorTemperature)
-        try c.encode(fstop, forKey: .fstop)
-        try c.encode(shutter, forKey: .shutter)
-        try c.encode(exposureCompensation, forKey: .exposureCompensation)
-        try c.encode(lensName, forKey: .lensName)
-        try c.encode(lensFocalLength, forKey: .lensFocalLength)
-        try c.encode(focusDistance, forKey: .focusDistance)
-        try c.encode(focusDepthOfField, forKey: .focusDepthOfField)
-        try c.encode(focusNearLimit, forKey: .focusNearLimit)
-        try c.encode(focusFarLimit, forKey: .focusFarLimit)
-        try c.encode(focusHyperfocalDistance, forKey: .focusHyperfocalDistance)
-        try c.encode(focusHyperfocalNearLimit, forKey: .focusHyperfocalNearLimit)
-        try c.encode(exposureSky, forKey: .exposureSky)
-        try c.encode(exposureFoliage, forKey: .exposureFoliage)
-        try c.encode(exposureHighlights, forKey: .exposureHighlights)
-        try c.encode(exposureMidGray, forKey: .exposureMidGray)
-        try c.encode(exposureShadows, forKey: .exposureShadows)
-        try c.encode(exposureSkinKey, forKey: .exposureSkinKey)
-        try c.encode(exposureSkinFill, forKey: .exposureSkinFill)
-        try c.encodeIfPresent(image, forKey: .image)
-        try c.encodeIfPresent(lightMeterImage, forKey: .lightMeterImage)
-        try c.encode(isLocked, forKey: .isLocked)
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(timestamp, forKey: .timestamp)
+        try container.encode(filmSize, forKey: .filmSize)
+        try container.encode(filmStock, forKey: .filmStock)
+        try container.encode(aspectRatio, forKey: .aspectRatio)
+        try container.encode(name, forKey: .name)
+        try container.encode(note, forKey: .note)
+        try container.encode(location, forKey: .location)
+        try container.encode(locationTimestamp, forKey: .locationTimestamp)
+        try container.encode(locationElevation, forKey: .locationElevation)
+        try container.encode(locationColorTemperature, forKey: .locationColorTemperature)
+        try container.encode(aperture, forKey: .aperture)
+        try container.encode(shutter, forKey: .shutter)
+        try container.encode(exposureCompensation, forKey: .exposureCompensation)
+        try container.encode(lensName, forKey: .lensName)
+        try container.encode(lensFilter, forKey: .lensName)
+        try container.encode(lensFocalLength, forKey: .lensFocalLength)
+        try container.encode(focusDistance, forKey: .focusDistance)
+        try container.encode(focusDepthOfField, forKey: .focusDepthOfField)
+        try container.encode(focusNearLimit, forKey: .focusNearLimit)
+        try container.encode(focusFarLimit, forKey: .focusFarLimit)
+        try container.encode(focusHyperfocalDistance, forKey: .focusHyperfocalDistance)
+        try container.encode(focusHyperfocalNearLimit, forKey: .focusHyperfocalNearLimit)
+        try container.encode(exposureSky, forKey: .exposureSky)
+        try container.encode(exposureFoliage, forKey: .exposureFoliage)
+        try container.encode(exposureHighlights, forKey: .exposureHighlights)
+        try container.encode(exposureMidGray, forKey: .exposureMidGray)
+        try container.encode(exposureShadows, forKey: .exposureShadows)
+        try container.encode(exposureSkinKey, forKey: .exposureSkinKey)
+        try container.encode(exposureSkinFill, forKey: .exposureSkinFill)
+        try container.encodeIfPresent(image, forKey: .image)
+        try container.encodeIfPresent(lightMeterImage, forKey: .lightMeterImage)
+        try container.encode(isLocked, forKey: .isLocked)
     }
 }
 
@@ -773,5 +822,4 @@ extension ModelContext {
         roll.cleanup(context: self)
         self.delete(roll)
     }
-
 }

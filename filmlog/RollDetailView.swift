@@ -302,15 +302,17 @@ struct RollDetailView: View {
 
     private func addShot() {
         withAnimation {
-            let newShot = Shot()
-            newShot.name = "Untitled"
-            newShot.filmSize = roll.filmSize
-            newShot.filmStock = roll.filmStock
-            modelContext.insert(newShot)
-            roll.shots.append(newShot)
-            
             do {
+                let newShot = Shot()
+                newShot.name = "Untitled"
+                newShot.filmSize = roll.filmSize
+                newShot.filmStock = roll.filmStock
+                modelContext.insert(newShot)
                 try modelContext.save()
+                
+                roll.shots.append(newShot)
+                try modelContext.save()
+                
             } catch {
                 print("failed to save shot: \(error)")
             }
@@ -418,7 +420,7 @@ struct RollDetailView: View {
                     """,
                     """
                     Camera:
-                    F-Stop: \(shot.fstop)
+                    Aperture: \(shot.aperture)
                     Shutter: \(shot.shutter)
                     Compensation
                     """,

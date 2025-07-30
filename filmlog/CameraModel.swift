@@ -5,7 +5,7 @@
 import AVFoundation
 import UIKit
 
-enum CameraLensType: String {
+enum LensType: String, CaseIterable {
     case ultraWide = "Ultra Wide"
     case wide = "Wide"
 
@@ -15,11 +15,6 @@ enum CameraLensType: String {
         case .wide: return .builtInWideAngleCamera
         }
     }
-}
-
-enum ExposureType: String {
-    case autoExposure = "AE"
-    case evExposure = "EV"
 }
 
 enum CameraError: Error, LocalizedError {
@@ -47,7 +42,7 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
 
     @Published var horizontalFov: CGFloat = 0
     @Published var aspectRatio: CGFloat = 0
-    @Published var currentLens: CameraLensType = .wide  // default lens
+    @Published var lensType: LensType = .wide
     @Published var currentExposureBias: Float = 0.0 {
         didSet {
             UserDefaults.standard.set(currentExposureBias, forKey: "exposureBias")
@@ -56,19 +51,18 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
     
     private var saveCapturedToFile = false
 
-    func configure() {
+    func configure(completion: (() -> Void)? = nil) {
         Task {
             do {
                 try await checkCameraPermission()
                 DispatchQueue.main.async {
                     if let raw = UserDefaults.standard.string(forKey: "selectedLens"),
-                       let storedLens = CameraLensType(rawValue: raw) {
-                        self.currentLens = storedLens
+                       let storedLens = LensType(rawValue: raw) {
+                        self.lensType = storedLens
                     }
                     self.currentExposureBias = UserDefaults.standard.float(forKey: "exposureBias")
                 }
-                configureCamera(for: currentLens)
-                adjustExposure(to: currentExposureBias)
+                configureCamera(for: lensType, completion: completion)
             } catch {
                 DispatchQueue.main.async {
                     self.onImageCaptured?(.failure(.permissionDenied))
@@ -77,75 +71,167 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
         }
     }
 
-    func switchCamera(to lens: CameraLensType) {
-        currentLens = lens
+    private func configureCamera(for lens: LensType, completion: (() -> Void)? = nil) {
+        sessionQueue.async {
+            self.session.beginConfiguration()
+            self.session.sessionPreset = .photo
+
+            for input in self.session.inputs {
+                self.session.removeInput(input)
+            }
+            for output in self.session.outputs {
+                self.session.removeOutput(output)
+            }
+
+            guard let device = AVCaptureDevice.default(lens.deviceType, for: .video, position: .back),
+                  let input = try? AVCaptureDeviceInput(device: device),
+                  self.session.canAddInput(input) else {
+                DispatchQueue.main.async {
+                    self.onImageCaptured?(.failure(.configurationFailed("Device not available for \(lens.rawValue).")))
+                }
+                self.session.commitConfiguration()
+                return
+            }
+
+            self.session.addInput(input)
+            if self.session.canAddOutput(self.output) {
+                self.session.addOutput(self.output)
+
+                if #available(iOS 16.0, *) {
+                    let dimensions = CMVideoFormatDescriptionGetDimensions(device.activeFormat.formatDescription)
+                    self.output.maxPhotoDimensions = dimensions
+                } else {
+                    self.output.isHighResolutionCaptureEnabled = true
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.onImageCaptured?(.failure(.configurationFailed("Cannot add photo output.")))
+                }
+                self.session.commitConfiguration()
+                return
+            }
+
+            self.session.commitConfiguration()
+            if !self.session.isRunning {
+                self.session.startRunning()
+            }
+
+            self.updateDeviceInfo(device)
+            DispatchQueue.main.async {
+                completion?()
+            }
+        }
+    }
+
+    func switchCamera(to lens: LensType) {
+        lensType = lens
         UserDefaults.standard.set(lens.rawValue, forKey: "selectedLens")
         configureCamera(for: lens)
     }
     
-    func adjustExposure(to bias: Float) {
+    func adjustWhiteBalance(kelvin: Double) {
+        print("adjustWhitebalace: \(kelvin)")
         sessionQueue.async {
-            guard let device = self.session.inputs.compactMap({ ($0 as? AVCaptureDeviceInput)?.device }).first else {
-                return
-            }
+            guard let device = self.session.inputs
+                .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
+                .first else { return }
 
             do {
                 try device.lockForConfiguration()
-                let clampedBias = max(min(bias, device.maxExposureTargetBias), device.minExposureTargetBias)
-                device.setExposureTargetBias(clampedBias, completionHandler: nil)
+                
+                let temperatureAndTint = AVCaptureDevice.WhiteBalanceTemperatureAndTintValues(temperature: Float(kelvin), tint: 0)
+                var gains = device.deviceWhiteBalanceGains(for: temperatureAndTint)
+                gains = self.normalizedGains(gains, for: device)
+
+                device.setWhiteBalanceModeLocked(with: gains, completionHandler: nil)
                 device.unlockForConfiguration()
             } catch {
-                print("failed to set exposure: \(error.localizedDescription)")
+                print("failed to set WB: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func normalizedGains(
+        _ gains: AVCaptureDevice.WhiteBalanceGains,
+        for device: AVCaptureDevice
+    ) -> AVCaptureDevice.WhiteBalanceGains {
+        var g = gains
+        // gains must be >= 1.0 and <= device.maxWhiteBalanceGain
+        let maxGain = device.maxWhiteBalanceGain
+        
+        g.redGain = max(1.0, min(g.redGain, maxGain))
+        g.greenGain = max(1.0, min(g.greenGain, maxGain))
+        g.blueGain = max(1.0, min(g.blueGain, maxGain))
+        
+        return g
+    }
+    
+    func adjustAutoExposure(ev: Float) {
+        print("adjustAutoExposure: \(ev)")
+        sessionQueue.async {
+            guard let device = self.session.inputs
+                .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
+                .first else { return }
+
+            do {
+                try device.lockForConfiguration()
+                if device.isExposureModeSupported(.continuousAutoExposure) {
+                    device.exposureMode = .continuousAutoExposure
+                }
+                
+                let clampedBias = max(min(ev, device.maxExposureTargetBias), device.minExposureTargetBias)
+                device.setExposureTargetBias(clampedBias, completionHandler: nil)
+                device.isSubjectAreaChangeMonitoringEnabled = true
+                device.unlockForConfiguration()
+            } catch {
+                print("failed to adjust AE exposure: \(error.localizedDescription)")
             }
         }
     }
     
-    func matchExposure(refFNumber: Double, refISO: Double, refShutter: Double, preferredISO: Double? = nil) {
+    func adjustEVExposure(fstop: Double, speed: Double, shutter: Double, exposureCompensation: Double = 0.0) {
+        print("adjustEVExposure: \(exposureCompensation)")
         sessionQueue.async {
             guard let device = self.session.inputs
                 .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
                 .first else {
-                    print("matchExposure: No device found")
+                    print("adjustEVExposure: No device found")
                     return
                 }
 
             do {
                 try device.lockForConfiguration()
                 defer { device.unlockForConfiguration() }
+                if device.isExposureModeSupported(.custom) {
+                    device.exposureMode = .custom
+                }
 
                 let Ndev = Double(device.lensAperture)
-                let Nref2 = refFNumber * refFNumber
-                let EVtarget = log2(Nref2 / refShutter) - log2(refISO / 100.0)
+                
+                // apply exposureCompensation here (in ev stops)
+                let EVtarget = (log2((fstop * fstop) / shutter) - log2(speed / 100.0)) - exposureCompensation
 
-                let minISO = Double(device.activeFormat.minISO)
-                let maxISO = Double(device.activeFormat.maxISO)
-
-                let preferredShutter: Double = 1.0 / 125.0 // Try to keep at least 1/125s
+                let minSpeed = Double(device.activeFormat.minISO)
+                let maxSpeed = Double(device.activeFormat.maxISO)
                 let minShutter = device.activeFormat.minExposureDuration.seconds
                 let maxShutter = device.activeFormat.maxExposureDuration.seconds
 
-                // Clamp shutter to safe range
-                let shutterToUse = max(min(preferredShutter, maxShutter), minShutter)
+                var actualShutter = max(min(1.0 / 125.0, maxShutter), minShutter)
+                let ISOcalc = 100.0 * Ndev * Ndev / (pow(2.0, EVtarget) * actualShutter)
 
-                let Ndev2 = Ndev * Ndev
-                let ISOcalc = 100.0 * Ndev2 / (pow(2.0, EVtarget) * shutterToUse)
                 let ISOtoApply: Double
-                var actualShutter = shutterToUse
-
-                if ISOcalc > maxISO {
-                    // ISO too high, relax shutter to compensate
-                    let tAdj = 100.0 * Ndev2 / (pow(2.0, EVtarget) * maxISO)
-                    actualShutter = min(max(tAdj, minShutter), maxShutter)
-                    ISOtoApply = maxISO
-                } else if ISOcalc < minISO {
-                    // ISO too low, adjust shutter slower to compensate
-                    let tAdj = 100.0 * Ndev2 / (pow(2.0, EVtarget) * minISO)
-                    actualShutter = min(max(tAdj, minShutter), maxShutter)
-                    ISOtoApply = minISO
+                if ISOcalc > maxSpeed {
+                    actualShutter = min(max(100.0 * Ndev * Ndev / (pow(2.0, EVtarget) * maxSpeed),
+                                            minShutter), maxShutter)
+                    ISOtoApply = maxSpeed
+                } else if ISOcalc < minSpeed {
+                    actualShutter = min(max(100.0 * Ndev * Ndev / (pow(2.0, EVtarget) * minSpeed),
+                                            minShutter), maxShutter)
+                    ISOtoApply = minSpeed
                 } else {
                     ISOtoApply = ISOcalc
                 }
-
+                
                 let exposureDuration = CMTimeMakeWithSeconds(actualShutter, preferredTimescale: 1_000_000_000)
                 device.setExposureModeCustom(duration: exposureDuration, iso: Float(ISOtoApply), completionHandler: nil)
 
@@ -157,48 +243,20 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
 
                 #if DEBUG
                 print("""
-                    matchExposure:
-                    - Target EV: \(EVtarget)
-                    - Applied ISO: \(ISOtoApply)
-                    - Applied Shutter: \(actualShutter)s
-                    - iPhone Aperture: f/\(Ndev)
-                    """)
+                adjustEVExposure:
+                - EVtarget (with compensation): \(EVtarget)
+                - Compensation: \(exposureCompensation)
+                - ISO: \(ISOtoApply)
+                - Shutter: \(actualShutter)s
+                """)
                 #endif
-
+                
             } catch {
-                print("matchExposure error: \(error.localizedDescription)")
+                print("failed to adjust EV exposure error: \(error.localizedDescription)")
             }
         }
     }
 
-    func resetExposure() {
-        sessionQueue.async {
-            guard let device = self.session.inputs.compactMap({ ($0 as? AVCaptureDeviceInput)?.device }).first else {
-                return
-            }
-
-            do {
-                try device.lockForConfiguration()
-
-                let minBias = device.minExposureTargetBias
-                let maxBias = device.maxExposureTargetBias
-                let clampedZero = max(min(0, maxBias), minBias)
-
-                device.setExposureTargetBias(clampedZero, completionHandler: nil)
-                device.unlockForConfiguration()
-
-            } catch {
-                print("failed to reset exposure: \(error.localizedDescription)")
-            }
-        }
-    }
-    
-    
-    
-    
-    
-    
-    
     func focus(at point: CGPoint, viewSize: CGSize) {
         let focusPoint = CGPoint(x: point.y / viewSize.height, y: 1.0 - point.x / viewSize.width)
         guard let device = AVCaptureDevice.default(for: .video) else { return }
@@ -243,56 +301,6 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
             if !granted { throw CameraError.permissionDenied }
         default:
             throw CameraError.permissionDenied
-        }
-    }
-
-    private func configureCamera(for lens: CameraLensType) {
-        sessionQueue.async {
-            self.session.beginConfiguration()
-            self.session.sessionPreset = .photo
-
-            for input in self.session.inputs {
-                self.session.removeInput(input)
-            }
-
-            for output in self.session.outputs {
-                self.session.removeOutput(output)
-            }
-
-            guard let device = AVCaptureDevice.default(lens.deviceType, for: .video, position: .back),
-                  let input = try? AVCaptureDeviceInput(device: device),
-                  self.session.canAddInput(input) else {
-                DispatchQueue.main.async {
-                    self.onImageCaptured?(.failure(.configurationFailed("Device not available for \(lens.rawValue).")))
-                }
-                self.session.commitConfiguration()
-                return
-            }
-
-            self.session.addInput(input)
-            if self.session.canAddOutput(self.output) {
-                self.session.addOutput(self.output)
-
-                if #available(iOS 16.0, *) {
-                    let dimensions = CMVideoFormatDescriptionGetDimensions(device.activeFormat.formatDescription)
-                    self.output.maxPhotoDimensions = dimensions
-                } else {
-                    self.output.isHighResolutionCaptureEnabled = true
-                }
-            } else {
-                DispatchQueue.main.async {
-                    self.onImageCaptured?(.failure(.configurationFailed("Cannot add photo output.")))
-                }
-                self.session.commitConfiguration()
-                return
-            }
-
-            self.session.commitConfiguration()
-            if !self.session.isRunning {
-                self.session.startRunning()
-            }
-
-            self.updateDeviceInfo(device)
         }
     }
 

@@ -24,6 +24,11 @@ enum ToggleMode: Int, CaseIterable {
     }
 }
 
+enum ExposureMode: String, CaseIterable {
+    case autoExposure = "AE"
+    case evExposure = "EV"
+}
+
 class OrientationObserver: ObservableObject {
     @Published var orientation: UIDeviceOrientation = UIDevice.current.orientation
     @Published var levelAngle: Double = 0.0
@@ -84,15 +89,16 @@ class OrientationObserver: ObservableObject {
 
 struct ShotHelper {
     static func frameSize(containerSize: CGSize,
-                          focalLength: CGFloat,
-                          filmSize: CameraOptions.FilmSize,
+                          focalLength: Double,
+                          aspectRatio: Double,
+                          width: Double,
                           horizontalFov: CGFloat) -> CGSize {
         guard focalLength > 0, horizontalFov > 0 else {
             return .zero
         }
-        let filmHFov = 2 * atan(CGFloat(filmSize.width) / (2 * focalLength))
+        let filmHFov = 2 * atan(CGFloat(width) / (2 * focalLength))
         let frameHorizontal = containerSize.width * (tan(filmHFov / 2) / tan((horizontalFov * .pi / 180) / 2))
-        let frameVertical = frameHorizontal / CGFloat(filmSize.aspectRatio)
+        let frameVertical = frameHorizontal / CGFloat(aspectRatio)
         if frameHorizontal.isFinite && frameVertical.isFinite && frameHorizontal > 0 && frameVertical > 0 {
             return CGSize(width: frameHorizontal, height: frameVertical)
         } else {
@@ -109,26 +115,37 @@ struct ShotHelper {
 }
 
 struct ShotOverlay: View {
-    let aspectRatio: CGFloat
-    let focalLength: CGFloat
-    let filmSize: CameraOptions.FilmSize
+    let aspectRatio: String
+    let filter: String
+    let focalLength: String
+    let aperture: String
+    let shutter: String
+    let filmSize: String
+    let filmStock: String
     let horizontalFov: CGFloat
     let orientation: UIDeviceOrientation
+    let exposureMode: ExposureMode
     let centerMode: ToggleMode
     let symmetryMode: ToggleMode
     
     var body: some View {
         GeometryReader { geo in
+            let aspectRatioValue = CameraOptions.aspectRatios.first(where: { $0.label == aspectRatio })?.value ?? CameraOptions.AspectRatio.defaultAspectRatio
+            let focalLengthValue = CameraOptions.focalLengths.first(where: { $0.label == focalLength })?.value ?? CameraOptions.FocalLength.defaultFocalLength
+            let filmSizeValue = CameraOptions.filmSizes.first(where: { $0.label == filmSize })?.value ?? CameraOptions.FilmSize.defaultFilmSize
+            let filmStockValue = CameraOptions.filmStocks.first(where: { $0.label == filmStock })?.value ?? CameraOptions.FilmStock.defaultFilmStock
+
             let frameSize = ShotHelper.frameSize(
                 containerSize: geo.size.switchOrientation(), // to native
-                focalLength: focalLength,
-                filmSize: filmSize,
+                focalLength: focalLengthValue.length,
+                aspectRatio: filmSizeValue.aspectRatio,
+                width: filmSizeValue.width,
                 horizontalFov: horizontalFov
             )
             
             let ratioSize = ShotHelper.ratioSize(
                 frameSize: frameSize,
-                frameRatio: aspectRatio > 0.0 ? aspectRatio : filmSize.aspectRatio
+                frameRatio: aspectRatioValue.ratio > 0.0 ? aspectRatioValue.ratio : filmSizeValue.aspectRatio
             )
             
             let targetSize = frameSize.switchOrientation() // to potrait
@@ -269,15 +286,22 @@ struct ShotOverlay: View {
                 }
                 
                 VStack(spacing: 4) {
-                    Text("\(Int(filmSize.width)) mm x \(Int(filmSize.height)) mm " +
-                         "\(String(format: "%.2f", filmSize.aspectRatio)) @ " +
-                         "\(String(format: "%.1f", filmSize.angleOfView(focalLength: focalLength).horizontal))°")
-                        .font(.caption2)
-                        .padding(4)
-                        .background(Color.black.opacity(0.6))
-                        .foregroundColor(.white)
-                        .cornerRadius(4)
-                        .rotationEffect(orientation.angle)
+                    let filterText = filter != "-" ? " \(filter)" : ""
+                    let exposureText: String = (exposureMode == .autoExposure)
+                        ? ", AE"
+                        : ", EV: \(filmStockValue.speed) \(shutter) \(aperture)"
+
+                    Text(
+                        "\(Int(filmSizeValue.width)) mm x \(Int(filmSizeValue.height)) mm, " +
+                        "\(String(format: "%.1f", filmSizeValue.angleOfView(focalLength: focalLengthValue.length).horizontal))°, " +
+                        "\(Int(filmStockValue.colorTemperature))K\(filterText)\(exposureText)"
+                    )
+                    .font(.caption2)
+                    .padding(4)
+                    .background(Color.black.opacity(0.6))
+                    .foregroundColor(.white)
+                    .cornerRadius(4)
+                    .rotationEffect(orientation.angle)
                 }
                 .offset(offset(for: orientation, geo: geo))
             }
@@ -315,8 +339,8 @@ struct LevelIndicator: View {
             let snappedRoll = (smoothedRoll / 2).rounded() * 2
             let snappedPitch = smoothedPitch.clamped(to: -30...30) // limit range
             
-            let isRollAligned = abs(snappedRoll) <= 2
-            let isPitchAligned = abs(snappedPitch) <= 2
+            let isRollAligned = abs(snappedRoll) <= 1
+            let isPitchAligned = abs(snappedPitch) <= 1
             
             let fullWidth = geo.size.width * totalWidthRatio
             let gap = fullWidth * gapRatio
@@ -351,11 +375,9 @@ struct LevelIndicator: View {
             .rotationEffect(orientation.angle)
             .animation(.easeInOut(duration: 0.15), value: snappedRoll)
             .animation(.easeInOut(duration: 0.15), value: snappedPitch)
-            .onChange(of: levelAngle) { _, newValue in
-                smoothedRoll += alpha * (newValue - smoothedRoll)
-            }
-            .onChange(of: pitchAngle) { _, newValue in
-                smoothedPitch += alpha * (newValue - smoothedPitch)
+            .onChange(of: (levelAngle, pitchAngle)) { _, new in
+                smoothedRoll += alpha * (new.0 - smoothedRoll)
+                smoothedPitch += alpha * (new.1 - smoothedPitch)
             }
             .onAppear {
                 smoothedRoll = levelAngle
@@ -395,6 +417,9 @@ struct ShotViewfinderView: View {
     
     var onCapture: (UIImage) -> Void
     @Environment(\.dismiss) private var dismiss
+    
+    @State private var isPressed = false
+    
     @StateObject private var cameraModel = CameraModel()
     
     @AppStorage("centerMode") private var centerModeRawValue: Int = ToggleMode.off.rawValue
@@ -415,7 +440,10 @@ struct ShotViewfinderView: View {
         set { levelModeRawValue = newValue.rawValue }
     }
     
-    @AppStorage("selectedLens") private var selectedLensRawValue: String = CameraLensType.wide.rawValue
+    @AppStorage("lensType") private var selectedLensRawValue: String = LensType.wide.rawValue
+    
+    @AppStorage("exposureMode") private var exposureMode: ExposureMode = .autoExposure
+
     
     @ObservedObject private var orientationObserver = OrientationObserver()
     
@@ -434,11 +462,16 @@ struct ShotViewfinderView: View {
                         .ignoresSafeArea()
                     
                     ShotOverlay(
-                        aspectRatio: CameraOptions.aspectRatios.first(where: { $0.label == shot.aspectRatio })?.value ?? 0,
-                        focalLength: CameraOptions.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value ?? 0,
-                        filmSize: CameraOptions.filmSizes.first(where: { $0.label == shot.filmSize })?.value ?? CameraOptions.FilmSize.defaultFilmSize,
+                        aspectRatio: shot.aspectRatio,
+                        filter: shot.lensFilter,
+                        focalLength: shot.lensFocalLength,
+                        aperture: shot.aperture,
+                        shutter: shot.shutter,
+                        filmSize: shot.filmSize,
+                        filmStock: shot.filmStock,
                         horizontalFov: cameraModel.horizontalFov,
                         orientation: orientationObserver.orientation,
+                        exposureMode: exposureMode,
                         centerMode: centerMode,
                         symmetryMode: symmetryMode
                     )
@@ -475,18 +508,15 @@ struct ShotViewfinderView: View {
                     HStack {
                         toolsControls()
                         
-                        Spacer()
-                        
                         Button(action: { dismiss() }) {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 28))
+                                .font(.system(size: 32))
                                 .foregroundColor(.white)
                                 .padding(8)
                                 .background(Color.black.opacity(0.4))
                                 .clipShape(Circle())
                         }
-                        
-                        Spacer()
+                        .frame(width: 42)
 
                         exposureControls()
                     }
@@ -501,8 +531,6 @@ struct ShotViewfinderView: View {
             HStack {
                 focalLengthControls()
                 
-                Spacer()
-
                 Button(action: { cameraModel.capturePhoto() }) {
                     ZStack {
                         Circle()
@@ -513,9 +541,7 @@ struct ShotViewfinderView: View {
                             .frame(width: 36, height: 36)
                     }
                 }
-                .frame(width: 64)
-
-                Spacer()
+                .frame(width: 60)
 
                 aspectRatioControls()
             }
@@ -523,12 +549,15 @@ struct ShotViewfinderView: View {
             .padding(.vertical, 6)
         }
         .onAppear {
-            cameraModel.configure()
-            let saved = CameraLensType(rawValue: selectedLensRawValue) ?? .wide
-            if cameraModel.currentLens != saved {
-                cameraModel.switchCamera(to: saved)
+            cameraModel.configure() {
+                let saved = LensType(rawValue: selectedLensRawValue) ?? .wide
+                if cameraModel.lensType != saved {
+                    cameraModel.switchCamera(to: saved)
+                }
+                adjustExposure()
+                adjustWhiteBalance()
             }
-
+            
             cameraModel.onImageCaptured = { result in
                 switch result {
                 case .success(let image):
@@ -546,7 +575,7 @@ struct ShotViewfinderView: View {
     
     @ViewBuilder
     private func focalLengthControls() -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             Button(action: {
                 if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == shot.lensFocalLength }) {
                     let newIndex = (currentIndex - 1 + CameraOptions.focalLengths.count) % CameraOptions.focalLengths.count
@@ -587,7 +616,7 @@ struct ShotViewfinderView: View {
     
     @ViewBuilder
     private func aspectRatioControls() -> some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 6) {
             Button(action: {
                 if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == shot.aspectRatio }) {
                     let newIndex = (currentIndex - 1 + CameraOptions.aspectRatios.count) % CameraOptions.aspectRatios.count
@@ -628,11 +657,9 @@ struct ShotViewfinderView: View {
     
     @ViewBuilder
     private func toolsControls() -> some View {
-        HStack(spacing: 8) {
-            Spacer()
-            
+        HStack(spacing: 6) {
             Button(action: { toggleLens() }) {
-                Text(lensLabel(for: cameraModel.currentLens))
+                Text(lensLabel(for: cameraModel.lensType))
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
@@ -655,7 +682,7 @@ struct ShotViewfinderView: View {
             Button(action: {
                 symmetryModeRawValue = symmetryMode.next().rawValue
             }) {
-                Image(systemName: "square.grid.3x3")
+                Image(systemName: "grid")
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
                     .background(symmetryMode.color)
@@ -673,64 +700,98 @@ struct ShotViewfinderView: View {
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
             }
+            
+            Spacer()
 
         }
-        .frame(width: 120)
+        .frame(width: 145)
     }
     
     @ViewBuilder
     private func exposureControls() -> some View {
-        HStack(spacing: 8) {
-
-            Button(action: { resetExposure() }) {
-                Image(systemName: "arrow.counterclockwise")
-                    .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
-                    .background(Color.black.opacity(0.4))
-                    .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.angle)
-            }
-            
-            Button(action: { matchExposure() }) {
-                Image(systemName: "lightbulb")
-                    .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
-                    .background(Color.black.opacity(0.4))
-                    .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.angle)
-            }
-            
-            Button(action: { increaseExposure() }) {
-                Image(systemName: "plus.circle")
-                    .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
-                    .background(Color.black.opacity(0.4))
-                    .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.angle)
-            }
-            
-            Button(action: { decreaseExposure() }) {
-                Image(systemName: "minus.circle")
-                    .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
-                    .background(Color.black.opacity(0.4))
-                    .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.angle)
-            }
-            
+        HStack(spacing: 6) {
             Spacer()
+
+            Button(action: { toggleExposure() }) {
+                Text(exposureLabel(for: exposureMode))
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(width: 32, height: 32)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
+                    .rotationEffect(orientationObserver.orientation.angle)
+            }
+            
+
+
+            let evMode = exposureMode == .evExposure
+            let opacity = evMode ? 1.0 : 0.4
+
+            Button(action: {
+                if let currentIndex = CameraOptions.filters.firstIndex(where: { $0.label == shot.lensFilter }) {
+                    let newIndex = (currentIndex + 1) % CameraOptions.filters.count
+                    shot.lensFilter = CameraOptions.filters[newIndex].label
+                    adjustWhiteBalance()
+                    adjustExposure()
+                }
+            }) {
+                Image(systemName: "camera.filters")
+                    .foregroundColor(.white)
+                    .frame(width: 32, height: 32)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
+                    .rotationEffect(orientationObserver.orientation.angle)
+            }
+            .disabled(!evMode)
+            .opacity(opacity)
+            
+            Button(action: {
+                if let currentIndex = CameraOptions.shutters.firstIndex(where: { $0.label == shot.shutter }) {
+                    let newIndex = (currentIndex + 1) % CameraOptions.shutters.count
+                    shot.shutter = CameraOptions.shutters[newIndex].label
+                    adjustEVExposure()
+                }
+            }) {
+                Image(systemName: "plusminus.circle")
+                    .foregroundColor(.white)
+                    .frame(width: 32, height: 32)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
+                    .rotationEffect(orientationObserver.orientation.angle)
+            }
+            .disabled(!evMode)
+            .opacity(opacity)
+            
+            Button(action: {
+                if let currentIndex = CameraOptions.apertures.firstIndex(where: { $0.label == shot.aperture }) {
+                    let newIndex = (currentIndex + 1) % CameraOptions.apertures.count
+                    shot.aperture = CameraOptions.apertures[newIndex].label
+                    adjustEVExposure()
+                }
+            }) {
+                Image(systemName: "camera.aperture")
+                    .foregroundColor(.white)
+                    .frame(width: 32, height: 32)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
+                    .rotationEffect(orientationObserver.orientation.angle)
+            }
+            .disabled(!evMode)
+            .opacity(opacity)
+
         }
-        .frame(width: 120)
+        .frame(width: 145)
     }
 
     private func captureImage(image: UIImage) {
         let containerSize = UIScreen.main.bounds.size
         let filmSize = CameraOptions.filmSizes.first(where: { $0.label == shot.filmSize })?.value ?? CameraOptions.FilmSize.defaultFilmSize
-        let focalLength = CameraOptions.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value ?? 0
+        let focalLength = CameraOptions.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value ?? CameraOptions.FocalLength.defaultFocalLength
         let frameSize = ShotHelper.frameSize(
             containerSize: containerSize.switchOrientation(), // to native
-            focalLength: focalLength,
-            filmSize: filmSize,
+            focalLength: focalLength.length,
+            aspectRatio: filmSize.aspectRatio,
+            width: filmSize.width,
             horizontalFov: cameraModel.horizontalFov
         )
         let targetSize = frameSize.switchOrientation() // to potrait
@@ -806,16 +867,23 @@ struct ShotViewfinderView: View {
         print("screenshot saved to Photos")
     }
     
-    private func lensLabel(for lens: CameraLensType) -> String {
+    private func lensLabel(for lens: LensType) -> String {
         switch lens {
         case .ultraWide: return "x.5"
         case .wide: return "x1"
         }
     }
     
+    private func exposureLabel(for exposure: ExposureMode) -> String {
+        switch exposure {
+        case .autoExposure: return "AE"
+        case .evExposure: return "EV"
+        }
+    }
+    
     private func toggleLens() {
-        let lenses: [CameraLensType] = [.ultraWide, .wide]
-        if let currentIndex = lenses.firstIndex(of: cameraModel.currentLens) {
+        let lenses: [LensType] = [.ultraWide, .wide]
+        if let currentIndex = lenses.firstIndex(of: cameraModel.lensType) {
             let nextIndex = (currentIndex + 1) % lenses.count
             let newLens = lenses[nextIndex]
             cameraModel.switchCamera(to: newLens)
@@ -823,33 +891,51 @@ struct ShotViewfinderView: View {
         }
     }
     
-    func matchExposure() {
+    private func toggleExposure() {
+        let exposures: [ExposureMode] = [.autoExposure, .evExposure]
+        if let currentIndex = exposures.firstIndex(of: exposureMode) {
+            let nextIndex = (currentIndex + 1) % exposures.count
+            exposureMode = exposures[nextIndex]
+            adjustExposure()
+        }
+    }
+    
+    func adjustExposure() {
+        if exposureMode == .autoExposure {
+            adjustAutoExposure()
+        } else {
+            adjustEVExposure()
+        }
+    }
+    
+    func adjustAutoExposure() {
+        cameraModel.adjustAutoExposure(ev: 0);
+    }
+    
+    func adjustEVExposure() {
+        if exposureMode == .autoExposure {
+            return
+        }
+            
         let filmStock = CameraOptions.filmStocks.first(where: { $0.label == shot.filmStock })?.value ?? CameraOptions.FilmStock.defaultFilmStock
-        let fstop = CameraOptions.fStops.first(where: { $0.label == shot.fstop })?.value ?? CameraOptions.FStop.defaultFStop
+        let aperture = CameraOptions.apertures.first(where: { $0.label == shot.aperture })?.value ?? CameraOptions.Aperture.defaultAperture
         let shutter = CameraOptions.shutters.first(where: { $0.label == shot.shutter })?.value ?? CameraOptions.Shutter.defaultShutter
+        let filter = CameraOptions.filters.first(where: { $0.label == shot.lensFilter })?.value ?? CameraOptions.Filter.defaultFilter
         
-        cameraModel.matchExposure(
-            refFNumber: fstop.fstop,
-            refISO: filmStock.speed,
-            refShutter: shutter.shutter
+        cameraModel.adjustEVExposure(
+            fstop: aperture.fstop,
+            speed: filmStock.speed,
+            shutter: shutter.shutter,
+            exposureCompensation: filter.exposureCompensation
         )
     }
     
-    func increaseExposure() {
-        cameraModel.currentExposureBias += 0.25 // +0.25 ev
-        cameraModel.adjustExposure(to: cameraModel.currentExposureBias)
+    func adjustWhiteBalance() {
+        let filmStock = CameraOptions.filmStocks.first(where: { $0.label == shot.filmStock })?.value ?? CameraOptions.FilmStock.defaultFilmStock
+        let filter = CameraOptions.filters.first(where: { $0.label == shot.lensFilter })?.value ?? CameraOptions.Filter.defaultFilter
+        
+        cameraModel.adjustWhiteBalance(kelvin: filmStock.colorTemperature + filter.colorTemperatureShift);
     }
-
-    func decreaseExposure() {
-        cameraModel.currentExposureBias -= 0.25 // -0.25 ev
-        cameraModel.adjustExposure(to: cameraModel.currentExposureBias)
-    }
-
-    func resetExposure() {
-        cameraModel.currentExposureBias = 0.0
-        cameraModel.adjustExposure(to: 0.0)
-    }
-
 }
 
 extension CGSize {
@@ -871,6 +957,20 @@ extension UIDeviceOrientation {
         case .landscapeRight: return .degrees(-90)
         case .portraitUpsideDown: return .degrees(180)
         default: return .degrees(0)
+        }
+    }
+}
+
+extension View {
+    func onChange<A: Equatable, B: Equatable>(
+        of values: (A, B),
+        perform action: @escaping ((A, B), (A, B)) -> Void
+    ) -> some View {
+        self.onChange(of: values.0) { old, new in
+            action((values.0, values.1), (values.0, values.1))
+        }
+        .onChange(of: values.1) { old, new in
+            action((values.0, values.1), (values.0, values.1))
         }
     }
 }

@@ -58,7 +58,6 @@ struct ShotDetailView: View {
     @State private var requestingLocation = false
     @StateObject private var locationManager = LocationManager()
     
-
     var body: some View {
         Form {
             Section(header: Text("Shot")) {
@@ -78,8 +77,8 @@ struct ShotDetailView: View {
                 }
                 
                 Picker("Aspect Ratio", selection: $shot.aspectRatio) {
-                    ForEach(CameraOptions.aspectRatios, id: \.label) { item in
-                        Text(item.label).tag(item.value)
+                    ForEach(CameraOptions.aspectRatios, id: \.label) { aspectRatio in
+                        Text(aspectRatio.label).tag(aspectRatio.label)
                     }
                 }
                 .disabled(shot.isLocked)
@@ -94,7 +93,7 @@ struct ShotDetailView: View {
                     .focused($activeField, equals: .note)
                     .offset(x: -4)
             }
-            
+            /*
             Section(header: Text("Location")) {
                 if requestingLocation {
                     Text("Waiting for location...")
@@ -127,15 +126,15 @@ struct ShotDetailView: View {
                 HStack {
                     Text("Elevation")
                     Spacer()
-                    if requestingLocation || shot.elevation == 0 {
+                    if requestingLocation || shot.locationElevation == 0 {
                         Text("-")
                             .foregroundColor(.secondary)
                     } else {
                         HStack(spacing: 0) {
-                            TextField("", value: $shot.elevation, formatter: elevationFormatter)
+                            TextField("", value: $shot.locationElevation, formatter: elevationFormatter)
                                 .keyboardType(.decimalPad)
                                 .multilineTextAlignment(.trailing)
-                                .focused($activeField, equals: .elevation)
+                                .focused($activeField, equals: .locationElevation)
                                 .disabled(true)
                             
                             HStack(spacing: 2) {
@@ -152,26 +151,26 @@ struct ShotDetailView: View {
                 HStack {
                     Text("Color temperature")
                     Spacer()
-                    if requestingLocation || shot.elevation == 0 {
+                    if requestingLocation || shot.locationElevation == 0 {
                         Text("-")
                             .foregroundColor(.secondary)
                     } else {
                         HStack(spacing: 0) {
-                            TextField("", value: $shot.colorTemperature, formatter: colorTemperatureFormatter)
+                            TextField("", value: $shot.locationColorTemperature, formatter: colorTemperatureFormatter)
                                 .keyboardType(.numberPad)
                                 .multilineTextAlignment(.trailing)
-                                .focused($activeField, equals: .colorTemperature)
+                                .focused($activeField, equals: .locationColorTemperature)
                                 .disabled(shot.isLocked)
                             Text("K")
                         }
                     }
                 }
             }
-            
+            */
             Section(header: Text("Camera")) {
-                Picker("F-Stop", selection: $shot.fstop) {
-                    ForEach(CameraOptions.fStops, id: \.label) { fstop in
-                        Text(fstop.label).tag(fstop.label)
+                Picker("Aperture", selection: $shot.aperture) {
+                    ForEach(CameraOptions.apertures, id: \.label) { aperture in
+                        Text(aperture.label).tag(aperture.label)
                     }
                 }
                 .disabled(shot.isLocked)
@@ -199,9 +198,16 @@ struct ShotDetailView: View {
                 }
                 .disabled(shot.isLocked)
                 
+                Picker("Lens filter", selection: $shot.lensFilter) {
+                    ForEach(CameraOptions.filters, id: \.label) { lensFilter in
+                        Text(lensFilter.label).tag(lensFilter.label)
+                    }
+                }
+                .disabled(shot.isLocked)
+                
                 Picker("Focal length", selection: $shot.lensFocalLength) {
-                    ForEach(CameraOptions.focalLengths, id: \.label) { item in
-                        Text(item.label).tag(item.value)
+                    ForEach(CameraOptions.focalLengths, id: \.label) { focalLength in
+                        Text(focalLength.label).tag(focalLength.label)
                     }
                     
                 }
@@ -328,13 +334,13 @@ struct ShotDetailView: View {
             locationManager.currentLocation = nil
             if shot.location == nil {
                 shot.locationTimestamp = Date()
-                shot.elevation = 0
-                shot.colorTemperature = 0
+                shot.locationColorTemperature = 0
+                shot.locationElevation = 0
             }
             updateDof()
         }
         .onChange(of: shot.focusDistance) { _, _ in updateDof() }
-        .onChange(of: shot.fstop) { _, _ in updateDof() }
+        .onChange(of: shot.aperture) { _, _ in updateDof() }
         .onChange(of: shot.lensFocalLength) { _, _ in updateDof() }
         .onReceive(locationManager.$currentLocation) { location in
             if requestingLocation, let location = location {
@@ -343,8 +349,8 @@ struct ShotDetailView: View {
                     longitude: location.coordinate.longitude,
                     altitude: location.altitude
                 )
-                shot.elevation = shot.location?.elevation(for: Date()) ?? 0
-                shot.colorTemperature = shot.location?.colorTemperature(for: Date()) ?? 0
+                shot.locationColorTemperature = shot.location?.colorTemperature(for: Date()) ?? 0
+                shot.locationElevation = shot.location?.elevation(for: Date()) ?? 0
                 requestingLocation = false
             }
         }
@@ -535,14 +541,14 @@ struct ShotDetailView: View {
         }
 
         guard let filmSize = CameraOptions.filmSizes.first(where: { $0.label == shot.filmSize })?.value,
-              let aperture = CameraOptions.fStops.first(where: { $0.label == shot.fstop })?.value,
+              let aperture = CameraOptions.apertures.first(where: { $0.label == shot.aperture })?.value,
               let focalLength = CameraOptions.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value else {
             shot.focusDepthOfField = 0
             return
         }
 
         let result = filmSize.focusDepthOfField(
-            focalLength: focalLength,
+            focalLength: focalLength.length,
             aperture: aperture.fstop,
             focusDistance: focusDistance
         )
@@ -589,7 +595,7 @@ struct ShotDetailView: View {
     @ViewBuilder
     private func evPicker(title: String, selection: Binding<String>) -> some View {
         Picker(title, selection: selection) {
-            Text("EV na").tag("-")
+            Text("-").tag("-")
             ForEach(-6...6, id: \.self) { value in
                 Text("EV\(value >= 0 ? "+\(value)" : "\(value)")").tag("\(value)")
             }

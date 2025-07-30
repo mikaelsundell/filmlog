@@ -205,7 +205,7 @@ struct GalleryView: View {
                 }
                 Button("Cancel", role: .cancel) { }
             } message: { category in
-                Text("Are you sure you want to delete the category \"\(category.name)\"?")
+                Text("Are you sure you want to delete the category \(category.name)?")
             }
             .alert("Delete Image?", isPresented: $showDeleteImageAlert, presenting: imageToDelete) { image in
                 Button("Delete", role: .destructive) {
@@ -213,7 +213,7 @@ struct GalleryView: View {
                 }
                 Button("Cancel", role: .cancel) { }
             } message: { image in
-                Text("Are you sure you want to delete \"\(image.name ?? "this image")\"?")
+                Text("Are you sure you want to delete \(image.name ?? "this image")?")
             }
             .sheet(isPresented: $showCategoryEditSheet) {
                 if let category = selectedCategoryForEdit {
@@ -286,7 +286,7 @@ struct GalleryView: View {
                             Spacer()
                             Button("Done") {
                                 selectedImageFocused = false
-                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) // needed for sheets
+                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                             }
                         }
                     }
@@ -433,17 +433,9 @@ struct GalleryView: View {
                         creator = jsonObject["creator"] as? String
                         timestamp = jsonObject["timestamp"] as? Date
                     }
-
-                    let newImage = ImageData(
-                        data: data,
-                        category: selectedCategory,
-                        name: name,
-                        note: note,
-                        creator: creator
-                    )
-                    
+                    let newImage = ImageData(data: data, category: selectedCategory, name: name, note: note, creator: creator)
                     newImage.timestamp = timestamp ?? Date()
-
+                    
                     modelContext.insert(newImage)
                     try modelContext.save()
 
