@@ -479,12 +479,13 @@ struct ShotViewfinderView: View {
                         
                         Button(action: { dismiss() }) {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 24))
+                                .font(.system(size: 28))
                                 .foregroundColor(.white)
                                 .padding(8)
                                 .background(Color.black.opacity(0.4))
                                 .clipShape(Circle())
                         }
+                        
                         Spacer()
 
                         exposureControls()
@@ -523,6 +524,11 @@ struct ShotViewfinderView: View {
         }
         .onAppear {
             cameraModel.configure()
+            let saved = CameraLensType(rawValue: selectedLensRawValue) ?? .wide
+            if cameraModel.currentLens != saved {
+                cameraModel.switchCamera(to: saved)
+            }
+
             cameraModel.onImageCaptured = { result in
                 switch result {
                 case .success(let image):
@@ -623,11 +629,13 @@ struct ShotViewfinderView: View {
     @ViewBuilder
     private func toolsControls() -> some View {
         HStack(spacing: 8) {
+            Spacer()
+            
             Button(action: { toggleLens() }) {
                 Text(lensLabel(for: cameraModel.currentLens))
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.white)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
@@ -638,7 +646,7 @@ struct ShotViewfinderView: View {
             }) {
                 Image(systemName: "plus.circle.fill")
                     .foregroundColor(.white)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
                     .background(centerMode.color)
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
@@ -649,7 +657,7 @@ struct ShotViewfinderView: View {
             }) {
                 Image(systemName: "square.grid.3x3")
                     .foregroundColor(.white)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
                     .background(symmetryMode.color)
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
@@ -660,26 +668,33 @@ struct ShotViewfinderView: View {
             }) {
                 Image(systemName: "gyroscope")
                     .foregroundColor(.white)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
                     .background(levelMode.color)
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
             }
 
-            Spacer()
         }
-        .frame(width: 140)
+        .frame(width: 120)
     }
     
     @ViewBuilder
     private func exposureControls() -> some View {
         HStack(spacing: 8) {
-            Spacer()
-            
+
             Button(action: { resetExposure() }) {
                 Image(systemName: "arrow.counterclockwise")
                     .foregroundColor(.white)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
+                    .rotationEffect(orientationObserver.orientation.angle)
+            }
+            
+            Button(action: { matchExposure() }) {
+                Image(systemName: "lightbulb")
+                    .foregroundColor(.white)
+                    .frame(width: 32, height: 32)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
@@ -688,7 +703,7 @@ struct ShotViewfinderView: View {
             Button(action: { increaseExposure() }) {
                 Image(systemName: "plus.circle")
                     .foregroundColor(.white)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
@@ -697,13 +712,15 @@ struct ShotViewfinderView: View {
             Button(action: { decreaseExposure() }) {
                 Image(systemName: "minus.circle")
                     .foregroundColor(.white)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
             }
+            
+            Spacer()
         }
-        .frame(width: 140)
+        .frame(width: 120)
     }
 
     private func captureImage(image: UIImage) {
@@ -804,6 +821,18 @@ struct ShotViewfinderView: View {
             cameraModel.switchCamera(to: newLens)
             selectedLensRawValue = newLens.rawValue
         }
+    }
+    
+    func matchExposure() {
+        let filmStock = CameraOptions.filmStocks.first(where: { $0.label == shot.filmStock })?.value ?? CameraOptions.FilmStock.defaultFilmStock
+        let fstop = CameraOptions.fStops.first(where: { $0.label == shot.fstop })?.value ?? CameraOptions.FStop.defaultFStop
+        let shutter = CameraOptions.shutters.first(where: { $0.label == shot.shutter })?.value ?? CameraOptions.Shutter.defaultShutter
+        
+        cameraModel.matchExposure(
+            refFNumber: fstop.fstop,
+            refISO: filmStock.speed,
+            refShutter: shutter.shutter
+        )
     }
     
     func increaseExposure() {

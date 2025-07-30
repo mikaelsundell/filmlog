@@ -17,6 +17,11 @@ enum CameraLensType: String {
     }
 }
 
+enum ExposureType: String {
+    case autoExposure = "AE"
+    case evExposure = "EV"
+}
+
 enum CameraError: Error, LocalizedError {
     case configurationFailed(String)
     case captureFailed(String)
@@ -94,6 +99,77 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
             }
         }
     }
+    
+    func matchExposure(refFNumber: Double, refISO: Double, refShutter: Double, preferredISO: Double? = nil) {
+        sessionQueue.async {
+            guard let device = self.session.inputs
+                .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
+                .first else {
+                    print("matchExposure: No device found")
+                    return
+                }
+
+            do {
+                try device.lockForConfiguration()
+                defer { device.unlockForConfiguration() }
+
+                let Ndev = Double(device.lensAperture)
+                let Nref2 = refFNumber * refFNumber
+                let EVtarget = log2(Nref2 / refShutter) - log2(refISO / 100.0)
+
+                let minISO = Double(device.activeFormat.minISO)
+                let maxISO = Double(device.activeFormat.maxISO)
+
+                let preferredShutter: Double = 1.0 / 125.0 // Try to keep at least 1/125s
+                let minShutter = device.activeFormat.minExposureDuration.seconds
+                let maxShutter = device.activeFormat.maxExposureDuration.seconds
+
+                // Clamp shutter to safe range
+                let shutterToUse = max(min(preferredShutter, maxShutter), minShutter)
+
+                let Ndev2 = Ndev * Ndev
+                let ISOcalc = 100.0 * Ndev2 / (pow(2.0, EVtarget) * shutterToUse)
+                let ISOtoApply: Double
+                var actualShutter = shutterToUse
+
+                if ISOcalc > maxISO {
+                    // ISO too high, relax shutter to compensate
+                    let tAdj = 100.0 * Ndev2 / (pow(2.0, EVtarget) * maxISO)
+                    actualShutter = min(max(tAdj, minShutter), maxShutter)
+                    ISOtoApply = maxISO
+                } else if ISOcalc < minISO {
+                    // ISO too low, adjust shutter slower to compensate
+                    let tAdj = 100.0 * Ndev2 / (pow(2.0, EVtarget) * minISO)
+                    actualShutter = min(max(tAdj, minShutter), maxShutter)
+                    ISOtoApply = minISO
+                } else {
+                    ISOtoApply = ISOcalc
+                }
+
+                let exposureDuration = CMTimeMakeWithSeconds(actualShutter, preferredTimescale: 1_000_000_000)
+                device.setExposureModeCustom(duration: exposureDuration, iso: Float(ISOtoApply), completionHandler: nil)
+
+                if device.isWhiteBalanceModeSupported(.locked) {
+                    device.whiteBalanceMode = .locked
+                }
+
+                device.isSubjectAreaChangeMonitoringEnabled = false
+
+                #if DEBUG
+                print("""
+                    matchExposure:
+                    - Target EV: \(EVtarget)
+                    - Applied ISO: \(ISOtoApply)
+                    - Applied Shutter: \(actualShutter)s
+                    - iPhone Aperture: f/\(Ndev)
+                    """)
+                #endif
+
+            } catch {
+                print("matchExposure error: \(error.localizedDescription)")
+            }
+        }
+    }
 
     func resetExposure() {
         sessionQueue.async {
@@ -117,6 +193,12 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
         }
     }
     
+    
+    
+    
+    
+    
+    
     func focus(at point: CGPoint, viewSize: CGSize) {
         let focusPoint = CGPoint(x: point.y / viewSize.height, y: 1.0 - point.x / viewSize.width)
         guard let device = AVCaptureDevice.default(for: .video) else { return }
@@ -126,11 +208,6 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
             if device.isFocusPointOfInterestSupported {
                 device.focusPointOfInterest = focusPoint
                 device.focusMode = .autoFocus
-            }
-            
-            if device.isExposurePointOfInterestSupported {
-                device.exposurePointOfInterest = focusPoint
-                device.exposureMode = .continuousAutoExposure
             }
             device.unlockForConfiguration()
         } catch {

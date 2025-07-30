@@ -118,7 +118,29 @@ struct CameraOptions {
         static let defaultCocFactor: Double = 1442
         static let defaultFilmSize = CameraOptions.FilmSize(width: 36.0, height: 24.0)
     }
+    
+    struct FilmStock {
+        let speed: Double
+        
+        static let defaultFilmStock = CameraOptions.FilmStock(speed: 100)
+    }
+    
+    struct FStop: Equatable {
+        let fstop: Double
+        
+        static let defaultFStop = CameraOptions.FStop(fstop: 2.8)
+    }
+    
+    struct Shutter: Equatable {
+        let numerator: Int
+        let denominator: Int
 
+        var shutter: Double {
+            return Double(numerator) / Double(denominator)
+        }
+        
+        static let defaultShutter = CameraOptions.Shutter(numerator: 1, denominator: 125)
+    }
     
     static let aspectRatios: [(label: String, value: Double)] = [
         ("-", 0.0),
@@ -184,14 +206,20 @@ struct CameraOptions {
         ("Alexa 65 (Open Gate)", FilmSize(width: 54.12, height: 25.58))
     ]
     
-    static let filmStocks: [String] = [
-        "50D", 
-        "250D",
-        "200T",
-        "500T",
-        "Ektachrome",
-        "Double X",
-        "Other"
+    static let filmStocks: [(label: String, value: FilmStock)] = [
+        ("Vision3 50D 5203", FilmStock(speed: 50)),
+        ("Vision3 250D 5207", FilmStock(speed: 250)),
+        ("Vision3 200T 5213", FilmStock(speed: 200)),
+        ("Vision3 500T 5219", FilmStock(speed: 500)),
+        ("Kodak Ektachrome", FilmStock(speed: 100)),
+        ("Kodak Double X 5222", FilmStock(speed: 250)),
+        ("EI 50", FilmStock(speed: 50)),
+        ("EI 100", FilmStock(speed: 100)),
+        ("EI 200", FilmStock(speed: 200)),
+        ("EI 400", FilmStock(speed: 400)),
+        ("EI 800", FilmStock(speed: 800)),
+        ("EI 1600", FilmStock(speed: 1600)),
+        ("EI 3200", FilmStock(speed: 3200)),
     ]
     
     static let focalLengths: [(label: String, value: Double)] = [
@@ -211,16 +239,16 @@ struct CameraOptions {
         ("300mm", 300)
     ]
 
-    static let fStops: [(label: String, value: Double)] = [
-        ("f/1.4", 1.4),
-        ("f/2", 2.0),
-        ("f/2.8", 2.8),
-        ("f/4", 4),
-        ("f/5.6", 5.6),
-        ("f/8", 8),
-        ("f/11", 11),
-        ("f/16", 16),
-        ("f/22", 22)
+    static let fStops: [(label: String, value: FStop)] = [
+        ("f/1.4", FStop(fstop: 1.4)),
+        ("f/2", FStop(fstop: 2.0)),
+        ("f/2.8", FStop(fstop: 2.8)),
+        ("f/4", FStop(fstop: 4)),
+        ("f/5.6", FStop(fstop: 5.6)),
+        ("f/8", FStop(fstop: 8)),
+        ("f/11", FStop(fstop: 11)),
+        ("f/16", FStop(fstop: 16)),
+        ("f/22", FStop(fstop: 22))
     ]
     
     static let lensNames: [String] = [
@@ -232,22 +260,22 @@ struct CameraOptions {
          "Other"
     ]
     
-    static let shutterSpeeds: [(label: String, value: Double)] = [
-        ("-", 0),
-        ("1/1000", 1.0 / 1000),
-        ("1/500", 1.0 / 500),
-        ("1/250", 1.0 / 250),
-        ("1/125", 1.0 / 125),
-        ("1/60", 1.0 / 60),
-        ("1/50", 1.0 / 50),
-        ("1/30", 1.0 / 30),
-        ("1/15", 1.0 / 15),
-        ("1/8", 1.0 / 8),
-        ("1/4", 1.0 / 4),
-        ("1/2", 1.0 / 2),
-        ("1", 1.0),
-        ("2", 2.0),
-        ("4", 4.0)
+    static let shutters: [(label: String, value: Shutter)] = [
+        ("-", Shutter(numerator: 0, denominator: 1)),
+        ("1/1000", Shutter(numerator: 1, denominator: 1000)),
+        ("1/500", Shutter(numerator: 1, denominator: 500)),
+        ("1/250", Shutter(numerator: 1, denominator: 250)),
+        ("1/125", Shutter(numerator: 1, denominator: 125)),
+        ("1/60", Shutter(numerator: 1, denominator: 60)),
+        ("1/50", Shutter(numerator: 1, denominator: 50)),
+        ("1/30", Shutter(numerator: 1, denominator: 30)),
+        ("1/15", Shutter(numerator: 1, denominator: 15)),
+        ("1/8", Shutter(numerator: 1, denominator: 8)),
+        ("1/4", Shutter(numerator: 1, denominator: 4)),
+        ("1/2", Shutter(numerator: 1, denominator: 2)),
+        ("1", Shutter(numerator: 1, denominator: 1)),
+        ("2", Shutter(numerator: 2, denominator: 1)),
+        ("4", Shutter(numerator: 4, denominator: 1)),
     ]
 }
 
@@ -410,7 +438,7 @@ class Roll: Codable {
          pushPull: String = "0",
          filmDate: Date = Date(),
          filmSize: String = "135 (35mm)",
-         filmStock: String = "50D",
+         filmStock: String = "Vision3 50D 5203",
          image: ImageData? = nil,
          lightMeterImage: ImageData? = nil,
          status: String = "new",
@@ -492,6 +520,7 @@ class Shot: Codable {
     var id = UUID()
     var timestamp = Date()
     var filmSize: String
+    var filmStock: String
     var aspectRatio: String
     var name: String
     var note: String
@@ -523,6 +552,7 @@ class Shot: Codable {
     @Relationship var lightMeterImage: ImageData?
 
     init(filmSize: String = "",
+         filmStock: String = "",
          aspectRatio: String = "-",
          name: String = "",
          note: String = "",
@@ -552,6 +582,7 @@ class Shot: Codable {
          lightMeterImage: ImageData? = nil,
          isLocked: Bool = false) {
         self.filmSize = filmSize
+        self.filmStock = filmStock
         self.aspectRatio = aspectRatio
         self.name = name
         self.note = note
@@ -594,6 +625,7 @@ class Shot: Codable {
     func copy(context: ModelContext) -> Shot {
         let newShot = Shot()
         newShot.filmSize = self.filmSize
+        newShot.filmStock = self.filmStock
         newShot.aspectRatio = self.aspectRatio
         newShot.name = self.name
         newShot.note = self.note
@@ -651,7 +683,7 @@ class Shot: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, filmSize, aspectRatio, name, note, location, locationTimestamp, elevation,
+        case id, timestamp, filmSize, filmStock, aspectRatio, name, note, location, locationTimestamp, elevation,
              colorTemperature, fstop, shutter, exposureCompensation, lensName, lensFocalLength,
              focusDistance, focusDepthOfField, focusNearLimit, focusFarLimit, focusHyperfocalDistance,
              focusHyperfocalNearLimit, exposureSky, exposureFoliage, exposureHighlights, exposureMidGray,
@@ -663,6 +695,7 @@ class Shot: Codable {
         id = try c.decode(UUID.self, forKey: .id)
         timestamp = try c.decode(Date.self, forKey: .timestamp)
         filmSize = try c.decode(String.self, forKey: .filmSize)
+        filmStock = try c.decode(String.self, forKey: .filmStock)
         aspectRatio = try c.decode(String.self, forKey: .aspectRatio)
         name = try c.decode(String.self, forKey: .name)
         note = try c.decode(String.self, forKey: .note)
@@ -698,6 +731,7 @@ class Shot: Codable {
         try c.encode(id, forKey: .id)
         try c.encode(timestamp, forKey: .timestamp)
         try c.encode(filmSize, forKey: .filmSize)
+        try c.encode(filmStock, forKey: .filmStock)
         try c.encode(aspectRatio, forKey: .aspectRatio)
         try c.encode(name, forKey: .name)
         try c.encode(note, forKey: .note)

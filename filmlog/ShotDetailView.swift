@@ -170,15 +170,15 @@ struct ShotDetailView: View {
             
             Section(header: Text("Camera")) {
                 Picker("F-Stop", selection: $shot.fstop) {
-                    ForEach(CameraOptions.fStops, id: \.label) { item in
-                        Text(item.label).tag(item.value)
+                    ForEach(CameraOptions.fStops, id: \.label) { fstop in
+                        Text(fstop.label).tag(fstop.label)
                     }
                 }
                 .disabled(shot.isLocked)
                 
                 Picker("Shutter", selection: $shot.shutter) {
-                    ForEach(CameraOptions.shutterSpeeds, id: \.label) { item in
-                        Text(item.label).tag(item.value)
+                    ForEach(CameraOptions.shutters, id: \.label) { shutter in
+                        Text(shutter.label).tag(shutter.label)
                     }
                 }
                 .disabled(shot.isLocked)
@@ -475,10 +475,21 @@ struct ShotDetailView: View {
                 name = "\(baseName) \(suffix)"
                 suffix += 1
             }
-            let newShot = Shot()
-            newShot.name = name
-            modelContext.insert(newShot)
-            roll.shots.append(newShot)
+            do {
+                let newShot = Shot()
+                newShot.name = name
+                newShot.filmSize = roll.filmSize
+                newShot.filmStock = roll.filmStock
+
+                modelContext.insert(newShot)
+                try modelContext.save()
+
+                roll.shots.append(newShot)
+                try modelContext.save()
+                
+            } catch {
+                print("failed to save shot: \(error)")
+            }
         }
     }
 
@@ -493,11 +504,19 @@ struct ShotDetailView: View {
                 name = "\(baseName) \(suffix)"
                 suffix += 1
             }
+            do {
+                let newShot = shot.copy(context: modelContext)
+                newShot.name = name
 
-            let newShot = shot.copy(context: modelContext)
-            newShot.name = name
-            modelContext.insert(newShot)
-            roll.shots.append(newShot)
+                modelContext.insert(newShot)
+                try modelContext.save()
+
+                roll.shots.append(newShot)
+                try modelContext.save()
+                
+            } catch {
+                print("failed to save shot: \(error)")
+            }
         }
     }
     
@@ -506,7 +525,6 @@ struct ShotDetailView: View {
             UIApplication.shared.open(url)
         }
     }
-    
     
     private func updateDof() {
         let focusDistance = shot.focusDistance
@@ -525,7 +543,7 @@ struct ShotDetailView: View {
 
         let result = filmSize.focusDepthOfField(
             focalLength: focalLength,
-            aperture: aperture,
+            aperture: aperture.fstop,
             focusDistance: focusDistance
         )
     

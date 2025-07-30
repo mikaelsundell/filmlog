@@ -372,6 +372,7 @@ struct SettingsView: View {
                     id: shot.id,
                     timestamp: shot.timestamp,
                     filmSize: shot.filmSize,
+                    filmStock: shot.filmStock,
                     aspectRatio: shot.aspectRatio,
                     name: shot.name,
                     note: shot.note,
@@ -586,10 +587,10 @@ struct SettingsView: View {
             fetchGalleries()
             calculateAppDataStats()
             
-            restoreSuccess = "Successfully restored \(backup.rolls.count) rolls and \(backup.images.count) images."
+            restoreSuccess = "successfully restored \(backup.rolls.count) rolls and \(backup.images.count) images."
         } catch {
             restoreSuccess = nil
-            importError = "Failed to restore rolls: \(error.localizedDescription)"
+            importError = "failed to restore rolls: \(error.localizedDescription)"
         }
     }
 }
@@ -633,6 +634,7 @@ struct ShotExport: Codable {
     var id: UUID
     var timestamp: Date
     var filmSize: String
+    var filmStock: String
     var aspectRatio: String
     var name: String
     var note: String

@@ -131,8 +131,8 @@ struct RollDetailView: View {
                 .disabled(roll.isLocked)
                 
                 Picker("Film stock", selection: $roll.filmStock) {
-                    ForEach(CameraOptions.filmStocks, id: \.self) { stock in
-                        Text(stock).tag(stock)
+                    ForEach(CameraOptions.filmStocks, id: \.label) { stock in
+                        Text(stock.label).tag(stock.label)
                     }
                 }
                 .disabled(roll.isLocked)
@@ -305,7 +305,15 @@ struct RollDetailView: View {
             let newShot = Shot()
             newShot.name = "Untitled"
             newShot.filmSize = roll.filmSize
+            newShot.filmStock = roll.filmStock
+            modelContext.insert(newShot)
             roll.shots.append(newShot)
+            
+            do {
+                try modelContext.save()
+            } catch {
+                print("failed to save shot: \(error)")
+            }
         }
     }
     

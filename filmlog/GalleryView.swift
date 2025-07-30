@@ -181,22 +181,18 @@ struct GalleryView: View {
                 
                 Task {
                     if let data = try? await newItem.loadTransferable(type: Data.self) {
-                        let newImage = ImageData(data: data, category: selectedCategory)
-                        modelContext.insert(newImage)
                         do {
+                            let newImage = ImageData(data: data, category: selectedCategory)
+                            modelContext.insert(newImage)
                             try modelContext.save()
+ 
+                            withAnimation {
+                                currentGallery.images.append(newImage)
+                            }
+                            try modelContext.save()
+
                         } catch {
                             print("failed to insert image: \(error)")
-                        }
-
-                        withAnimation {
-                            currentGallery.images.append(newImage)
-                        }
-
-                        do {
-                            try modelContext.save()
-                        } catch {
-                            print("failed to save gallery relationship: \(error)")
                         }
                     } else {
                         print("could not load image from PhotosPicker")
@@ -313,15 +309,18 @@ struct GalleryView: View {
                 for item in newItems {
                     Task {
                         if let data = try? await item.loadTransferable(type: Data.self) {
-                            let newImage = ImageData(data: data, category: selectedCategory)
-                            modelContext.insert(newImage)
                             do {
+                                let newImage = ImageData(data: data, category: selectedCategory)
+                                modelContext.insert(newImage)
                                 try modelContext.save()
+                                
+                                withAnimation {
+                                    currentGallery.images.append(newImage)
+                                }
+                                try modelContext.save()
+
                             } catch {
                                 print("failed to insert image: \(error)")
-                            }
-                            withAnimation {
-                                currentGallery.images.append(newImage)
                             }
                         }
                     }
@@ -361,36 +360,39 @@ struct GalleryView: View {
             let newCategory = Category(name: "Category \(currentGallery.categories.count + 1)")
             modelContext.insert(newCategory)
             try modelContext.save()
-            
+
             currentGallery.categories.append(newCategory)
             try modelContext.save()
+
         } catch {
             print("failed to add category: \(error)")
         }
     }
-    
+
     private func deleteCategory(_ category: Category) {
-        for image in currentGallery.images where image.category?.id == category.id {
-            image.category = nil
-        }
-        if let index = currentGallery.categories.firstIndex(where: { $0.id == category.id }) {
-            currentGallery.categories.remove(at: index)
-        }
-        modelContext.delete(category)
         do {
+            for image in currentGallery.images where image.category?.id == category.id {
+                image.category = nil
+            }
+            if let index = currentGallery.categories.firstIndex(where: { $0.id == category.id }) {
+                currentGallery.categories.remove(at: index)
+            }
+            modelContext.delete(category)
             try modelContext.save()
+
         } catch {
             print("failed to delete category: \(error)")
         }
     }
     
     private func deleteImage(_ image: ImageData) {
-        if let index = currentGallery.images.firstIndex(where: { $0.id == image.id }) {
-            currentGallery.images.remove(at: index)
-        }
-        modelContext.delete(image)
         do {
+            if let index = currentGallery.images.firstIndex(where: { $0.id == image.id }) {
+                currentGallery.images.remove(at: index)
+            }
+            modelContext.delete(image)
             try modelContext.save()
+            
         } catch {
             print("failed to delete image: \(error)")
         }
@@ -444,7 +446,7 @@ struct GalleryView: View {
 
                     modelContext.insert(newImage)
                     try modelContext.save()
-                    
+
                     currentGallery.images.append(newImage)
 
                     try? fileManager.removeItem(at: imageFile)
