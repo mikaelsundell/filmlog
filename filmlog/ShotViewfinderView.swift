@@ -726,8 +726,6 @@ struct ShotViewfinderView: View {
                     .rotationEffect(orientationObserver.orientation.angle)
             }
             
-
-
             let evMode = exposureMode == .evExposure
             let opacity = evMode ? 1.0 : 0.4
 

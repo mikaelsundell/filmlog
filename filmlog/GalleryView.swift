@@ -436,7 +436,7 @@ struct GalleryView: View {
                     let newImage = ImageData(data: data, category: selectedCategory, name: name, note: note, creator: creator)
                     newImage.timestamp = timestamp ?? Date()
                     
-                    modelContext.insert(newImage)
+                     modelContext.insert(newImage)
                     try modelContext.save()
 
                     currentGallery.images.append(newImage)
