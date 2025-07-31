@@ -43,25 +43,13 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
     @Published var horizontalFov: CGFloat = 0
     @Published var aspectRatio: CGFloat = 0
     @Published var lensType: LensType = .wide
-    @Published var currentExposureBias: Float = 0.0 {
-        didSet {
-            UserDefaults.standard.set(currentExposureBias, forKey: "exposureBias")
-        }
-    }
-    
+
     private var saveCapturedToFile = false
 
     func configure(completion: (() -> Void)? = nil) {
         Task {
             do {
                 try await checkCameraPermission()
-                DispatchQueue.main.async {
-                    if let raw = UserDefaults.standard.string(forKey: "selectedLens"),
-                       let storedLens = LensType(rawValue: raw) {
-                        self.lensType = storedLens
-                    }
-                    self.currentExposureBias = UserDefaults.standard.float(forKey: "exposureBias")
-                }
                 configureCamera(for: lensType, completion: completion)
             } catch {
                 DispatchQueue.main.async {
@@ -125,28 +113,31 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
 
     func switchCamera(to lens: LensType) {
         lensType = lens
-        UserDefaults.standard.set(lens.rawValue, forKey: "selectedLens")
         configureCamera(for: lens)
     }
     
     func adjustWhiteBalance(kelvin: Double) {
-        print("adjustWhitebalace: \(kelvin)")
         sessionQueue.async {
             guard let device = self.session.inputs
                 .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
-                .first else { return }
+                .first else {
+                    print("no capture device found.")
+                    return
+                }
 
             do {
                 try device.lockForConfiguration()
-                
-                let temperatureAndTint = AVCaptureDevice.WhiteBalanceTemperatureAndTintValues(temperature: Float(kelvin), tint: 0)
-                var gains = device.deviceWhiteBalanceGains(for: temperatureAndTint)
-                gains = self.normalizedGains(gains, for: device)
+                let temperatureAndTint = AVCaptureDevice.WhiteBalanceTemperatureAndTintValues(
+                    temperature: Float(kelvin),
+                    tint: 0
+                )
+                let gains = device.deviceWhiteBalanceGains(for: temperatureAndTint)
+                let normalizedGains = self.normalizedGains(gains, for: device)
 
-                device.setWhiteBalanceModeLocked(with: gains, completionHandler: nil)
+                device.setWhiteBalanceModeLocked(with: normalizedGains, completionHandler: nil)
                 device.unlockForConfiguration()
             } catch {
-                print("failed to set WB: \(error.localizedDescription)")
+                print("failed to set white balance: \(error.localizedDescription)")
             }
         }
     }
@@ -167,7 +158,6 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
     }
     
     func adjustAutoExposure(ev: Float) {
-        print("adjustAutoExposure: \(ev)")
         sessionQueue.async {
             guard let device = self.session.inputs
                 .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
@@ -190,7 +180,6 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
     }
     
     func adjustEVExposure(fstop: Double, speed: Double, shutter: Double, exposureCompensation: Double = 0.0) {
-        print("adjustEVExposure: \(exposureCompensation)")
         sessionQueue.async {
             guard let device = self.session.inputs
                 .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
@@ -207,8 +196,6 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
                 }
 
                 let Ndev = Double(device.lensAperture)
-                
-                // apply exposureCompensation here (in ev stops)
                 let EVtarget = (log2((fstop * fstop) / shutter) - log2(speed / 100.0)) - exposureCompensation
 
                 let minSpeed = Double(device.activeFormat.minISO)
@@ -240,16 +227,6 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
                 }
 
                 device.isSubjectAreaChangeMonitoringEnabled = false
-
-                #if DEBUG
-                print("""
-                adjustEVExposure:
-                - EVtarget (with compensation): \(EVtarget)
-                - Compensation: \(exposureCompensation)
-                - ISO: \(ISOtoApply)
-                - Shutter: \(actualShutter)s
-                """)
-                #endif
                 
             } catch {
                 print("failed to adjust EV exposure error: \(error.localizedDescription)")
@@ -333,7 +310,7 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
         guard let data = photo.fileDataRepresentation(),
               let image = UIImage(data: data) else {
             DispatchQueue.main.async {
-                self.onImageCaptured?(.failure(.captureFailed("Could not process photo data.")))
+                self.onImageCaptured?(.failure(.captureFailed("could not process photo data.")))
             }
             return
         }

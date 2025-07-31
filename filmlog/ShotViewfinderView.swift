@@ -286,15 +286,19 @@ struct ShotOverlay: View {
                 }
                 
                 VStack(spacing: 4) {
-                    let filterText = filter != "-" ? " \(filter)" : ""
+                    let filterData = CameraOptions.filters.first(where: { $0.label == filter }) ?? ("-", CameraOptions.Filter.defaultFilter)
+                    let colorTempText: String = (filter != "-" && filterData.0 != "-")
+                        ? "\(Int(filmStockValue.colorTemperature + filterData.1.colorTemperatureShift))K (\(filter))"
+                        : "\(Int(filmStockValue.colorTemperature))K"
+
                     let exposureText: String = (exposureMode == .autoExposure)
                         ? ", AE"
-                        : ", EV: \(filmStockValue.speed) \(shutter) \(aperture)"
-
+                        : ", EV: \(Int(filmStockValue.speed)) \(shutter) \(aperture)\(filterData.1.exposureCompensation != 0 ? " (\(String(format: "%+.1f", filterData.1.exposureCompensation)))" : "")"
+                    
                     Text(
                         "\(Int(filmSizeValue.width)) mm x \(Int(filmSizeValue.height)) mm, " +
                         "\(String(format: "%.1f", filmSizeValue.angleOfView(focalLength: focalLengthValue.length).horizontal))°, " +
-                        "\(Int(filmStockValue.colorTemperature))K\(filterText)\(exposureText)"
+                        "\(colorTempText)\(exposureText)"
                     )
                     .font(.caption2)
                     .padding(4)
@@ -731,8 +735,8 @@ struct ShotViewfinderView: View {
                 if let currentIndex = CameraOptions.filters.firstIndex(where: { $0.label == shot.lensFilter }) {
                     let newIndex = (currentIndex + 1) % CameraOptions.filters.count
                     shot.lensFilter = CameraOptions.filters[newIndex].label
-                    adjustWhiteBalance()
                     adjustExposure()
+                    adjustWhiteBalance()
                 }
             }) {
                 Image(systemName: "camera.filters")
@@ -886,8 +890,11 @@ struct ShotViewfinderView: View {
         if let currentIndex = lenses.firstIndex(of: cameraModel.lensType) {
             let nextIndex = (currentIndex + 1) % lenses.count
             let newLens = lenses[nextIndex]
-            cameraModel.switchCamera(to: newLens)
             selectedLensRawValue = newLens.rawValue
+            cameraModel.switchCamera(to: newLens)
+            adjustExposure()
+            adjustWhiteBalance()
+
         }
     }
     
