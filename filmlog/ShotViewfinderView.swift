@@ -1,5 +1,5 @@
-// Copyright 2022-present Contributors to the filmlog project.
-// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 Mikael Sundell
+// SPDX-License-Identifier: MIT
 // https://github.com/mikaelsundell/filmlog
 
 import SwiftUI
@@ -24,15 +24,23 @@ enum ToggleMode: Int, CaseIterable {
     }
 }
 
-enum ExposureMode: String, CaseIterable {
-    case autoExposure = "AE"
-    case evExposure = "EV"
+enum CameraMode: String, CaseIterable {
+    case auto = "AE"
+    case manual = "EV"
+}
+
+struct LevelAndPitch: Equatable {
+    var roll: Double
+    var pitch: Double
 }
 
 class OrientationObserver: ObservableObject {
     @Published var orientation: UIDeviceOrientation = UIDevice.current.orientation
-    @Published var levelAngle: Double = 0.0
-    @Published var pitchAngle: Double = 0.0
+    @Published var levelAndPitch = LevelAndPitch(roll: 0.0, pitch: 0.0)
+    
+    private var smoothedRoll: Double = 0.0
+    private var smoothedPitch: Double = 0.0
+    private let alpha = 0.15
     
     private var cancellable: AnyCancellable?
     private var motionManager = CMMotionManager()
@@ -77,11 +85,15 @@ class OrientationObserver: ObservableObject {
                 default:
                     angle = atan2(g.x, g.y) * 180 / .pi
                 }
-                DispatchQueue.main.async {
-                    self.levelAngle = angle
-                    self.pitchAngle = atan2(-g.z, sqrt(g.x * g.x + g.y * g.y)) * 180 / .pi
-                }
                 
+                let roll = angle
+                let pitch = atan2(-g.z, sqrt(g.x * g.x + g.y * g.y)) * 180 / .pi
+                self.smoothedRoll += self.alpha * (roll - self.smoothedRoll)
+                self.smoothedPitch += self.alpha * (pitch - self.smoothedPitch)
+                
+                DispatchQueue.main.async {
+                    self.levelAndPitch = LevelAndPitch(roll: self.smoothedRoll, pitch: self.smoothedPitch)
+                }
             }
         }
     }
@@ -124,7 +136,7 @@ struct ShotOverlay: View {
     let filmStock: String
     let horizontalFov: CGFloat
     let orientation: UIDeviceOrientation
-    let exposureMode: ExposureMode
+    let cameraMode: CameraMode
     let centerMode: ToggleMode
     let symmetryMode: ToggleMode
     
@@ -291,9 +303,9 @@ struct ShotOverlay: View {
                         ? "\(Int(filmStockValue.colorTemperature + filterData.1.colorTemperatureShift))K (\(filter))"
                         : "\(Int(filmStockValue.colorTemperature))K"
 
-                    let exposureText: String = (exposureMode == .autoExposure)
-                        ? ", AE"
-                        : ", EV: \(Int(filmStockValue.speed)) \(shutter) \(aperture)\(filterData.1.exposureCompensation != 0 ? " (\(String(format: "%+.1f", filterData.1.exposureCompensation)))" : "")"
+                    let exposureText: String = (cameraMode == .auto)
+                        ? ", Auto"
+                        : ", M: \(Int(filmStockValue.speed)) \(shutter) \(aperture)\(filterData.1.exposureCompensation != 0 ? " (\(String(format: "%+.1f", filterData.1.exposureCompensation)))" : "")"
                     
                     Text(
                         "\(Int(filmSizeValue.width)) mm x \(Int(filmSizeValue.height)) mm, " +
@@ -325,13 +337,9 @@ struct ShotOverlay: View {
 }
 
 struct LevelIndicator: View {
-    var levelAngle: Double
-    var pitchAngle: Double
+    var levelAndPitch: LevelAndPitch
     let orientation: UIDeviceOrientation
     let levelMode: ToggleMode
-    
-    @State private var smoothedRoll: Double = 0.0
-    @State private var smoothedPitch: Double = 0.0
     
     let totalWidthRatio: CGFloat = 0.8
     let gapRatio: CGFloat = 0.05
@@ -339,9 +347,8 @@ struct LevelIndicator: View {
     
     var body: some View {
         GeometryReader { geo in
-            let alpha = 0.15
-            let snappedRoll = (smoothedRoll / 2).rounded() * 2
-            let snappedPitch = smoothedPitch.clamped(to: -30...30) // limit range
+            let snappedRoll = (levelAndPitch.roll / 2).rounded() * 2
+            let snappedPitch = levelAndPitch.pitch.clamped(to: -30...30)
             
             let isRollAligned = abs(snappedRoll) <= 1
             let isPitchAligned = abs(snappedPitch) <= 1
@@ -379,15 +386,6 @@ struct LevelIndicator: View {
             .rotationEffect(orientation.angle)
             .animation(.easeInOut(duration: 0.15), value: snappedRoll)
             .animation(.easeInOut(duration: 0.15), value: snappedPitch)
-            .onChange(of: (levelAngle, pitchAngle)) { _, new in
-                smoothedRoll += alpha * (new.0 - smoothedRoll)
-                smoothedPitch += alpha * (new.1 - smoothedPitch)
-            }
-            .onAppear {
-                smoothedRoll = levelAngle
-                smoothedPitch = pitchAngle
-            }
-            
             ZStack {
                 VStack(spacing: 4) {
                     Text("Roll: \(Int(snappedRoll))°, Pitch: \(Int(snappedPitch))°")
@@ -422,7 +420,7 @@ struct ShotViewfinderView: View {
     var onCapture: (UIImage) -> Void
     @Environment(\.dismiss) private var dismiss
     
-    @State private var isPressed = false
+    @State private var focusPoint: CGPoint? = nil
     
     @StateObject private var cameraModel = CameraModel()
     
@@ -445,25 +443,25 @@ struct ShotViewfinderView: View {
     }
     
     @AppStorage("lensType") private var selectedLensRawValue: String = LensType.wide.rawValue
-    
-    @AppStorage("exposureMode") private var exposureMode: ExposureMode = .autoExposure
+    @AppStorage("cameraMode") private var cameraMode: CameraMode = .auto
 
-    
     @ObservedObject private var orientationObserver = OrientationObserver()
     
     var body: some View {
         ZStack(alignment: .bottom) {
             Color.clear
-            
-            CameraPreview(session: cameraModel.session)
-               .animation(.easeInOut(duration: 0.3), value: orientationObserver.orientation)
-               .ignoresSafeArea()
-            
             GeometryReader { geometry in
+                
                 ZStack {
-                    CameraPreview(session: cameraModel.session)
-                        .animation(.easeInOut(duration: 0.3), value: orientationObserver.orientation)
-                        .ignoresSafeArea()
+                    Group {
+                        if cameraMode == .manual {
+                            CameraMetalPreview(renderer: cameraModel.renderer)
+                        } else {
+                            CameraPreview(session: cameraModel.session)
+                        }
+                    }
+                    .animation(.easeInOut(duration: 0.3), value: orientationObserver.orientation)
+                    .ignoresSafeArea()
                     
                     ShotOverlay(
                         aspectRatio: shot.aspectRatio,
@@ -475,7 +473,7 @@ struct ShotViewfinderView: View {
                         filmStock: shot.filmStock,
                         horizontalFov: cameraModel.horizontalFov,
                         orientation: orientationObserver.orientation,
-                        exposureMode: exposureMode,
+                        cameraMode: cameraMode,
                         centerMode: centerMode,
                         symmetryMode: symmetryMode
                     )
@@ -483,8 +481,7 @@ struct ShotViewfinderView: View {
                     
                     if levelMode != .off {
                         LevelIndicator(
-                            levelAngle: orientationObserver.levelAngle,
-                            pitchAngle: orientationObserver.pitchAngle,
+                            levelAndPitch: orientationObserver.levelAndPitch,
                             orientation: orientationObserver.orientation,
                             levelMode: levelMode
                         )
@@ -494,17 +491,40 @@ struct ShotViewfinderView: View {
             }
             .ignoresSafeArea()
             
-            Color.clear
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onEnded { gesture in
-                            let tapPoint = gesture.location
-                            cameraModel.focus(at: tapPoint, viewSize: UIScreen.main.bounds.size)
-                        }
-                )
-                .allowsHitTesting(true)
-                .ignoresSafeArea()
+            GeometryReader { geo in
+                ZStack {
+                    // gesture handler
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onEnded { gesture in
+                                    let tapPoint = gesture.location
+                                    let top = CGRect(x: 0, y: 0, width: geo.size.width, height: 100)
+                                    let bottom = CGRect(x: 0, y: geo.size.height - 80, width: geo.size.width, height: 80)
+
+                                    if !top.contains(tapPoint) && !bottom.contains(tapPoint) {
+                                        focusPoint = tapPoint
+                                        cameraModel.focus(at: tapPoint, viewSize: geo.size)
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                            focusPoint = nil
+                                        }
+                                    }
+                                }
+                        )
+                        .allowsHitTesting(true)
+                        .ignoresSafeArea()
+
+                    if let point = focusPoint {
+                        Circle()
+                            .stroke(Color.white, lineWidth: 2)
+                            .frame(width: 40, height: 40)
+                            .position(x: point.x, y: point.y - 40)
+                            .transition(.opacity)
+                            .animation(.easeOut(duration: 0.3), value: focusPoint)
+                    }
+                }
+            }
             
             ZStack {
                 Color.clear
@@ -554,14 +574,14 @@ struct ShotViewfinderView: View {
         }
         .onAppear {
             cameraModel.configure() {
+                cameraModel.initVideoDataOutput(cameraMode == .manual)
+                
                 let saved = LensType(rawValue: selectedLensRawValue) ?? .wide
                 if cameraModel.lensType != saved {
                     cameraModel.switchCamera(to: saved)
                 }
-                adjustExposure()
-                adjustWhiteBalance()
+                switchExposure()
             }
-            
             cameraModel.onImageCaptured = { result in
                 switch result {
                 case .success(let image):
@@ -572,6 +592,11 @@ struct ShotViewfinderView: View {
             }
             UIApplication.shared.isIdleTimerDisabled = true
         }
+        .onChange(of: cameraMode) { _, newMode in
+            cameraModel.initVideoDataOutput(newMode == .manual)
+            switchExposure()
+        }
+        
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
         }
@@ -717,7 +742,7 @@ struct ShotViewfinderView: View {
             Spacer()
 
             Button(action: { toggleExposure() }) {
-                Text(exposureLabel(for: exposureMode))
+                Text(cameraLabel(for: cameraMode))
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
@@ -726,15 +751,14 @@ struct ShotViewfinderView: View {
                     .rotationEffect(orientationObserver.orientation.angle)
             }
             
-            let evMode = exposureMode == .evExposure
+            let evMode = cameraMode == .manual
             let opacity = evMode ? 1.0 : 0.4
 
             Button(action: {
                 if let currentIndex = CameraOptions.filters.firstIndex(where: { $0.label == shot.lensFilter }) {
                     let newIndex = (currentIndex + 1) % CameraOptions.filters.count
                     shot.lensFilter = CameraOptions.filters[newIndex].label
-                    adjustExposure()
-                    adjustWhiteBalance()
+                    switchExposure()
                 }
             }) {
                 Image(systemName: "camera.filters")
@@ -796,14 +820,13 @@ struct ShotViewfinderView: View {
             width: filmSize.width,
             horizontalFov: cameraModel.horizontalFov
         )
-        let targetSize = frameSize.switchOrientation() // to potrait
-        let croppedImage = cropImage(image, targetSize: targetSize, containerSize: containerSize, orientation: orientationObserver.orientation)
+        let croppedImage = cropImage(image, frameSize: frameSize, containerSize: containerSize, orientation: orientationObserver.orientation)
         onCapture(croppedImage)
         dismiss()
     }
     
     private func cropImage(_ image: UIImage,
-                           targetSize: CGSize,
+                           frameSize: CGSize,
                            containerSize: CGSize,
                            orientation: UIDeviceOrientation) -> UIImage {
         
@@ -827,7 +850,7 @@ struct ShotViewfinderView: View {
         let scaleX = cropWidth / size.width
         let scaleY = cropHeight / size.height
         
-        let targetSize = targetSize.switchOrientation() // to potrait
+        let targetSize = frameSize
         let targetCropWidth = targetSize.width * scaleX
         let targetCropHeight = targetSize.height * scaleY
         
@@ -836,7 +859,7 @@ struct ShotViewfinderView: View {
         let cropRect = CGRect(x: cropX, y: cropY, width: targetCropWidth, height: targetCropHeight)
         
         guard let targetImage = nativeImage.cropping(to: cropRect) else {
-            return UIImage(cgImage: nativeImage, scale: image.scale, orientation: cropOrientation(for: orientation))
+            return UIImage(cgImage: nativeImage, scale: image.scale, orientation: cropOrientation(for: orientation)) // landscape with orientation
         }
         
         return UIImage(cgImage: targetImage, scale: image.scale, orientation: cropOrientation(for: orientation))
@@ -876,10 +899,10 @@ struct ShotViewfinderView: View {
         }
     }
     
-    private func exposureLabel(for exposure: ExposureMode) -> String {
+    private func cameraLabel(for exposure: CameraMode) -> String {
         switch exposure {
-        case .autoExposure: return "AE"
-        case .evExposure: return "EV"
+        case .auto: return "A"
+        case .manual: return "M"
         }
     }
     
@@ -890,26 +913,26 @@ struct ShotViewfinderView: View {
             let newLens = lenses[nextIndex]
             selectedLensRawValue = newLens.rawValue
             cameraModel.switchCamera(to: newLens)
-            adjustExposure()
-            adjustWhiteBalance()
-
+            switchExposure()
         }
     }
     
     private func toggleExposure() {
-        let exposures: [ExposureMode] = [.autoExposure, .evExposure]
-        if let currentIndex = exposures.firstIndex(of: exposureMode) {
+        let exposures: [CameraMode] = [.auto, .manual]
+        if let currentIndex = exposures.firstIndex(of: cameraMode) {
             let nextIndex = (currentIndex + 1) % exposures.count
-            exposureMode = exposures[nextIndex]
-            adjustExposure()
+            cameraMode = exposures[nextIndex]
+            switchExposure()
         }
     }
     
-    func adjustExposure() {
-        if exposureMode == .autoExposure {
+    func switchExposure() {
+        if cameraMode == .auto {
             adjustAutoExposure()
+            resetWhiteBalance()
         } else {
             adjustEVExposure()
+            adjustWhiteBalance();
         }
     }
     
@@ -918,10 +941,6 @@ struct ShotViewfinderView: View {
     }
     
     func adjustEVExposure() {
-        if exposureMode == .autoExposure {
-            return
-        }
-            
         let filmStock = CameraOptions.filmStocks.first(where: { $0.label == shot.filmStock })?.value ?? CameraOptions.FilmStock.defaultFilmStock
         let aperture = CameraOptions.apertures.first(where: { $0.label == shot.aperture })?.value ?? CameraOptions.Aperture.defaultAperture
         let shutter = CameraOptions.shutters.first(where: { $0.label == shot.shutter })?.value ?? CameraOptions.Shutter.defaultShutter
@@ -940,6 +959,10 @@ struct ShotViewfinderView: View {
         let filter = CameraOptions.filters.first(where: { $0.label == shot.lensFilter })?.value ?? CameraOptions.Filter.defaultFilter
         
         cameraModel.adjustWhiteBalance(kelvin: filmStock.colorTemperature + filter.colorTemperatureShift);
+    }
+    
+    func resetWhiteBalance() {
+        cameraModel.resetWhiteBalance()
     }
 }
 
@@ -962,20 +985,6 @@ extension UIDeviceOrientation {
         case .landscapeRight: return .degrees(-90)
         case .portraitUpsideDown: return .degrees(180)
         default: return .degrees(0)
-        }
-    }
-}
-
-extension View {
-    func onChange<A: Equatable, B: Equatable>(
-        of values: (A, B),
-        perform action: @escaping ((A, B), (A, B)) -> Void
-    ) -> some View {
-        self.onChange(of: values.0) { old, new in
-            action((values.0, values.1), (values.0, values.1))
-        }
-        .onChange(of: values.1) { old, new in
-            action((values.0, values.1), (values.0, values.1))
         }
     }
 }

@@ -1,5 +1,5 @@
-// Copyright 2022-present Contributors to the filmlog project.
-// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 Mikael Sundell
+// SPDX-License-Identifier: MIT
 // https://github.com/mikaelsundell/filmlog
 
 import SwiftUI
@@ -436,7 +436,7 @@ struct GalleryView: View {
                     let newImage = ImageData(data: data, category: selectedCategory, name: name, note: note, creator: creator)
                     newImage.timestamp = timestamp ?? Date()
                     
-                     modelContext.insert(newImage)
+                    modelContext.insert(newImage)
                     try modelContext.save()
 
                     currentGallery.images.append(newImage)

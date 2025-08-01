@@ -1,5 +1,5 @@
-// Copyright 2022-present Contributors to the filmlog project.
-// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 Mikael Sundell
+// SPDX-License-Identifier: MIT
 // https://github.com/mikaelsundell/filmlog
 
 import SwiftUI

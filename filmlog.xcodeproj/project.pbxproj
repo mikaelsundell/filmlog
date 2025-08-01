@@ -28,6 +28,9 @@
 		1F9B3EB22E1AE48F005F95A0 /* filmlogUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B3EB12E1AE48F005F95A0 /* filmlogUITests.swift */; };
 		1F9B3EB42E1AE48F005F95A0 /* filmlogUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B3EB32E1AE48F005F95A0 /* filmlogUITestsLaunchTests.swift */; };
 		1F9DC7E62E3AB90B00D95B79 /* GalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9DC7E52E3AB90B00D95B79 /* GalleryView.swift */; };
+		1F9DC7E82E3BC3FB00D95B79 /* CameraMetalPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9DC7E72E3BC3FB00D95B79 /* CameraMetalPreview.swift */; };
+		1F9DC7EA2E3BC42900D95B79 /* CameraMetalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9DC7E92E3BC42900D95B79 /* CameraMetalRenderer.swift */; };
+		1F9DC7EC2E3BC70400D95B79 /* CameraMetalProgram.metal in Sources */ = {isa = PBXBuildFile; fileRef = 1F9DC7EB2E3BC70400D95B79 /* CameraMetalProgram.metal */; };
 		1FBFBBCD2E38C894007E92F8 /* ThumbnailSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FBFBBCC2E38C894007E92F8 /* ThumbnailSectionView.swift */; };
 		1FD3D14F2E2102F100A1C9EF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FD3D14E2E2102F100A1C9EF /* SettingsView.swift */; };
 		1FEDFF2A2E1EA54400E64567 /* FullscreenImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */; };
@@ -99,6 +102,9 @@
 		1F9B3EB12E1AE48F005F95A0 /* filmlogUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = filmlogUITests.swift; sourceTree = "<group>"; };
 		1F9B3EB32E1AE48F005F95A0 /* filmlogUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = filmlogUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		1F9DC7E52E3AB90B00D95B79 /* GalleryView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GalleryView.swift; sourceTree = "<group>"; };
+		1F9DC7E72E3BC3FB00D95B79 /* CameraMetalPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraMetalPreview.swift; sourceTree = "<group>"; };
+		1F9DC7E92E3BC42900D95B79 /* CameraMetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraMetalRenderer.swift; sourceTree = "<group>"; };
+		1F9DC7EB2E3BC70400D95B79 /* CameraMetalProgram.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = CameraMetalProgram.metal; sourceTree = "<group>"; };
 		1FBFBBCC2E38C894007E92F8 /* ThumbnailSectionView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ThumbnailSectionView.swift; sourceTree = "<group>"; };
 		1FD3D14E2E2102F100A1C9EF /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		1FD3D1502E2108A100A1C9EF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -193,6 +199,9 @@
 				1F70B3722E30124B0021DB93 /* ShotSectionView.swift */,
 				1F70B3732E30124B0021DB93 /* ShotViewfinderView.swift */,
 				1FBFBBCC2E38C894007E92F8 /* ThumbnailSectionView.swift */,
+				1F9DC7E72E3BC3FB00D95B79 /* CameraMetalPreview.swift */,
+				1F9DC7E92E3BC42900D95B79 /* CameraMetalRenderer.swift */,
+				1F9DC7EB2E3BC70400D95B79 /* CameraMetalProgram.metal */,
 			);
 			path = filmlog;
 			sourceTree = "<group>";
@@ -393,6 +402,7 @@
 			files = (
 				1F62CE112E2160BD002DBAA3 /* CameraPreview.swift in Sources */,
 				1F70B3772E30124B0021DB93 /* ShotViewfinderView.swift in Sources */,
+				1F9DC7E82E3BC3FB00D95B79 /* CameraMetalPreview.swift in Sources */,
 				1F9B3E972E1AE48C005F95A0 /* ContentView.swift in Sources */,
 				1F9B3E992E1AE48C005F95A0 /* Item.swift in Sources */,
 				1F9B3E952E1AE48C005F95A0 /* filmlogApp.swift in Sources */,
@@ -407,6 +417,8 @@
 				1F64D2E42E1B1362009EA1A8 /* Models.swift in Sources */,
 				1F70B3742E30124B0021DB93 /* ShotImageView.swift in Sources */,
 				1F70B3752E30124B0021DB93 /* ShotDetailView.swift in Sources */,
+				1F9DC7EC2E3BC70400D95B79 /* CameraMetalProgram.metal in Sources */,
+				1F9DC7EA2E3BC42900D95B79 /* CameraMetalRenderer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
