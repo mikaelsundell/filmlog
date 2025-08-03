@@ -7,6 +7,33 @@ import AVFoundation
 import Combine
 import CoreMotion
 
+
+
+
+struct ExportImageView: UIViewControllerRepresentable {
+    let imageData: Data
+    let suggestedName: String
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(suggestedName)
+
+        // Write image data to a temporary file
+        try? imageData.write(to: tempURL)
+
+        let picker = UIDocumentPickerViewController(forExporting: [tempURL])
+        picker.shouldShowFileExtensions = true
+        picker.allowsMultipleSelection = false
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+}
+
+
+
+
+
+
 enum ToggleMode: Int, CaseIterable {
     case off = 0
     case partial = 1
@@ -422,6 +449,12 @@ struct ShotViewfinderView: View {
     
     @State private var focusPoint: CGPoint? = nil
     
+    
+    @State private var imageDataToExport: Data? = nil
+    @State private var showExport = false
+    
+    
+    
     @StateObject private var cameraModel = CameraModel()
     
     @AppStorage("centerMode") private var centerModeRawValue: Int = ToggleMode.off.rawValue
@@ -453,14 +486,7 @@ struct ShotViewfinderView: View {
             GeometryReader { geometry in
                 
                 ZStack {
-                    Group {
-                        if cameraMode == .manual {
-                            CameraMetalPreview(renderer: cameraModel.renderer)
-                        } else {
-                            CameraPreview(session: cameraModel.session)
-                        }
-                    }
-                    .animation(.easeInOut(duration: 0.3), value: orientationObserver.orientation)
+                    CameraMetalPreview(renderer: cameraModel.renderer)
                     .ignoresSafeArea()
                     
                     ShotOverlay(
@@ -493,16 +519,17 @@ struct ShotViewfinderView: View {
             
             GeometryReader { geo in
                 ZStack {
-                    // gesture handler
                     Color.clear
                         .contentShape(Rectangle())
                         .gesture(
                             DragGesture(minimumDistance: 0)
                                 .onEnded { gesture in
                                     let tapPoint = gesture.location
+                                    guard tapPoint.y >= 0, tapPoint.y <= geo.size.height else {
+                                        return
+                                    }
                                     let top = CGRect(x: 0, y: 0, width: geo.size.width, height: 100)
                                     let bottom = CGRect(x: 0, y: geo.size.height - 80, width: geo.size.width, height: 80)
-
                                     if !top.contains(tapPoint) && !bottom.contains(tapPoint) {
                                         focusPoint = tapPoint
                                         cameraModel.focus(at: tapPoint, viewSize: geo.size)
@@ -555,7 +582,37 @@ struct ShotViewfinderView: View {
             HStack {
                 focalLengthControls()
                 
-                Button(action: { cameraModel.capturePhoto() }) {
+                Button("Capture and Export") {
+                    cameraModel.captureTexture { cgImage in
+                        if let cgImage = cgImage {
+                            let image = UIImage(cgImage: cgImage)
+                            if let data = image.pngData() {
+                                self.imageDataToExport = data
+                                self.showExport = true
+                            }
+                        } else {
+                            print("Failed to capture image")
+                        }
+                    }
+                }
+                .sheet(isPresented: $showExport) {
+                    if let data = imageDataToExport {
+                        ExportImageView(imageData: data, suggestedName: "CapturedTexture.png")
+                    }
+                }
+                
+                
+                /*
+                Button(action: {
+                    cameraModel.captureTexture { cgImage in
+                        if let cgImage = cgImage {
+                            let image = UIImage(cgImage: cgImage)
+                            captureImage(image: image) // same as before
+                        } else {
+                            print("failed to capture texture image")
+                        }
+                    }
+                }) {
                     ZStack {
                         Circle()
                             .stroke(Color.white, lineWidth: 2)
@@ -566,7 +623,7 @@ struct ShotViewfinderView: View {
                     }
                 }
                 .frame(width: 60)
-
+                 */
                 aspectRatioControls()
             }
             .padding(.horizontal)
@@ -574,8 +631,6 @@ struct ShotViewfinderView: View {
         }
         .onAppear {
             cameraModel.configure() {
-                cameraModel.initVideoDataOutput(cameraMode == .manual)
-                
                 let saved = LensType(rawValue: selectedLensRawValue) ?? .wide
                 if cameraModel.lensType != saved {
                     cameraModel.switchCamera(to: saved)
@@ -593,7 +648,6 @@ struct ShotViewfinderView: View {
             UIApplication.shared.isIdleTimerDisabled = true
         }
         .onChange(of: cameraMode) { _, newMode in
-            cameraModel.initVideoDataOutput(newMode == .manual)
             switchExposure()
         }
         

@@ -14,7 +14,6 @@ struct CameraMetalPreview: UIViewRepresentable {
         mtkView.framebufferOnly = false
         mtkView.enableSetNeedsDisplay = false
         mtkView.isPaused = false
-        // linear sRGB in the renderer; present in sRGB
         mtkView.colorPixelFormat = .bgra8Unorm_srgb
         mtkView.preferredFramesPerSecond = 30
         renderer.attach(to: mtkView)

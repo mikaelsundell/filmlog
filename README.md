@@ -36,12 +36,16 @@ To approximate the effects of aperture changes:
 
 The iPhone’s **Image Signal Processor (ISP)** performs automatic tone mapping and temporal noise reduction — even when exposure is manually locked. This results in:
 - Minor but noticeable fluctuations in brightness over time.
-- Apparent “auto exposure” behavior even under manual control.
+- Minor “auto exposure” behavior even under manual control.
 
 > Keeping the phone still, or using fixed scenes with stable lighting, helps minimize this effect.
 
 
 
+Documentation
+-------
+* Metal Feature Set Tables
+https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf
 
 
 Project

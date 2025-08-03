@@ -50,17 +50,6 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     @Published var lensType: LensType = .wide
 
     public let renderer = CameraMetalRenderer()
-    private(set) var metalStreaming = false
-    
-    func initVideoDataOutput(_ active: Bool) {
-        sessionQueue.async {
-            if active {
-                self.enableVideoDataOutput()
-            } else {
-                self.disableVideoDataOutput()
-            }
-        }
-    }
     
     func configure(completion: (() -> Void)? = nil) {
         Task {
@@ -123,9 +112,6 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     }
     
     func adjustAutoExposure(ev: Float) {
-        
-        print("adjustAutoExposure")
-        
         sessionQueue.async {
             guard let device = self.session.inputs
                 .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
@@ -150,12 +136,6 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
         }
     }
     
-    private func mainsFrequency() -> Int {
-        let region = Locale.current.region?.identifier ?? "SE"
-        let sixtyHz: Set<String> = ["US","CA","MX","BR","KR","TW","PH","SA","LB"]
-        return sixtyHz.contains(region) ? 60 : 50
-    }
-    
     func adjustEVExposure(fstop: Double, speed: Double, shutter: Double, exposureCompensation: Double = 0.0) {
         sessionQueue.async {
             guard let device = self.session.inputs
@@ -170,9 +150,10 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                 defer { device.unlockForConfiguration() }
 
                 self.disableAutoFocus()
-
+                
                 let hz = self.mainsFrequency()
                 let flickerThreshold = 1.0 / Double(hz * 2)
+                let preferredMinShutter = max(flickerThreshold, 1.0 / 100.0)
 
                 let minISO = Double(device.activeFormat.minISO)
                 let maxISO = Double(device.activeFormat.maxISO)
@@ -188,23 +169,37 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                                 + stopOffset
                                 + calibrationOffset
 
-                var idealShutter = 100.0 * Ndev * Ndev / (pow(2.0, EVtarget) * minISO)
-                idealShutter = min(max(idealShutter, minShutter), maxShutter)
+                let evFactor = pow(2.0, EVtarget)
+                let numerator = 100.0 * Ndev * Ndev
 
-                var finalShutter = idealShutter
                 var finalISO = minISO
+                var finalShutter = numerator / (evFactor * finalISO)
+                finalShutter = min(max(finalShutter, minShutter), maxShutter)
 
-                // --- Step 2: if ISO too low or shutter too slow, raise ISO ---
-                let computedISO = 100.0 * Ndev * Ndev / (pow(2.0, EVtarget) * idealShutter)
-                if computedISO > maxISO {
+                if finalShutter > preferredMinShutter {
+                    let compensatedISO = numerator / (evFactor * preferredMinShutter)
+                    if compensatedISO <= maxISO {
+                        finalISO = compensatedISO
+                        finalShutter = preferredMinShutter
+                        print("debug: ISO increased to \(Int(finalISO)) to maintain shutter 1/\(Int(1.0 / finalShutter))")
+                    } else {
+                        finalISO = maxISO
+                        finalShutter = numerator / (evFactor * finalISO)
+                        finalShutter = min(max(finalShutter, minShutter), maxShutter)
+                        print("debug: max ISO \(Int(finalISO)) used, adjusted shutter to 1/\(Int(1.0 / finalShutter))")
+                    }
+                }
+
+                let checkISO = numerator / (evFactor * finalShutter)
+                if checkISO > maxISO {
                     finalISO = maxISO
-                    finalShutter = 100.0 * Ndev * Ndev / (pow(2.0, EVtarget) * finalISO)
+                    finalShutter = numerator / (evFactor * finalISO)
                     finalShutter = min(max(finalShutter, minShutter), maxShutter)
-                    print("ISO out of bounds. Using max ISO \(Int(finalISO)), shutter adjusted.")
+                    print("debug: post-check: ISO out of bounds. Max ISO \(Int(finalISO)), shutter adjusted to 1/\(Int(1.0 / finalShutter))")
                 }
 
                 if finalShutter < flickerThreshold {
-                    print("shutter higher than 1/\(Int(1.0 / flickerThreshold))s — flicker may occur")
+                    print("debug: flicker warning: shutter slower than 1/\(Int(1.0 / flickerThreshold))s")
                 }
 
                 if device.isExposureModeSupported(.custom) {
@@ -278,17 +273,25 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     
     func focus(at point: CGPoint, viewSize: CGSize) {
         let focusPoint = CGPoint(x: point.y / viewSize.height, y: 1.0 - point.x / viewSize.width)
-        guard let device = AVCaptureDevice.default(for: .video) else { return }
-        do {
-            try device.lockForConfiguration()
-            
-            if device.isFocusPointOfInterestSupported {
-                device.focusPointOfInterest = focusPoint
-                device.focusMode = .autoFocus
+        sessionQueue.async {
+            guard let device = self.session.inputs
+                .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
+                .first else {
+                print("focus error: no capture device found")
+                return
             }
-            device.unlockForConfiguration()
-        } catch {
-            print("focus error: \(error.localizedDescription)")
+            
+            do {
+                try device.lockForConfiguration()
+                
+                if device.isFocusPointOfInterestSupported {
+                    device.focusPointOfInterest = focusPoint
+                    device.focusMode = .autoFocus
+                }
+                device.unlockForConfiguration()
+            } catch {
+                print("focus error: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -302,6 +305,10 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
         let settings = AVCapturePhotoSettings()
         settings.flashMode = .auto
         photoCaptureOutput.capturePhoto(with: settings, delegate: self)
+    }
+    
+    func captureTexture(completion: @escaping (CGImage?) -> Void) {
+        renderer.captureTexture(completion: completion)
     }
 
     func capturePhotoAndSave() {
@@ -355,52 +362,24 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
         }
     }
     
-    private func enableVideoDataOutput() {
-        guard !self.metalStreaming else { return }
-        
-        guard let _ = self.session.inputs
-            .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
-            .first else {
-            print("no device available to configure video output.")
-            return
-        }
-
-        self.session.beginConfiguration()
-        self.videoDataOutput.videoSettings = [
-            kCVPixelBufferPixelFormatTypeKey as String:
-                kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
-        ]
-        self.videoDataOutput.alwaysDiscardsLateVideoFrames = true
-
-        if self.session.canAddOutput(self.videoDataOutput) {
-            self.session.addOutput(self.videoDataOutput)
-            self.videoDataOutput.setSampleBufferDelegate(self.renderer, queue: self.videoOutputQueue)
-            self.metalStreaming = true
-        } else {
-            print("cannot add videoDataOutput to session.")
-        }
-        self.session.commitConfiguration()
-    }
-
-    private func disableVideoDataOutput() {
-        guard self.metalStreaming else { return }
-        self.session.beginConfiguration()
-        self.videoDataOutput.setSampleBufferDelegate(nil, queue: nil)
-        if self.session.outputs.contains(self.videoDataOutput) {
-            self.session.removeOutput(self.videoDataOutput)
-        }
-        self.metalStreaming = false
-        self.session.commitConfiguration()
+    private func mainsFrequency() -> Int {
+        let region = Locale.current.region?.identifier ?? "SE"
+        let sixtyHz: Set<String> = ["US","CA","MX","BR","KR","TW","PH","SA","LB"]
+        return sixtyHz.contains(region) ? 60 : 50
     }
     
     private func configureCamera(for lens: LensType, completion: (() -> Void)? = nil) {
         sessionQueue.async {
             self.session.beginConfiguration()
-            self.session.sessionPreset = .photo
+            self.session.sessionPreset = .high
 
-            for input in self.session.inputs { self.session.removeInput(input) }
-            for output in self.session.outputs { self.session.removeOutput(output) }
-
+            for input in self.session.inputs {
+                self.session.removeInput(input)
+            }
+            for output in self.session.outputs {
+                self.session.removeOutput(output)
+            }
+            
             guard let device = AVCaptureDevice.default(lens.deviceType, for: .video, position: .back),
                   let input = try? AVCaptureDeviceInput(device: device),
                   self.session.canAddInput(input) else {
@@ -428,11 +407,28 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                 return
             }
 
+            self.videoDataOutput.videoSettings = [
+                kCVPixelBufferPixelFormatTypeKey as String:
+                    kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+            ]
+            
+            self.videoDataOutput.alwaysDiscardsLateVideoFrames = true
+
+            if self.session.canAddOutput(self.videoDataOutput) {
+                self.session.addOutput(self.videoDataOutput)
+                self.videoDataOutput.setSampleBufferDelegate(self.renderer, queue: self.videoOutputQueue)
+            } else {
+                print("cannot add videoDataOutput to session.")
+                self.session.commitConfiguration()
+                return
+            }
+
             self.session.commitConfiguration()
 
             if !self.session.isRunning {
                 self.session.startRunning()
             }
+
             self.updateDeviceInfo(device)
 
             DispatchQueue.main.async {

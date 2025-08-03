@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1F2A9A1D2E3FC24A00C304FA /* CameraDisplay2383.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A1C2E3FC24A00C304FA /* CameraDisplay2383.cube */; };
 		1F2D89E42E2E61780040D673 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F2D89E32E2E61780040D673 /* ShareViewController.swift */; };
 		1F2D89E72E2E61780040D673 /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1F2D89E52E2E61780040D673 /* MainInterface.storyboard */; };
 		1F2D89EB2E2E61780040D673 /* FilmlogShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1F2D89E12E2E61780040D673 /* FilmlogShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -75,6 +76,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1F2A9A1C2E3FC24A00C304FA /* CameraDisplay2383.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CameraDisplay2383.cube; sourceTree = "<group>"; };
 		1F2D89E12E2E61780040D673 /* FilmlogShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FilmlogShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		1F2D89E32E2E61780040D673 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		1F2D89E62E2E61780040D673 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/MainInterface.storyboard; sourceTree = "<group>"; };
@@ -186,6 +188,7 @@
 				1F62CE102E2160BD002DBAA3 /* CameraPreview.swift */,
 				1F64D2E72E1B1457009EA1A8 /* CameraPicker.swift */,
 				1F9B3E962E1AE48C005F95A0 /* ContentView.swift */,
+				1F2A9A1C2E3FC24A00C304FA /* CameraDisplay2383.cube */,
 				1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */,
 				1F9DC7E52E3AB90B00D95B79 /* GalleryView.swift */,
 				1F9B3E982E1AE48C005F95A0 /* Item.swift */,
@@ -366,6 +369,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1F2A9A1D2E3FC24A00C304FA /* CameraDisplay2383.cube in Resources */,
 				1F9B3E9E2E1AE48F005F95A0 /* Preview Assets.xcassets in Resources */,
 				1F9B3E9B2E1AE48F005F95A0 /* Assets.xcassets in Resources */,
 			);
