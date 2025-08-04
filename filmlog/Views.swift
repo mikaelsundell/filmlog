@@ -324,7 +324,7 @@ struct FrameOverlay: View {
                     let filterData = CameraOptions.filters.first(where: { $0.label == filter }) ?? ("-", CameraOptions.Filter.defaultFilter)
                     let colorTempText: String = (filter != "-" && filterData.0 != "-")
                         ? "\(Int(filmStockValue.colorTemperature + filterData.1.colorTemperatureShift))K (\(filter))"
-                        : "\(Int(filmStockValue.colorTemperature))K"
+                        : "Auto K"
 
                     let exposureText: String = (cameraMode == .auto)
                         ? ", Auto"

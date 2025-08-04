@@ -233,7 +233,6 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                 }
 
                 let exposureDuration = CMTimeMakeWithSeconds(finalShutter, preferredTimescale: 1_000_000_000)
-                let actualEV = log2((Ndev * Ndev) / finalShutter) - log2(finalISO / 100.0)
                 device.isSubjectAreaChangeMonitoringEnabled = false
                 
                 if device.isExposureModeSupported(.custom) {

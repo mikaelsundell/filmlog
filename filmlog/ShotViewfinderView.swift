@@ -439,7 +439,6 @@ struct ShotViewfinderView: View {
                             labels: CameraOptions.apertures.map { $0.label },
                             initialSelection: shot.aperture,
                             onSelect: { selected in
-                                print("shot.aperture: \(shot.aperture)")
                                 shot.aperture = selected
                                 adjustEVExposure()
                             }
@@ -607,9 +606,12 @@ struct ShotViewfinderView: View {
     
     func adjustWhiteBalance() {
         let filmStock = CameraOptions.filmStocks.first(where: { $0.label == shot.filmStock })?.value ?? CameraOptions.FilmStock.defaultFilmStock
-        let filter = CameraOptions.filters.first(where: { $0.label == shot.lensFilter })?.value ?? CameraOptions.Filter.defaultFilter
-        
-        cameraModel.adjustWhiteBalance(kelvin: filmStock.colorTemperature + filter.colorTemperatureShift);
+        if shot.lensFilter != "-" {
+            let filter = CameraOptions.filters.first(where: { $0.label == shot.lensFilter })?.value ?? CameraOptions.Filter.defaultFilter
+            cameraModel.adjustWhiteBalance(kelvin: filmStock.colorTemperature + filter.colorTemperatureShift)
+        } else {
+            cameraModel.resetWhiteBalance()
+        }
     }
     
     func resetWhiteBalance() {
