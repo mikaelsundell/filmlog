@@ -153,7 +153,9 @@ fragment float4 nv12ToLinear709FS(VSOut in [[stage_in]],
 
     float  y  = yTex.sample(s, in.uv).r;
     float2 uv = uvTex.sample(s, in.uv).rg;
-    float3 color = ycbcr709_to_rgb(y, uv.x, uv.y);
+    //float3 color = ycbcr709_to_rgb(y, uv.x, uv.y);
+    
+    float3 color = float3(y, uv.x, uv.y);
 
 #if USE_TETRA_HIGH_PRECISION
     // lut: input rec.709 - look - output linear, colorspace rec.709
@@ -161,6 +163,12 @@ fragment float4 nv12ToLinear709FS(VSOut in [[stage_in]],
 #else
     float3 lutColor = tetra_optimized(lutTex, color, s);
 #endif
+    
+    
+    return float4(lutColor, 1.0);
 
-    return float4(clamp(lutColor, 0.0, 1.0), 1.0);
+    //return float4(clamp(color, 0.0, 1.0), 1.0);
+    
+    
+    //return float4(y, uv.x, uv.y, 1.0);
 }

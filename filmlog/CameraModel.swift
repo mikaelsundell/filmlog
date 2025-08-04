@@ -51,6 +51,38 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
 
     public let renderer = CameraMetalRenderer()
     
+    override init() {
+        super.init()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(willEnterForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(didEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func willEnterForeground() {
+        sessionQueue.async {
+            if !self.session.isRunning {
+                self.session.startRunning()
+            }
+        }
+    }
+
+    @objc private func didEnterBackground() {
+        sessionQueue.async {
+            if self.session.isRunning {
+                self.session.stopRunning()
+            }
+        }
+    }
+    
     func configure(completion: (() -> Void)? = nil) {
         Task {
             do {
@@ -150,7 +182,7 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                 defer { device.unlockForConfiguration() }
 
                 self.disableAutoFocus()
-                
+
                 let hz = self.mainsFrequency()
                 let flickerThreshold = 1.0 / Double(hz * 2)
                 let preferredMinShutter = max(flickerThreshold, 1.0 / 100.0)
@@ -161,17 +193,18 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                 let maxShutter = device.activeFormat.maxExposureDuration.seconds
                 let Ndev = Double(device.lensAperture)
 
-                let stopOffset = 2.0 * log2(fstop / Ndev)
-                let calibrationOffset = 0.0
-                let EVtarget = (log2((fstop * fstop) / shutter)
-                                - log2(speed / 100.0))
-                                - exposureCompensation
-                                + stopOffset
-                                + calibrationOffset
-
+                // can't figure the proper tone mapping path when using
+                // custom metal pipeline, there is some sort of ootf or
+                // expsure bias at play with the preview layer
+                // https://developer.apple.com/forums/thread/795593
+                
+                let ootfCompensation = 3.0
+                
+                let simulatedEV = log2((fstop * fstop) / shutter) - log2(speed / 100.0)
+                let EVtarget = simulatedEV - exposureCompensation + ootfCompensation
                 let evFactor = pow(2.0, EVtarget)
                 let numerator = 100.0 * Ndev * Ndev
-
+                
                 var finalISO = minISO
                 var finalShutter = numerator / (evFactor * finalISO)
                 finalShutter = min(max(finalShutter, minShutter), maxShutter)
@@ -181,12 +214,10 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                     if compensatedISO <= maxISO {
                         finalISO = compensatedISO
                         finalShutter = preferredMinShutter
-                        print("debug: ISO increased to \(Int(finalISO)) to maintain shutter 1/\(Int(1.0 / finalShutter))")
                     } else {
                         finalISO = maxISO
                         finalShutter = numerator / (evFactor * finalISO)
                         finalShutter = min(max(finalShutter, minShutter), maxShutter)
-                        print("debug: max ISO \(Int(finalISO)) used, adjusted shutter to 1/\(Int(1.0 / finalShutter))")
                     }
                 }
 
@@ -195,20 +226,21 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                     finalISO = maxISO
                     finalShutter = numerator / (evFactor * finalISO)
                     finalShutter = min(max(finalShutter, minShutter), maxShutter)
-                    print("debug: post-check: ISO out of bounds. Max ISO \(Int(finalISO)), shutter adjusted to 1/\(Int(1.0 / finalShutter))")
                 }
 
                 if finalShutter < flickerThreshold {
-                    print("debug: flicker warning: shutter slower than 1/\(Int(1.0 / flickerThreshold))s")
-                }
-
-                if device.isExposureModeSupported(.custom) {
-                    device.exposureMode = .custom
+                    print("flicker warning: shutter = 1/\(Int(1.0 / finalShutter))s < safe min 1/\(Int(1.0 / flickerThreshold))s")
                 }
 
                 let exposureDuration = CMTimeMakeWithSeconds(finalShutter, preferredTimescale: 1_000_000_000)
-                device.setExposureModeCustom(duration: exposureDuration, iso: Float(finalISO), completionHandler: nil)
+                let actualEV = log2((Ndev * Ndev) / finalShutter) - log2(finalISO / 100.0)
                 device.isSubjectAreaChangeMonitoringEnabled = false
+                
+                if device.isExposureModeSupported(.custom) {
+                    device.exposureMode = .custom
+                }
+                device.setExposureModeCustom(duration: exposureDuration, iso: Float(finalISO), completionHandler: nil)
+                
             } catch {
                 print("failed to adjust EV exposure error: \(error.localizedDescription)")
             }

@@ -236,6 +236,7 @@ struct CameraOptions {
         ("EI 800", FilmStock(speed: 800, colorTemperature: 5600)),
         ("EI 1600", FilmStock(speed: 1600, colorTemperature: 5600)),
         ("EI 3200", FilmStock(speed: 3200, colorTemperature: 5600)),
+        ("Q2 Test", FilmStock(speed: 400, colorTemperature: 5600)),
     ]
     
     static let filters: [(label: String, value: Filter)] = [

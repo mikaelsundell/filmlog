@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		1F2A9A1D2E3FC24A00C304FA /* CameraDisplay2383.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A1C2E3FC24A00C304FA /* CameraDisplay2383.cube */; };
+		1F2A9A212E40AEBF00C304FA /* CameraDisplay2383_2.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A202E40AEBF00C304FA /* CameraDisplay2383_2.cube */; };
+		1F2A9A232E40B00C00C304FA /* CameraDisplay2383_3.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A222E40B00C00C304FA /* CameraDisplay2383_3.cube */; };
+		1F2A9A252E41543F00C304FA /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F2A9A242E41543F00C304FA /* Views.swift */; };
 		1F2D89E42E2E61780040D673 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F2D89E32E2E61780040D673 /* ShareViewController.swift */; };
 		1F2D89E72E2E61780040D673 /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1F2D89E52E2E61780040D673 /* MainInterface.storyboard */; };
 		1F2D89EB2E2E61780040D673 /* FilmlogShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1F2D89E12E2E61780040D673 /* FilmlogShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -77,6 +80,9 @@
 
 /* Begin PBXFileReference section */
 		1F2A9A1C2E3FC24A00C304FA /* CameraDisplay2383.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CameraDisplay2383.cube; sourceTree = "<group>"; };
+		1F2A9A202E40AEBF00C304FA /* CameraDisplay2383_2.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CameraDisplay2383_2.cube; sourceTree = "<group>"; };
+		1F2A9A222E40B00C00C304FA /* CameraDisplay2383_3.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CameraDisplay2383_3.cube; sourceTree = "<group>"; };
+		1F2A9A242E41543F00C304FA /* Views.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views.swift; sourceTree = "<group>"; };
 		1F2D89E12E2E61780040D673 /* FilmlogShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FilmlogShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		1F2D89E32E2E61780040D673 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		1F2D89E62E2E61780040D673 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/MainInterface.storyboard; sourceTree = "<group>"; };
@@ -189,12 +195,15 @@
 				1F64D2E72E1B1457009EA1A8 /* CameraPicker.swift */,
 				1F9B3E962E1AE48C005F95A0 /* ContentView.swift */,
 				1F2A9A1C2E3FC24A00C304FA /* CameraDisplay2383.cube */,
+				1F2A9A202E40AEBF00C304FA /* CameraDisplay2383_2.cube */,
+				1F2A9A222E40B00C00C304FA /* CameraDisplay2383_3.cube */,
 				1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */,
 				1F9DC7E52E3AB90B00D95B79 /* GalleryView.swift */,
 				1F9B3E982E1AE48C005F95A0 /* Item.swift */,
 				1F9B3E9A2E1AE48F005F95A0 /* Assets.xcassets */,
 				1F9B3E9C2E1AE48F005F95A0 /* Preview Content */,
 				1F64D2E32E1B1362009EA1A8 /* Models.swift */,
+				1F2A9A242E41543F00C304FA /* Views.swift */,
 				1F64D2E52E1B1384009EA1A8 /* RollDetailView.swift */,
 				1FD3D14E2E2102F100A1C9EF /* SettingsView.swift */,
 				1F70B3712E30124B0021DB93 /* ShotDetailView.swift */,
@@ -369,7 +378,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1F2A9A232E40B00C00C304FA /* CameraDisplay2383_3.cube in Resources */,
 				1F2A9A1D2E3FC24A00C304FA /* CameraDisplay2383.cube in Resources */,
+				1F2A9A212E40AEBF00C304FA /* CameraDisplay2383_2.cube in Resources */,
 				1F9B3E9E2E1AE48F005F95A0 /* Preview Assets.xcassets in Resources */,
 				1F9B3E9B2E1AE48F005F95A0 /* Assets.xcassets in Resources */,
 			);
@@ -420,6 +431,7 @@
 				1FBFBBCD2E38C894007E92F8 /* ThumbnailSectionView.swift in Sources */,
 				1F64D2E42E1B1362009EA1A8 /* Models.swift in Sources */,
 				1F70B3742E30124B0021DB93 /* ShotImageView.swift in Sources */,
+				1F2A9A252E41543F00C304FA /* Views.swift in Sources */,
 				1F70B3752E30124B0021DB93 /* ShotDetailView.swift in Sources */,
 				1F9DC7EC2E3BC70400D95B79 /* CameraMetalProgram.metal in Sources */,
 				1F9DC7EA2E3BC42900D95B79 /* CameraMetalRenderer.swift in Sources */,

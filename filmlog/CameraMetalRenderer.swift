@@ -39,7 +39,9 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         desc.fragmentFunction = ffn
         desc.colorAttachments[0].pixelFormat = view.colorPixelFormat
         
-        if let lutURL = Bundle.main.url(forResource: "CameraDisplay2383", withExtension: "cube") {
+        
+        
+        if let lutURL = Bundle.main.url(forResource: "CameraDisplay2383_3", withExtension: "cube") {
             self.lutTexture = setupLut(url: lutURL, device: device)
         } else {
             print("LUT file not found in bundle.")
@@ -89,7 +91,6 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             if trimmed.uppercased().hasPrefix("LUT_3D_SIZE") {
                 if let size = Int(trimmed.components(separatedBy: .whitespaces).last ?? "") {
                     lutSize = size
-                    print("detected LUT size: \(lutSize)x\(lutSize)x\(lutSize)")
                 } else {
                     print("could not parse LUT_3D_SIZE from line: \(line)")
                 }
@@ -177,19 +178,6 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
               let uvTex = cbcrTexture else {
             return
         }
-        
-        let now = CACurrentMediaTime()
-        if lastDrawTime > 0 {
-            let delta = (now - lastDrawTime) * 1000  // in milliseconds
-            frameIntervals.append(delta)
-
-            if frameIntervals.count == frameSampleCount {
-                let average = frameIntervals.reduce(0, +) / Double(frameIntervals.count)
-                print(String(format: "debug: frame time over %d frames: %.2f ms (%.2f FPS)", frameSampleCount, average, 1000.0 / average))
-                frameIntervals.removeAll()
-            }
-        }
-        lastDrawTime = now
 
         struct Uniforms {
             var viewSize: SIMD2<Float>
