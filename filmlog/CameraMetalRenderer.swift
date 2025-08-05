@@ -7,6 +7,30 @@ import Metal
 import MetalKit
 import CoreVideo
 
+enum LUTType: String, CaseIterable {
+    case kodakNeutral = "Kodak neutral"
+    case kodakWarm = "Kodak warm"
+    case fujiNeutral = "Fuji neutral"
+    case fujiWarm = "Fuji warm"
+    case bwNeutral = "BW neutral"
+    case bwContrast = "BW contrast"
+    case lookExposure = "Print exposure"
+    case exposure = "Exposure"
+    
+    var filename: String {
+        switch self {
+        case .kodakNeutral: return "LutKodakNeutral"
+        case .kodakWarm: return "LutKodakWarm"
+        case .fujiNeutral: return "LutFujiNeutral"
+        case .fujiWarm: return "LutFujiWarm"
+        case .bwNeutral: return "LutBWNeutral"
+        case .bwContrast: return "LutBWContrast"
+        case .lookExposure: return "LutLookExposure"
+        case .exposure: return "LutExposure"
+        }
+    }
+}
+
 class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, MTKViewDelegate {
     private(set) weak var mtkView: MTKView?
     private var device: MTLDevice!
@@ -20,7 +44,30 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     private var vertexBuffer: MTLBuffer!
     private var captureRawData: [UInt8]? = nil
     
+    var currentLutType: LUTType = .kodakNeutral {
+        didSet {
+            loadCurrentLut()
+        }
+    }
+    
+    private func loadCurrentLut() {
+        guard let url = Bundle.main.url(forResource: currentLutType.filename, withExtension: "cube") else {
+            print("LUT file \(currentLutType.filename).cube not found in bundle.")
+            lutTexture = nil
+            return
+        }
+        lutTexture = setupLut(url: url, device: device)
+    }
+    
     private var pendingCapture: ((CGImage?) -> Void)?
+    
+    func resetLutType() {
+        currentLutType = .kodakNeutral
+    }
+    
+    func setLutType(_ type: LUTType) {
+        currentLutType = type
+    }
 
     func attach(to view: MTKView) {
         self.mtkView = view
@@ -38,14 +85,8 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         desc.vertexFunction = vfn
         desc.fragmentFunction = ffn
         desc.colorAttachments[0].pixelFormat = view.colorPixelFormat
-        
-        
-        
-        if let lutURL = Bundle.main.url(forResource: "CameraDisplay2383_3", withExtension: "cube") {
-            self.lutTexture = setupLut(url: lutURL, device: device)
-        } else {
-            print("LUT file not found in bundle.")
-        }
+    
+        loadCurrentLut()
         
         do {
             pipeline = try device.makeRenderPipelineState(descriptor: desc)
@@ -273,6 +314,5 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         cmd.commit()
     }
 
-    
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) { }
 }
