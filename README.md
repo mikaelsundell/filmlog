@@ -22,6 +22,27 @@ Documentation
 ------------
 
 
+Technical Notes
+-----------------
+
+### Look development
+
+The provided .cube LUT files were generated using the photographic-dctls project. This repository offers a set of DCTL-based tools for photographic color processing and creative look development.
+
+Additionally, the Lut_powergrade.drx file contains a DaVinci Resolve PowerGrade used to design and export custom looks. This PowerGrade follows a consistent color workflow designed to ensure compatibility with both Metal rendering and sRGB MTKView output on iOS/macOS.
+
+The color pipeline includes the following stages:
+
+- Conversion from YCbCr to Rec.709
+- Transform to Cineon log
+- Print film emulation
+- Custom curves and HSL adjustments
+- Conversion back from Rec.709 gamma to linear RGB
+
+The .cube LUTs are saved at a 33×33×33 resolution, offering a good balance between visual fidelity and fast loading performance in Metal.
+
+* Photographic-dctls       
+https://github.com/mikaelsundell/photographic-dctls
 
 Known Limitations
 -----------------
@@ -45,11 +66,9 @@ The iPhone’s **Image Signal Processor (ISP)** performs automatic tone mapping 
 
 > Keeping the phone still, or using fixed scenes with stable lighting, helps minimize this effect.
 
-
-
 Documentation
 -------
-* Metal Feature Set Tables
+* Metal Feature Set Tables          
 https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf
 
 
