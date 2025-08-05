@@ -50,7 +50,7 @@ struct ShotDetailView: View {
     @Environment(\.editMode) private var editMode
 
     enum ActiveField {
-        case name, note, elevation, colorTemperature, focusDistance
+        case name, note, locationElevation, locationColorTemperature, focusDistance
     }
     @FocusState private var activeField: ActiveField?
     @State private var showDeleteAlert = false
@@ -93,7 +93,7 @@ struct ShotDetailView: View {
                     .focused($activeField, equals: .note)
                     .offset(x: -4)
             }
-            /*
+            
             Section(header: Text("Location")) {
                 if requestingLocation {
                     Text("Waiting for location...")
@@ -144,7 +144,6 @@ struct ShotDetailView: View {
                                     .help("This value is automatically calculated and cannot be edited")
                             }
                         }
-                        
                     }
                 }
                 
@@ -166,7 +165,7 @@ struct ShotDetailView: View {
                     }
                 }
             }
-            */
+            
             Section(header: Text("Camera")) {
                 Picker("Aperture", selection: $shot.aperture) {
                     ForEach(CameraOptions.apertures, id: \.label) { aperture in
@@ -198,9 +197,16 @@ struct ShotDetailView: View {
                 }
                 .disabled(shot.isLocked)
                 
-                Picker("Lens filter", selection: $shot.lensFilter) {
-                    ForEach(CameraOptions.filters, id: \.label) { lensFilter in
-                        Text(lensFilter.label).tag(lensFilter.label)
+                Picker("Lens color filter", selection: $shot.lensColorFilter) {
+                    ForEach(CameraOptions.colorFilters, id: \.label) { lensColorFilter in
+                        Text(lensColorFilter.label).tag(lensColorFilter.label)
+                    }
+                }
+                .disabled(shot.isLocked)
+                
+                Picker("Lens ND filter", selection: $shot.lensNdFilter) {
+                    ForEach(CameraOptions.ndFilters, id: \.label) { lensNdFilter in
+                        Text(lensNdFilter.label).tag(lensNdFilter.label)
                     }
                 }
                 .disabled(shot.isLocked)

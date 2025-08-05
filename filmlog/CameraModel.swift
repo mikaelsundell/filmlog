@@ -104,10 +104,11 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                     print("no capture device found.")
                     return
                 }
+            let clampedKelvin = max(kelvin, 2000)
             do {
                 try device.lockForConfiguration()
                 let temperatureAndTint = AVCaptureDevice.WhiteBalanceTemperatureAndTintValues(
-                    temperature: Float(kelvin),
+                    temperature: Float(clampedKelvin),
                     tint: 0
                 )
                 let gains = device.deviceWhiteBalanceGains(for: temperatureAndTint)

@@ -144,7 +144,8 @@ struct FrameHelper {
 
 struct FrameOverlay: View {
     let aspectRatio: String
-    let filter: String
+    let colorFilter: String
+    let ndFilter: String
     let focalLength: String
     let aperture: String
     let shutter: String
@@ -321,15 +322,17 @@ struct FrameOverlay: View {
                 }
                 
                 VStack(spacing: 4) {
-                    let filterData = CameraOptions.filters.first(where: { $0.label == filter }) ?? ("-", CameraOptions.Filter.defaultFilter)
-                    let colorTempText: String = (filter != "-" && filterData.0 != "-")
-                        ? "\(Int(filmStockValue.colorTemperature + filterData.1.colorTemperatureShift))K (\(filter))"
+                    let colorFilterData = CameraOptions.colorFilters.first(where: { $0.label == colorFilter }) ?? ("-", CameraOptions.Filter.defaultFilter)
+                    let colorTempText: String = (colorFilter != "-" && colorFilterData.0 != "-")
+                        ? "\(Int(filmStockValue.colorTemperature + colorFilterData.1.colorTemperatureShift))K (\(colorFilter))"
                         : "Auto K"
 
+                    let ndFilterData = CameraOptions.ndFilters.first(where: { $0.label == ndFilter }) ?? ("-", CameraOptions.Filter.defaultFilter)
+                    let exposureCompensation = colorFilterData.value.exposureCompensation + ndFilterData.value.exposureCompensation
                     let exposureText: String = (cameraMode == .auto)
                         ? ", Auto"
-                        : ", M: \(Int(filmStockValue.speed)) \(shutter) \(aperture)\(filterData.1.exposureCompensation != 0 ? " (\(String(format: "%+.1f", filterData.1.exposureCompensation)))" : "")"
-                    
+                        : ", M: \(Int(filmStockValue.speed)) \(shutter) \(aperture)\(exposureCompensation != 0 ? " (\(String(format: "%+.1f", exposureCompensation)))" : "")"
+
                     Text(
                         "\(Int(filmSizeValue.width)) mm x \(Int(filmSizeValue.height)) mm, " +
                         "\(String(format: "%.1f", filmSizeValue.angleOfView(focalLength: focalLengthValue.length).horizontal))°, " +
@@ -490,7 +493,7 @@ struct CircularPickerView: View {
 
                     Circle()
                         .fill(Color.accentColor)
-                        .frame(width: 32, height: 32)
+                        .frame(width: 42, height: 42)
                         .offset(y: -size / 2 + 20)
                         .rotationEffect(angle(for: currentIndex))
 
@@ -516,11 +519,13 @@ struct CircularPickerView: View {
 
                             if index != currentIndex {
                                 currentIndex = index
+                                print("🌀 Picker changed to: \(labels[index])")
                                 onChange(labels[index])
                             }
                         }
                         .onEnded { _ in
                             baseAngle = angle(for: currentIndex)
+                            print("🎯 Picker released at: \(labels[currentIndex])")
                             onRelease(labels[currentIndex])
                         }
                 )
@@ -530,6 +535,7 @@ struct CircularPickerView: View {
                         ForEach(modeLabels, id: \.self) { label in
                             Button(action: {
                                 internalSelectedMode = label
+                                print("✅ Mode selected: \(label)")
                                 onModeSelect?(label)
                             }) {
                                 Text(label)
@@ -552,11 +558,45 @@ struct CircularPickerView: View {
         }
         .aspectRatio(1, contentMode: .fit)
         .onAppear {
+            print("🚀 CircularPickerView appeared")
             if let idx = labels.firstIndex(of: selectedLabel) {
                 currentIndex = idx
                 baseAngle = angle(for: idx)
+            } else {
+                currentIndex = 0
+                baseAngle = .zero
             }
-            internalSelectedMode = selectedMode ?? ""
+
+            if let mode = selectedMode {
+                internalSelectedMode = mode
+                print("🔧 Selected mode on appear: \(mode)")
+            } else {
+                internalSelectedMode = ""
+                print("⚠️ No selectedMode provided")
+            }
+        }
+        .onChange(of: selectedLabel) { newValue, _ in
+            if let idx = labels.firstIndex(of: newValue) {
+                currentIndex = idx
+                baseAngle = angle(for: idx)
+                print("🔄 selectedLabel changed to: \(newValue)")
+            }
+        }
+        .onChange(of: selectedMode) { newValue, _ in
+            if let mode = newValue {
+                internalSelectedMode = mode
+                print("🔄 selectedMode changed to: \(mode)")
+            } else {
+                internalSelectedMode = ""
+                print("⚠️ selectedMode set to nil")
+            }
+        }
+        .onChange(of: labels) { _, _ in
+            if currentIndex >= labels.count {
+                currentIndex = 0
+                baseAngle = .zero
+                print("🧹 Labels changed, reset index")
+            }
         }
     }
 }

@@ -47,7 +47,7 @@ https://github.com/mikaelsundell/photographic-dctls
 Known Limitations
 -----------------
 
-### 1. Fixed Aperture (f/1.6)
+### Fixed Aperture (f/1.6)
 
 The iPhone camera hardware uses a fixed aperture (e.g. f/1.6), meaning it's not possible to simulate different f-stops natively. On DSLR or mirrorless systems, camera manufacturers often raise the aperture number (e.g. f/16) and increase ISO, then reduce ISO to simulate different aperture values. This is not feasible on iPhone due to the hardware constraint.
 
@@ -58,7 +58,7 @@ To approximate the effects of aperture changes:
 
 As a result, this can introduce flickering under non-studio lighting conditions, especially when the adjusted shutter speeds conflict with local mains frequencies (e.g. 50Hz or 60Hz), leading to visible pulsing or flicker in the image.
 
-### 2. Uncontrollable ISP Exposure Adjustments
+### Uncontrollable ISP Exposure Adjustments
 
 The iPhone’s **Image Signal Processor (ISP)** performs automatic tone mapping and temporal noise reduction — even when exposure is manually locked. This results in:
 - Minor but noticeable fluctuations in brightness over time.

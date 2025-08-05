@@ -384,7 +384,8 @@ struct SettingsView: View {
                     shutter: shot.shutter,
                     exposureCompensation: shot.exposureCompensation,
                     lensName: shot.lensName,
-                    lensFilter: shot.lensFilter,
+                    lensColorFilter: shot.lensColorFilter,
+                    lensNdFilter: shot.lensNdFilter,
                     lensFocalLength: shot.lensFocalLength,
                     focusDistance: shot.focusDistance,
                     focusDepthOfField: shot.focusDepthOfField,
@@ -520,7 +521,8 @@ struct SettingsView: View {
                 shot.shutter = shotExport.shutter
                 shot.exposureCompensation = shotExport.exposureCompensation
                 shot.lensName = shotExport.lensName
-                shot.lensFilter = shotExport.lensFilter
+                shot.lensColorFilter = shotExport.lensColorFilter
+                shot.lensNdFilter = shotExport.lensNdFilter
                 shot.lensFocalLength = shotExport.lensFocalLength
                 shot.focusDistance = shotExport.focusDistance
                 shot.focusDepthOfField = shotExport.focusDepthOfField
@@ -649,7 +651,8 @@ struct ShotExport: Codable {
     var shutter: String
     var exposureCompensation: String
     var lensName: String
-    var lensFilter: String
+    var lensColorFilter: String
+    var lensNdFilter: String
     var lensFocalLength: String
     var focusDistance: Double
     var focusDepthOfField: Double

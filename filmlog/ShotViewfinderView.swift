@@ -15,6 +15,7 @@ struct ShotViewfinderView: View {
     @State private var showExport = false
     
     struct PickerContext {
+        let id: String
         var labels: [String]
         var initialSelection: String
         var onSelect: (String) -> Void
@@ -65,11 +66,12 @@ struct ShotViewfinderView: View {
                             selectedLabel: context.initialSelection,
                             labels: context.labels,
                             onChange: context.onSelect,
-                            onRelease: { _ in pickerContext = nil },
+                            onRelease: { _ in },
                             modeLabels: context.modeLabels,
                             selectedMode: context.selectedMode,
                             onModeSelect: context.onModeSelect ?? { _ in }
                         )
+                        .id(context.id)
                         .frame(width: 240, height: 240)
                         .padding()
                         .zIndex(2)
@@ -78,7 +80,8 @@ struct ShotViewfinderView: View {
                     
                     FrameOverlay(
                         aspectRatio: shot.aspectRatio,
-                        filter: shot.lensFilter,
+                        colorFilter: shot.lensColorFilter,
+                        ndFilter: shot.lensNdFilter,
                         focalLength: shot.lensFocalLength,
                         aperture: shot.aperture,
                         shutter: shot.shutter,
@@ -205,6 +208,9 @@ struct ShotViewfinderView: View {
                     cameraModel.switchCamera(to: saved)
                 }
                 switchExposure()
+                if let lutType = LUTType(rawValue: selectedLutTypeValue) {
+                    cameraModel.renderer.setLutType(lutType)
+                }
             }
             cameraModel.onImageCaptured = { result in
                 switch result {
@@ -391,12 +397,11 @@ struct ShotViewfinderView: View {
             Spacer()
 
             Button(action: {
-                if let context = pickerContext,
-                   context.initialSelection == selectedLutTypeValue,
-                   context.labels == LUTType.allCases.map({ $0.rawValue }) {
+                if pickerContext?.id == "modes" {
                     pickerContext = nil
                 } else {
                     pickerContext = PickerContext(
+                        id: "modes",
                         labels: LUTType.allCases.map { $0.rawValue },
                         initialSelection: selectedLutTypeValue,
                         onSelect: { selected in
@@ -419,29 +424,39 @@ struct ShotViewfinderView: View {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
-                    .background(Color.black.opacity(0.4))
+                    .background(
+                        pickerContext?.id == "modes"
+                            ? Color.blue.opacity(0.4)
+                            : Color.black.opacity(0.4)
+                    )
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
             }
 
-            
             let evMode = cameraMode == .manual
             let opacity = evMode ? 1.0 : 0.4
 
             Button(action: {
                 if evMode {
-                    if let context = pickerContext,
-                       context.initialSelection == shot.lensFilter,
-                       context.labels == CameraOptions.filters.map({ $0.label }) {
+                    if pickerContext?.id == "filters" {
                         pickerContext = nil
                     } else {
                         pickerContext = PickerContext(
-                            labels: CameraOptions.filters.map { $0.label },
-                            initialSelection: shot.lensFilter,
+                            id: "filters",
+                            labels: CameraOptions.colorFilters.map { $0.label },
+                            initialSelection: shot.lensColorFilter,
                             onSelect: { selected in
-                                shot.lensFilter = selected
+                                shot.lensColorFilter = selected
                                 adjustEVExposure()
                                 adjustWhiteBalance()
+                            },
+                            modeLabels: CameraOptions.ndFilters.map { $0.label },
+                            selectedMode: shot.lensNdFilter,
+                            onModeSelect: { selected in
+                                if let mode = CameraOptions.ndFilters.first(where: { $0.label == selected }) {
+                                    shot.lensNdFilter = mode.label
+                                    adjustEVExposure()
+                                }
                             }
                         )
                     }
@@ -450,7 +465,11 @@ struct ShotViewfinderView: View {
                 Image(systemName: "camera.filters")
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
-                    .background(Color.black.opacity(0.4))
+                    .background(
+                        pickerContext?.id == "filters"
+                            ? Color.blue.opacity(0.4)
+                            : Color.black.opacity(0.4)
+                    )
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
             }
@@ -465,6 +484,7 @@ struct ShotViewfinderView: View {
                         pickerContext = nil
                     } else {
                         pickerContext = PickerContext(
+                            id: "shutters",
                             labels: CameraOptions.shutters.map { $0.label },
                             initialSelection: shot.shutter,
                             onSelect: { selected in
@@ -487,12 +507,11 @@ struct ShotViewfinderView: View {
 
             Button(action: {
                 if evMode {
-                    if let context = pickerContext,
-                       context.initialSelection == CameraOptions.apertures.first(where: { $0.label == shot.aperture })?.label,
-                       context.labels == CameraOptions.apertures.map({ $0.label }) {
+                    if pickerContext?.id == "apertures" {
                         pickerContext = nil
                     } else {
                         pickerContext = PickerContext(
+                            id: "apertures",
                             labels: CameraOptions.apertures.map { $0.label },
                             initialSelection: shot.aperture,
                             onSelect: { selected in
@@ -506,7 +525,11 @@ struct ShotViewfinderView: View {
                 Image(systemName: "camera.aperture")
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
-                    .background(Color.black.opacity(0.4))
+                    .background(
+                        pickerContext?.id == "apertures"
+                            ? Color.blue.opacity(0.4)
+                            : Color.black.opacity(0.4)
+                    )
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
             }
@@ -651,21 +674,22 @@ struct ShotViewfinderView: View {
         let filmStock = CameraOptions.filmStocks.first(where: { $0.label == shot.filmStock })?.value ?? CameraOptions.FilmStock.defaultFilmStock
         let aperture = CameraOptions.apertures.first(where: { $0.label == shot.aperture })?.value ?? CameraOptions.Aperture.defaultAperture
         let shutter = CameraOptions.shutters.first(where: { $0.label == shot.shutter })?.value ?? CameraOptions.Shutter.defaultShutter
-        let filter = CameraOptions.filters.first(where: { $0.label == shot.lensFilter })?.value ?? CameraOptions.Filter.defaultFilter
+        let colorFilter = CameraOptions.colorFilters.first(where: { $0.label == shot.lensColorFilter })?.value ?? CameraOptions.Filter.defaultFilter
+        let ndFilter = CameraOptions.ndFilters.first(where: { $0.label == shot.lensNdFilter })?.value ?? CameraOptions.Filter.defaultFilter
         
         cameraModel.adjustEVExposure(
             fstop: aperture.fstop,
             speed: filmStock.speed,
             shutter: shutter.shutter,
-            exposureCompensation: filter.exposureCompensation
+            exposureCompensation: colorFilter.exposureCompensation + ndFilter.exposureCompensation
         )
     }
     
     func adjustWhiteBalance() {
         let filmStock = CameraOptions.filmStocks.first(where: { $0.label == shot.filmStock })?.value ?? CameraOptions.FilmStock.defaultFilmStock
-        if shot.lensFilter != "-" {
-            let filter = CameraOptions.filters.first(where: { $0.label == shot.lensFilter })?.value ?? CameraOptions.Filter.defaultFilter
-            cameraModel.adjustWhiteBalance(kelvin: filmStock.colorTemperature + filter.colorTemperatureShift)
+        if shot.lensColorFilter != "-" {
+            let colorFilter = CameraOptions.colorFilters.first(where: { $0.label == shot.lensColorFilter })?.value ?? CameraOptions.Filter.defaultFilter
+            cameraModel.adjustWhiteBalance(kelvin: filmStock.colorTemperature + colorFilter.colorTemperatureShift)
         } else {
             cameraModel.resetWhiteBalance()
         }

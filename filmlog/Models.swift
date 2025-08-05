@@ -239,7 +239,7 @@ struct CameraOptions {
         ("Q2 Test", FilmStock(speed: 400, colorTemperature: 5600)),
     ]
     
-    static let filters: [(label: String, value: Filter)] = [
+    static let colorFilters: [(label: String, value: Filter)] = [
         ("-", Filter(exposureCompensation: 0, colorTemperatureShift: 0)),
         ("85", Filter(exposureCompensation: -0.6, colorTemperatureShift: -2100)),
         ("85B", Filter(exposureCompensation: -0.6, colorTemperatureShift: -2300)),
@@ -252,11 +252,16 @@ struct CameraOptions {
         ("81C", Filter(exposureCompensation: -0.3, colorTemperatureShift: -600)),
         ("82A", Filter(exposureCompensation: -0.3, colorTemperatureShift: +200)),
         ("82B", Filter(exposureCompensation: -0.3, colorTemperatureShift: +400)),
-        ("82C", Filter(exposureCompensation: -0.3, colorTemperatureShift: +600)),
-        ("ND 0.3", Filter(exposureCompensation: -1.0, colorTemperatureShift: 0)),
-        ("ND 0.6", Filter(exposureCompensation: -2.0, colorTemperatureShift: 0)),
-        ("ND 0.9", Filter(exposureCompensation: -3.0, colorTemperatureShift: 0)),
-        ("PL", Filter(exposureCompensation: -1.0, colorTemperatureShift: 0))
+        ("82C", Filter(exposureCompensation: -0.3, colorTemperatureShift: +600))
+    ]
+    
+    static let ndFilters: [(label: String, value: Filter)] = [
+        ("-", Filter(exposureCompensation: 0, colorTemperatureShift: 0)),
+        ("0.3", Filter(exposureCompensation: -1.0, colorTemperatureShift: 0)),
+        ("0.6", Filter(exposureCompensation: -2.0, colorTemperatureShift: 0)),
+        ("0.9", Filter(exposureCompensation: -3.0, colorTemperatureShift: 0)),
+        ("1.2", Filter(exposureCompensation: -4.0, colorTemperatureShift: 0)),
+        ("2.1", Filter(exposureCompensation: -6.0, colorTemperatureShift: 0))
     ]
     
     static let focalLengths: [(label: String, value: FocalLength)] = [
@@ -316,6 +321,8 @@ struct CameraOptions {
         ("1/250", Shutter(numerator: 1, denominator: 250)),
         ("1/500", Shutter(numerator: 1, denominator: 500)),
         ("1/1000", Shutter(numerator: 1, denominator: 1000)),
+        ("1/2000", Shutter(numerator: 1, denominator: 2000)),
+        ("1/4000", Shutter(numerator: 1, denominator: 4000)),
         ("1", Shutter(numerator: 1, denominator: 1)),
         ("2", Shutter(numerator: 2, denominator: 1)),
         ("4", Shutter(numerator: 4, denominator: 1)),
@@ -576,7 +583,8 @@ class Shot: Codable {
     var shutter: String
     var exposureCompensation: String
     var lensName: String
-    var lensFilter: String
+    var lensColorFilter: String
+    var lensNdFilter: String
     var lensFocalLength: String
     var focusDistance: Double
     var focusDepthOfField: Double
@@ -609,7 +617,8 @@ class Shot: Codable {
          shutter: String = "1/125",
          exposureCompensation: String = "0",
          lensName: String = "Other",
-         lensFilter: String = "-",
+         lensColorFilter: String = "-",
+         lensNdFilter: String = "-",
          lensFocalLength: String = "50mm",
          focusDistance: Double = 500,
          focusDepthOfField: Double = 0.0,
@@ -640,7 +649,8 @@ class Shot: Codable {
         self.shutter = shutter
         self.exposureCompensation = exposureCompensation
         self.lensName = lensName
-        self.lensFilter = lensFilter
+        self.lensColorFilter = lensColorFilter
+        self.lensNdFilter = lensNdFilter
         self.lensFocalLength = lensFocalLength
         self.focusDistance = focusDistance
         self.focusDepthOfField = focusDepthOfField
@@ -684,7 +694,8 @@ class Shot: Codable {
         newShot.shutter = self.shutter
         newShot.exposureCompensation = self.exposureCompensation
         newShot.lensName = self.lensName
-        newShot.lensFilter = self.lensFilter
+        newShot.lensColorFilter = self.lensColorFilter
+        newShot.lensNdFilter = self.lensNdFilter
         newShot.lensFocalLength = self.lensFocalLength
         newShot.focusDistance = self.focusDistance
         newShot.focusDepthOfField = self.focusDepthOfField
@@ -732,7 +743,7 @@ class Shot: Codable {
 
     enum CodingKeys: String, CodingKey {
         case id, timestamp, filmSize, filmStock, aspectRatio, name, note, location, locationTimestamp, locationColorTemperature,
-             locationElevation, aperture, shutter, exposureCompensation, lensName, lensFilter, lensFocalLength,
+             locationElevation, aperture, shutter, exposureCompensation, lensName, lensColorFilter, lensNdFilter, lensFocalLength,
              focusDistance, focusDepthOfField, focusNearLimit, focusFarLimit, focusHyperfocalDistance,
              focusHyperfocalNearLimit, exposureSky, exposureFoliage, exposureHighlights, exposureMidGray,
              exposureShadows, exposureSkinKey, exposureSkinFill, image, lightMeterImage, isLocked
@@ -755,7 +766,8 @@ class Shot: Codable {
         shutter = try container.decode(String.self, forKey: .shutter)
         exposureCompensation = try container.decode(String.self, forKey: .exposureCompensation)
         lensName = try container.decode(String.self, forKey: .lensName)
-        lensFilter = try container.decode(String.self, forKey: .lensFilter)
+        lensColorFilter = try container.decode(String.self, forKey: .lensColorFilter)
+        lensNdFilter = try container.decode(String.self, forKey: .lensNdFilter)
         lensFocalLength = try container.decode(String.self, forKey: .lensFocalLength)
         focusDistance = try container.decode(Double.self, forKey: .focusDistance)
         focusDepthOfField = try container.decode(Double.self, forKey: .focusDepthOfField)
@@ -792,7 +804,8 @@ class Shot: Codable {
         try container.encode(shutter, forKey: .shutter)
         try container.encode(exposureCompensation, forKey: .exposureCompensation)
         try container.encode(lensName, forKey: .lensName)
-        try container.encode(lensFilter, forKey: .lensName)
+        try container.encode(lensColorFilter, forKey: .lensColorFilter)
+        try container.encode(lensNdFilter, forKey: .lensNdFilter)
         try container.encode(lensFocalLength, forKey: .lensFocalLength)
         try container.encode(focusDistance, forKey: .focusDistance)
         try container.encode(focusDepthOfField, forKey: .focusDepthOfField)
