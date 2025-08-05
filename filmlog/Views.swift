@@ -437,16 +437,19 @@ struct LevelIndicator: View {
     }
 }
 
-import SwiftUI
-
 struct CircularPickerView: View {
     let selectedLabel: String
     let labels: [String]
     let onChange: (String) -> Void
     let onRelease: (String) -> Void
 
+    var modeLabels: [String]? = nil
+    var selectedMode: String? = nil
+    var onModeSelect: ((String) -> Void)? = nil
+
     @State private var currentIndex: Int = 0
     @State private var baseAngle: Angle = .zero
+    @State private var internalSelectedMode: String = ""
 
     private var totalSteps: Int { labels.count }
 
@@ -474,54 +477,78 @@ struct CircularPickerView: View {
             let size = min(geo.size.width, geo.size.height)
             let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
 
-            ZStack {
-                ForEach(labels.indices, id: \.self) { i in
-                    let tickAngle = angle(for: i)
-                    Rectangle()
-                        .fill(Color.primary)
-                        .frame(width: 2, height: 10)
-                        .offset(y: -size / 2 + 15)
-                        .rotationEffect(tickAngle)
+            VStack(spacing: 16) {
+                ZStack {
+                    ForEach(labels.indices, id: \.self) { i in
+                        let tickAngle = angle(for: i)
+                        Rectangle()
+                            .fill(Color.primary)
+                            .frame(width: 2, height: 10)
+                            .offset(y: -size / 2 + 15)
+                            .rotationEffect(tickAngle)
+                    }
+
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 32, height: 32)
+                        .offset(y: -size / 2 + 20)
+                        .rotationEffect(angle(for: currentIndex))
+
+                    Text(labels[currentIndex])
+                        .font(.title2).bold()
                 }
+                .frame(width: size, height: size)
+                .gesture(
+                    DragGesture()
+                        .onChanged { value in
+                            let startVector = CGVector(dx: value.startLocation.x - center.x,
+                                                       dy: value.startLocation.y - center.y)
+                            let currentVector = CGVector(dx: value.location.x - center.x,
+                                                         dy: value.location.y - center.y)
 
-                Circle()
-                    .fill(Color.accentColor)
-                    .frame(width: 32, height: 32)
-                    .offset(y: -size / 2 + 20)
-                    .rotationEffect(angle(for: currentIndex))
+                            let startDegrees = atan2(startVector.dy, startVector.dx) * 180 / .pi
+                            let currentDegrees = atan2(currentVector.dy, currentVector.dx) * 180 / .pi
+                            let deltaDegrees = angleDelta(from: startDegrees, to: currentDegrees)
+                            let delta = Angle(degrees: deltaDegrees)
 
-                Text(labels[currentIndex])
-                    .font(.title2).bold()
-            }
-            .frame(width: size, height: size)
-            .gesture(
-                DragGesture()
-                    .onChanged { value in
-                        let startVector = CGVector(dx: value.startLocation.x - center.x,
-                                                   dy: value.startLocation.y - center.y)
+                            let totalAngle = baseAngle + delta
+                            let index = index(for: totalAngle)
 
-                        let currentVector = CGVector(dx: value.location.x - center.x,
-                                                     dy: value.location.y - center.y)
+                            if index != currentIndex {
+                                currentIndex = index
+                                onChange(labels[index])
+                            }
+                        }
+                        .onEnded { _ in
+                            baseAngle = angle(for: currentIndex)
+                            onRelease(labels[currentIndex])
+                        }
+                )
 
-                        let startDegrees = atan2(startVector.dy, startVector.dx) * 180 / .pi
-                        let currentDegrees = atan2(currentVector.dy, currentVector.dx) * 180 / .pi
-
-                        let deltaDegrees = angleDelta(from: startDegrees, to: currentDegrees)
-                        let delta = Angle(degrees: deltaDegrees)
-
-                        let totalAngle = baseAngle + delta
-                        let index = index(for: totalAngle)
-
-                        if index != currentIndex {
-                            currentIndex = index
-                            onChange(labels[index]) // live update
+                if let modeLabels = modeLabels, !modeLabels.isEmpty {
+                    HStack(spacing: 8) {
+                        ForEach(modeLabels, id: \.self) { label in
+                            Button(action: {
+                                internalSelectedMode = label
+                                onModeSelect?(label)
+                            }) {
+                                Text(label)
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 32, height: 32)
+                                    .background(
+                                        internalSelectedMode == label
+                                        ? Color.accentColor
+                                        : Color.clear
+                                    )
+                                    .clipShape(Circle())
+                            }
                         }
                     }
-                    .onEnded { _ in
-                        baseAngle = angle(for: currentIndex)
-                        onRelease(labels[currentIndex]) // final value
-                    }
-            )
+                    .padding(.top, 8)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .aspectRatio(1, contentMode: .fit)
         .onAppear {
@@ -529,7 +556,7 @@ struct CircularPickerView: View {
                 currentIndex = idx
                 baseAngle = angle(for: idx)
             }
+            internalSelectedMode = selectedMode ?? ""
         }
     }
 }
-

@@ -18,6 +18,9 @@ struct ShotViewfinderView: View {
         var labels: [String]
         var initialSelection: String
         var onSelect: (String) -> Void
+        var modeLabels: [String] = []
+        var selectedMode: String = ""
+        var onModeSelect: ((String) -> Void)? = nil
     }
 
     @State private var pickerContext: PickerContext? = nil
@@ -43,6 +46,8 @@ struct ShotViewfinderView: View {
     }
     
     @AppStorage("lensType") private var selectedLensRawValue: String = LensType.wide.rawValue
+    @AppStorage("lutType") private var selectedLutTypeValue: String = LUTType.kodakNeutral.rawValue
+    
     @AppStorage("cameraMode") private var cameraMode: CameraMode = .auto
 
     @ObservedObject private var orientationObserver = OrientationObserver()
@@ -59,14 +64,13 @@ struct ShotViewfinderView: View {
                         CircularPickerView(
                             selectedLabel: context.initialSelection,
                             labels: context.labels,
-                            onChange: { selected in
-                                context.onSelect(selected)
-                            },
-                            onRelease: { _ in
-                                pickerContext = nil
-                            }
+                            onChange: context.onSelect,
+                            onRelease: { _ in pickerContext = nil },
+                            modeLabels: context.modeLabels,
+                            selectedMode: context.selectedMode,
+                            onModeSelect: context.onModeSelect ?? { _ in }
                         )
-                        .frame(width: 300, height: 300)
+                        .frame(width: 240, height: 240)
                         .padding()
                         .zIndex(2)
                         .rotationEffect(orientationObserver.orientation.angle)
@@ -270,6 +274,10 @@ struct ShotViewfinderView: View {
                     let newIndex = (currentIndex - 1 + CameraOptions.aspectRatios.count) % CameraOptions.aspectRatios.count
                     shot.aspectRatio = CameraOptions.aspectRatios[newIndex].label
                 }
+                if pickerContext != nil {
+                    pickerContext = nil
+                    return
+                }
             }) {
                 Image(systemName: "chevron.left")
                     .foregroundColor(.white)
@@ -293,6 +301,10 @@ struct ShotViewfinderView: View {
                     let newIndex = (currentIndex + 1) % CameraOptions.aspectRatios.count
                     shot.aspectRatio = CameraOptions.aspectRatios[newIndex].label
                 }
+                if pickerContext != nil {
+                    pickerContext = nil
+                    return
+                }
             }) {
                 Image(systemName: "chevron.right")
                     .foregroundColor(.white)
@@ -306,7 +318,13 @@ struct ShotViewfinderView: View {
     @ViewBuilder
     private func toolsControls() -> some View {
         HStack(spacing: 6) {
-            Button(action: { toggleLens() }) {
+            Button(action: {
+                toggleLens()
+                if pickerContext != nil {
+                    pickerContext = nil
+                    return
+                }
+            }) {
                 Text(lensLabel(for: cameraModel.lensType))
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.white)
@@ -318,6 +336,10 @@ struct ShotViewfinderView: View {
             
             Button(action: {
                 centerModeRawValue = centerMode.next().rawValue
+                if pickerContext != nil {
+                    pickerContext = nil
+                    return
+                }
             }) {
                 Image(systemName: "plus.circle.fill")
                     .foregroundColor(.white)
@@ -329,6 +351,10 @@ struct ShotViewfinderView: View {
             
             Button(action: {
                 symmetryModeRawValue = symmetryMode.next().rawValue
+                if pickerContext != nil {
+                    pickerContext = nil
+                    return
+                }
             }) {
                 Image(systemName: "grid")
                     .foregroundColor(.white)
@@ -340,6 +366,10 @@ struct ShotViewfinderView: View {
 
             Button(action: {
                 levelModeRawValue = levelMode.next().rawValue
+                if pickerContext != nil {
+                    pickerContext = nil
+                    return
+                }
             }) {
                 Image(systemName: "gyroscope")
                     .foregroundColor(.white)
@@ -360,7 +390,31 @@ struct ShotViewfinderView: View {
         HStack(spacing: 6) {
             Spacer()
 
-            Button(action: { toggleExposure() }) {
+            Button(action: {
+                if let context = pickerContext,
+                   context.initialSelection == selectedLutTypeValue,
+                   context.labels == LUTType.allCases.map({ $0.rawValue }) {
+                    pickerContext = nil
+                } else {
+                    pickerContext = PickerContext(
+                        labels: LUTType.allCases.map { $0.rawValue },
+                        initialSelection: selectedLutTypeValue,
+                        onSelect: { selected in
+                            selectedLutTypeValue = selected
+                            if let lutType = LUTType(rawValue: selected) {
+                                cameraModel.renderer.setLutType(lutType)
+                            }
+                        },
+                        modeLabels: CameraMode.allCases.map { cameraLabel(for: $0) },
+                        selectedMode: cameraLabel(for: cameraMode),
+                        onModeSelect: { selected in
+                            if let mode = CameraMode.allCases.first(where: { cameraLabel(for: $0) == selected }) {
+                                cameraMode = mode
+                            }
+                        }
+                    )
+                }
+            }) {
                 Text(cameraLabel(for: cameraMode))
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.white)
@@ -369,6 +423,7 @@ struct ShotViewfinderView: View {
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
             }
+
             
             let evMode = cameraMode == .manual
             let opacity = evMode ? 1.0 : 0.4
@@ -399,6 +454,8 @@ struct ShotViewfinderView: View {
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
             }
+            .disabled(!evMode)
+            .opacity(opacity)
             
             Button(action: {
                 if evMode {

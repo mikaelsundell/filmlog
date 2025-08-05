@@ -7,10 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1F2A9A1D2E3FC24A00C304FA /* CameraDisplay2383.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A1C2E3FC24A00C304FA /* CameraDisplay2383.cube */; };
-		1F2A9A212E40AEBF00C304FA /* CameraDisplay2383_2.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A202E40AEBF00C304FA /* CameraDisplay2383_2.cube */; };
-		1F2A9A232E40B00C00C304FA /* CameraDisplay2383_3.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A222E40B00C00C304FA /* CameraDisplay2383_3.cube */; };
 		1F2A9A252E41543F00C304FA /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F2A9A242E41543F00C304FA /* Views.swift */; };
+		1F2A9A3A2E42216600C304FA /* LutExposure.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A362E42216600C304FA /* LutExposure.cube */; };
+		1F2A9A432E422EF300C304FA /* LutKodakWarm.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A3E2E422EF300C304FA /* LutKodakWarm.cube */; };
+		1F2A9A442E422EF300C304FA /* LutKodakNeutral.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A3F2E422EF300C304FA /* LutKodakNeutral.cube */; };
+		1F2A9A452E422EF300C304FA /* LutFujiNeutral.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A402E422EF300C304FA /* LutFujiNeutral.cube */; };
+		1F2A9A462E422EF300C304FA /* LutFujiWarm.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A412E422EF300C304FA /* LutFujiWarm.cube */; };
+		1F2A9A492E42302300C304FA /* LutLookExposure.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A482E42302300C304FA /* LutLookExposure.cube */; };
+		1F2A9A4B2E42304000C304FA /* LutBWNeutral.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A4A2E42304000C304FA /* LutBWNeutral.cube */; };
+		1F2A9A4D2E4230D200C304FA /* LutBWContrast.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A4C2E4230D100C304FA /* LutBWContrast.cube */; };
 		1F2D89E42E2E61780040D673 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F2D89E32E2E61780040D673 /* ShareViewController.swift */; };
 		1F2D89E72E2E61780040D673 /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1F2D89E52E2E61780040D673 /* MainInterface.storyboard */; };
 		1F2D89EB2E2E61780040D673 /* FilmlogShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1F2D89E12E2E61780040D673 /* FilmlogShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -79,10 +84,15 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		1F2A9A1C2E3FC24A00C304FA /* CameraDisplay2383.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CameraDisplay2383.cube; sourceTree = "<group>"; };
-		1F2A9A202E40AEBF00C304FA /* CameraDisplay2383_2.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CameraDisplay2383_2.cube; sourceTree = "<group>"; };
-		1F2A9A222E40B00C00C304FA /* CameraDisplay2383_3.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CameraDisplay2383_3.cube; sourceTree = "<group>"; };
 		1F2A9A242E41543F00C304FA /* Views.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views.swift; sourceTree = "<group>"; };
+		1F2A9A362E42216600C304FA /* LutExposure.cube */ = {isa = PBXFileReference; lastKnownFileType = file; name = LutExposure.cube; path = filmlog/LutExposure.cube; sourceTree = SOURCE_ROOT; };
+		1F2A9A3E2E422EF300C304FA /* LutKodakWarm.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LutKodakWarm.cube; sourceTree = "<group>"; };
+		1F2A9A3F2E422EF300C304FA /* LutKodakNeutral.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LutKodakNeutral.cube; sourceTree = "<group>"; };
+		1F2A9A402E422EF300C304FA /* LutFujiNeutral.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LutFujiNeutral.cube; sourceTree = "<group>"; };
+		1F2A9A412E422EF300C304FA /* LutFujiWarm.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LutFujiWarm.cube; sourceTree = "<group>"; };
+		1F2A9A482E42302300C304FA /* LutLookExposure.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LutLookExposure.cube; sourceTree = "<group>"; };
+		1F2A9A4A2E42304000C304FA /* LutBWNeutral.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LutBWNeutral.cube; sourceTree = "<group>"; };
+		1F2A9A4C2E4230D100C304FA /* LutBWContrast.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LutBWContrast.cube; sourceTree = "<group>"; };
 		1F2D89E12E2E61780040D673 /* FilmlogShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FilmlogShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		1F2D89E32E2E61780040D673 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		1F2D89E62E2E61780040D673 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/MainInterface.storyboard; sourceTree = "<group>"; };
@@ -194,12 +204,17 @@
 				1F62CE102E2160BD002DBAA3 /* CameraPreview.swift */,
 				1F64D2E72E1B1457009EA1A8 /* CameraPicker.swift */,
 				1F9B3E962E1AE48C005F95A0 /* ContentView.swift */,
-				1F2A9A1C2E3FC24A00C304FA /* CameraDisplay2383.cube */,
-				1F2A9A202E40AEBF00C304FA /* CameraDisplay2383_2.cube */,
-				1F2A9A222E40B00C00C304FA /* CameraDisplay2383_3.cube */,
 				1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */,
 				1F9DC7E52E3AB90B00D95B79 /* GalleryView.swift */,
 				1F9B3E982E1AE48C005F95A0 /* Item.swift */,
+				1F2A9A362E42216600C304FA /* LutExposure.cube */,
+				1F2A9A402E422EF300C304FA /* LutFujiNeutral.cube */,
+				1F2A9A412E422EF300C304FA /* LutFujiWarm.cube */,
+				1F2A9A482E42302300C304FA /* LutLookExposure.cube */,
+				1F2A9A4A2E42304000C304FA /* LutBWNeutral.cube */,
+				1F2A9A4C2E4230D100C304FA /* LutBWContrast.cube */,
+				1F2A9A3F2E422EF300C304FA /* LutKodakNeutral.cube */,
+				1F2A9A3E2E422EF300C304FA /* LutKodakWarm.cube */,
 				1F9B3E9A2E1AE48F005F95A0 /* Assets.xcassets */,
 				1F9B3E9C2E1AE48F005F95A0 /* Preview Content */,
 				1F64D2E32E1B1362009EA1A8 /* Models.swift */,
@@ -378,10 +393,15 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1F2A9A232E40B00C00C304FA /* CameraDisplay2383_3.cube in Resources */,
-				1F2A9A1D2E3FC24A00C304FA /* CameraDisplay2383.cube in Resources */,
-				1F2A9A212E40AEBF00C304FA /* CameraDisplay2383_2.cube in Resources */,
 				1F9B3E9E2E1AE48F005F95A0 /* Preview Assets.xcassets in Resources */,
+				1F2A9A4D2E4230D200C304FA /* LutBWContrast.cube in Resources */,
+				1F2A9A492E42302300C304FA /* LutLookExposure.cube in Resources */,
+				1F2A9A4B2E42304000C304FA /* LutBWNeutral.cube in Resources */,
+				1F2A9A462E422EF300C304FA /* LutFujiWarm.cube in Resources */,
+				1F2A9A442E422EF300C304FA /* LutKodakNeutral.cube in Resources */,
+				1F2A9A3A2E42216600C304FA /* LutExposure.cube in Resources */,
+				1F2A9A432E422EF300C304FA /* LutKodakWarm.cube in Resources */,
+				1F2A9A452E422EF300C304FA /* LutFujiNeutral.cube in Resources */,
 				1F9B3E9B2E1AE48F005F95A0 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
