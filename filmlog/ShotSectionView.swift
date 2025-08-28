@@ -7,9 +7,9 @@ import PhotosUI
 
 struct ShotSectionView: View {
     @Bindable var shot: Shot
-    
+
     var isLocked: Bool = false
-    var onImagePicked: (Data) -> Void
+    var onImagePicked: (UIImage) -> Void
 
     @State private var showCamera = false
     @State private var showFullImage = false
@@ -17,7 +17,7 @@ struct ShotSectionView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            if let imageData = shot.image?.data, let uiImage = UIImage(data: imageData) {
+            if let uiImage = shot.imageData?.thumbnail {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
@@ -67,15 +67,13 @@ struct ShotSectionView: View {
         }
         .fullScreenCover(isPresented: $showCamera) {
             ShotViewfinderView(shot: shot) { image in
-                if let data = image.jpegData(compressionQuality: 0.9) {
-                    onImagePicked(data)
-                }
+                onImagePicked(image)
             }
         }
         .fullScreenCover(isPresented: $showFullImage) {
-            if let imageData = shot.image?.data,
-               let uiImage = UIImage(data: imageData) {
-                ShotImageView(image: uiImage)
+            if let imageData = shot.imageData,
+               let thumbnail = imageData.thumbnail {
+                ShotImageView(image: thumbnail)
             } else {
                 Text("No image available")
                     .font(.headline)
@@ -85,8 +83,9 @@ struct ShotSectionView: View {
         .onChange(of: selectedItem) {
             if let selectedItem {
                 Task {
-                    if let data = try? await selectedItem.loadTransferable(type: Data.self) {
-                        onImagePicked(data)
+                    if let data = try? await selectedItem.loadTransferable(type: Data.self),
+                       let uiImage = UIImage(data: data) {
+                        onImagePicked(uiImage)
                     }
                 }
             }

@@ -4,8 +4,9 @@
 
 import Foundation
 import SwiftData
+import UIKit
 
-struct LocationOptions {
+struct LocationUtils {
     struct Location: Codable {
         var latitude: Double
         var longitude: Double
@@ -59,7 +60,7 @@ struct LocationOptions {
     }
 }
 
-struct CameraOptions {
+struct CameraUtils {
     struct FilmSize {
         let width: Double
         let height: Double
@@ -111,7 +112,7 @@ struct CameraOptions {
         
         static let defaultInfinity: Double = 1000000
         static let defaultCocFactor: Double = 1442
-        static let defaultFilmSize = CameraOptions.FilmSize(width: 36.0, height: 24.0)
+        static let defaultFilmSize = CameraUtils.FilmSize(width: 36.0, height: 24.0)
     }
     
     struct AspectRatio: Equatable {
@@ -122,14 +123,14 @@ struct CameraOptions {
             return Double(numerator) / Double(denominator)
         }
         
-        static let defaultAspectRatio = CameraOptions.AspectRatio(numerator: 0, denominator: 1)
+        static let defaultAspectRatio = CameraUtils.AspectRatio(numerator: 0, denominator: 1)
     }
     
     struct FilmStock {
         let speed: Double
         let colorTemperature: Double
         
-        static let defaultFilmStock = CameraOptions.FilmStock(speed: 100, colorTemperature: 5600)
+        static let defaultFilmStock = CameraUtils.FilmStock(speed: 100, colorTemperature: 5600)
     }
     
     struct Filter: Equatable {
@@ -148,7 +149,7 @@ struct CameraOptions {
     struct Aperture: Equatable {
         let fstop: Double
         
-        static let defaultAperture = CameraOptions.Aperture(fstop: 2.8)
+        static let defaultAperture = CameraUtils.Aperture(fstop: 2.8)
     }
     
     struct Shutter: Equatable {
@@ -159,7 +160,7 @@ struct CameraOptions {
             return Double(numerator) / Double(denominator)
         }
         
-        static let defaultShutter = CameraOptions.Shutter(numerator: 1, denominator: 125)
+        static let defaultShutter = CameraUtils.Shutter(numerator: 1, denominator: 125)
     }
     
     static let aspectRatios: [(label: String, value: AspectRatio)] = [
@@ -317,6 +318,7 @@ struct CameraOptions {
         ("1/30", Shutter(numerator: 1, denominator: 30)),
         ("1/50", Shutter(numerator: 1, denominator: 50)),
         ("1/60", Shutter(numerator: 1, denominator: 60)),
+        ("1/100", Shutter(numerator: 1, denominator: 100)),
         ("1/125", Shutter(numerator: 1, denominator: 125)),
         ("1/250", Shutter(numerator: 1, denominator: 250)),
         ("1/500", Shutter(numerator: 1, denominator: 500)),
@@ -329,13 +331,204 @@ struct CameraOptions {
     ]
 }
 
+struct ImageUtils {
+    enum FileType: String, CaseIterable {
+        case original
+        case thumbnail
+        
+        var maxDimension: CGFloat {
+            switch self {
+            case .original:
+                return 3840
+            case .thumbnail:
+                return 320
+            }
+        }
+
+        var compressionQuality: CGFloat {
+            switch self {
+            case .original:
+                return 0.9
+            case .thumbnail:
+                return 0.7
+            }
+        }
+    }
+
+    struct FileStorage {
+        static let shared = FileStorage()
+        private init() {}
+
+        private let folderURL: URL = {
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let folder = docs.appendingPathComponent("data")
+            if !FileManager.default.fileExists(atPath: folder.path) {
+                try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: nil)
+            }
+            return folder
+        }()
+
+        private func fileURL(for id: UUID, type: FileType) -> URL {
+            return folderURL.appendingPathComponent("\(id.uuidString)_\(type.rawValue).jpg")
+        }
+        
+        func imageSize(id: UUID, type: FileType) -> Int {
+            let url = fileURL(for: id, type: type)
+            if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+               let fileSize = attrs[.size] as? NSNumber {
+                return fileSize.intValue
+            }
+            return 0
+        }
+        
+        func fileExists(id: UUID, type: FileType) -> Bool {
+            let url = fileURL(for: id, type: type)
+            return FileManager.default.fileExists(atPath: url.path)
+        }
+
+        func saveImage(_ image: UIImage, id: UUID, type: FileType) -> Bool {
+            let resizedImage = image.resized(toMaxDimension: type.maxDimension)
+            guard let data = resizedImage.jpegData(compressionQuality: type.compressionQuality) else {
+                return false
+            }
+            return saveImageFile(data, id: id, type: type)
+        }
+        
+        func saveImage(_ image: UIImage, id: UUID, types: [FileType] = FileType.allCases) -> Bool {
+            var allSucceeded = true
+            for type in types {
+                if !saveImage(image, id: id, type: type) {
+                    allSucceeded = false
+                }
+            }
+            return allSucceeded
+        }
+
+        func saveImageFile(_ data: Data, id: UUID, type: FileType) -> Bool {
+            let fileURL = fileURL(for: id, type: type)
+            do {
+                try data.write(to: fileURL)
+                return true
+            } catch {
+                print("failed to save image \(type) for \(id): \(error)")
+                return false
+            }
+        }
+
+        func loadImage(id: UUID, type: FileType) -> UIImage? {
+            let url = fileURL(for: id, type: type)
+            guard let data = try? Data(contentsOf: url) else { return nil }
+            return UIImage(data: data)
+        }
+
+        func loadImageData(id: UUID, type: FileType) -> Data? {
+            let url = fileURL(for: id, type: type)
+            return try? Data(contentsOf: url)
+        }
+
+        func deleteImage(id: UUID, type: FileType) -> Bool {
+            let url = fileURL(for: id, type: type)
+            if FileManager.default.fileExists(atPath: url.path) {
+                do {
+                    try FileManager.default.removeItem(at: url)
+                    return true
+                } catch {
+                    print("Failed to delete image at \(url): \(error)")
+                    return false
+                }
+            }
+            return true
+        }
+
+        func deleteImage(id: UUID, types: [FileType] = FileType.allCases) -> Bool {
+            var allSucceeded = true
+            for type in types {
+                if !deleteImage(id: id, type: type) {
+                    allSucceeded = false
+                }
+            }
+            return allSucceeded
+        }
+    }
+}
+
+extension UIImage {
+    func resized(toMaxDimension max: CGFloat) -> UIImage {
+        let originalSize = self.size
+        let aspectRatio = originalSize.width / originalSize.height
+
+        let newSize: CGSize
+        if originalSize.width > originalSize.height {
+            newSize = CGSize(width: max, height: max / aspectRatio)
+        } else {
+            newSize = CGSize(width: max * aspectRatio, height: max)
+        }
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        return renderer.image { _ in
+            draw(in: CGRect(origin: .zero, size: newSize))
+        }
+    }
+}
+
+enum DataValue: Codable {
+    case string(String)
+    case int(Int)
+    case double(Double)
+    case bool(Bool)
+
+    enum CodingKeys: String, CodingKey {
+        case type, value
+    }
+
+    enum ValueType: String, Codable {
+        case string, int, double, bool
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .string(let str):
+            try container.encode(ValueType.string, forKey: .type)
+            try container.encode(str, forKey: .value)
+        case .int(let int):
+            try container.encode(ValueType.int, forKey: .type)
+            try container.encode(int, forKey: .value)
+        case .double(let dbl):
+            try container.encode(ValueType.double, forKey: .type)
+            try container.encode(dbl, forKey: .value)
+        case .bool(let bool):
+            try container.encode(ValueType.bool, forKey: .type)
+            try container.encode(bool, forKey: .value)
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(ValueType.self, forKey: .type)
+        switch type {
+        case .string:
+            let value = try container.decode(String.self, forKey: .value)
+            self = .string(value)
+        case .int:
+            let value = try container.decode(Int.self, forKey: .value)
+            self = .int(value)
+        case .double:
+            let value = try container.decode(Double.self, forKey: .value)
+            self = .double(value)
+        case .bool:
+            let value = try container.decode(Bool.self, forKey: .value)
+            self = .bool(value)
+        }
+    }
+}
+
 @Model
 class Category: Codable {
     var id = UUID()
     var timestamp = Date()
     var name: String
     
-    init(name: String) {
+    required init(name: String) {
         self.name = name
     }
     
@@ -362,69 +555,130 @@ class Category: Codable {
 class ImageData: Codable {
     var id = UUID()
     var timestamp = Date()
-    var data: Data
     var referenceCount: Int
     var name: String?
     var note: String?
     var creator: String?
+    var metadata: [String: DataValue] = [:]
 
-    @Relationship var category: Category?
+    var original: UIImage? {
+        ImageUtils.FileStorage.shared.loadImage(id: id, type: .original)
+    }
+    
+    var thumbnail: UIImage? {
+        ImageUtils.FileStorage.shared.loadImage(id: id, type: .thumbnail)
+    }
+    
+    @Relationship var categories: [Category] = []
+    
+    var orderedCategories: [Category] {
+        categories.sorted(by: { $0.timestamp < $1.timestamp })
+    }
 
-    init(data: Data, category: Category? = nil, name: String? = nil, note: String? = nil, creator: String? = nil) {
-        self.data = data
+    func updateFile(to newImage: UIImage?) -> Bool {
+        guard let newImage else { return false }
+        var allRemoved = true
+        if referenceCount == 1 {
+            allRemoved = deleteFile()
+        }
+        let success = ImageUtils.FileStorage.shared.saveImage(
+            newImage,
+            id: id,
+            types: ImageUtils.FileType.allCases
+        )
+        if success {
+            timestamp = Date()
+        } else {
+            print("failed to save image for id: \(id)")
+        }
+        return success && allRemoved
+    }
+    
+    func deleteFile() -> Bool {
+        var allDeleted = true
+        for type in ImageUtils.FileType.allCases {
+            let success = ImageUtils.FileStorage.shared.deleteImage(id: id, type: type)
+            if !success {
+                print("failed to delete image file for id: \(id), type: \(type)")
+                allDeleted = false
+            }
+        }
+        return allDeleted
+    }
+    
+    required init(
+        categories: [Category] = [],
+        name: String? = nil,
+        note: String? = nil,
+        creator: String? = nil,
+        metadata: [String: DataValue] = [:]
+    ) {
         self.referenceCount = 1
-        self.category = category
+        self.categories = categories
         self.name = name
         self.note = note
         self.creator = creator
+        self.metadata = metadata
     }
-
-    enum CodingKeys: String, CodingKey {
-        case id, data, referenceCount, category, name, note, creator, timestamp
+    
+    func cleanup(context: ModelContext) { // handled by reference counting
     }
-
-    required init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(UUID.self, forKey: .id)
-        timestamp = try container.decode(Date.self, forKey: .timestamp)
-        data = try container.decode(Data.self, forKey: .data)
-        referenceCount = try container.decodeIfPresent(Int.self, forKey: .referenceCount) ?? 1
-        category = try container.decodeIfPresent(Category.self, forKey: .category)
-        name = try container.decodeIfPresent(String.self, forKey: .name)
-        note = try container.decodeIfPresent(String.self, forKey: .note)
-        creator = try container.decodeIfPresent(String.self, forKey: .creator)
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
-        try container.encode(timestamp, forKey: .timestamp)
-        try container.encode(data, forKey: .data)
-        try container.encode(referenceCount, forKey: .referenceCount)
-        try container.encodeIfPresent(category, forKey: .category)
-        try container.encodeIfPresent(name, forKey: .name)
-        try container.encodeIfPresent(note, forKey: .note)
-        try container.encodeIfPresent(creator, forKey: .creator)
-    }
-
+    
     func incrementReference() {
         referenceCount += 1
     }
 
     func decrementReference() -> Bool {
         referenceCount -= 1
-        return referenceCount <= 0
+        var allDeleted = true
+        if referenceCount <= 0 {
+            for type in ImageUtils.FileType.allCases {
+                let success = ImageUtils.FileStorage.shared.deleteImage(id: id, type: type)
+                if !success {
+                    print("failed to delete image \(id) for type: \(type)")
+                    allDeleted = false
+                }
+            }
+        }
+        return referenceCount <= 0 && allDeleted
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, filePath, thumbnailPath, referenceCount, categories, name, note, creator, timestamp, metadata
+    }
+
+    required init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        referenceCount = try container.decodeIfPresent(Int.self, forKey: .referenceCount) ?? 1
+        categories = try container.decodeIfPresent([Category].self, forKey: .categories) ?? []
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        note = try container.decodeIfPresent(String.self, forKey: .note)
+        creator = try container.decodeIfPresent(String.self, forKey: .creator)
+        metadata = try container.decodeIfPresent([String: DataValue].self, forKey: .metadata) ?? [:]
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(timestamp, forKey: .timestamp)
+        try container.encode(referenceCount, forKey: .referenceCount)
+        try container.encodeIfPresent(categories, forKey: .categories)
+        try container.encodeIfPresent(name, forKey: .name)
+        try container.encodeIfPresent(note, forKey: .note)
+        try container.encodeIfPresent(creator, forKey: .creator)
+        try container.encode(metadata, forKey: .metadata)
     }
 }
-
 
 @Model
 class Gallery: Codable {
     var id = UUID()
     var timestamp = Date()
-    @Relationship var images: [ImageData] = []
+    
     @Relationship var categories: [Category] = []
-
+    
     var orderedCategories: [Category] {
         categories.sorted(by: { $0.timestamp < $1.timestamp })
     }
@@ -433,21 +687,45 @@ class Gallery: Codable {
         images.sorted(by: { $0.timestamp < $1.timestamp })
     }
     
-    init(images: [ImageData] = [], categories: [Category] = []) {
+    @Relationship private var images: [ImageData] = []
+    
+    func addImage(_ image: ImageData) {
+        if !images.contains(where: { $0.id == image.id }) {
+            image.incrementReference()
+            images.append(image)
+        }
+    }
+    
+    func deleteImage(_ image: ImageData, context: ModelContext) {
+        if let index = images.firstIndex(where: { $0.id == image.id }) {
+            images.remove(at: index)
+            if image.decrementReference() {
+                context.delete(image)
+            }
+        }
+    }
+    
+    required init(images: [ImageData] = [], categories: [Category] = []) {
         self.images = images
         self.categories = categories
     }
-
-    enum CodingKeys: String, CodingKey {
-        case id, timestamp, images, categories
-    }
-
+    
     required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
         timestamp = try container.decode(Date.self, forKey: .timestamp)
         images = try container.decodeIfPresent([ImageData].self, forKey: .images) ?? []
         categories = try container.decodeIfPresent([Category].self, forKey: .categories) ?? []
+    }
+    
+    func cleanup(context: ModelContext) {
+        for image in images {
+            deleteImage(image, context: context)
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, timestamp, images, categories
     }
 
     func encode(to encoder: Encoder) throws {
@@ -474,14 +752,36 @@ class Roll: Codable {
     var status: String
     var isLocked: Bool
 
-    @Relationship var image: ImageData?
     @Relationship var shots: [Shot] = []
     
     var orderedShots: [Shot] {
         shots.sorted(by: { $0.timestamp < $1.timestamp })
     }
+    
+    @Relationship private var image: ImageData?
+    
+    public var imageData: ImageData? {
+        return image
+    }
+    
+    func updateImage(to newImage: ImageData?, context: ModelContext) {
+        deleteImage(context: context)
+        if let newImage = newImage {
+            newImage.incrementReference()
+        }
+        self.image = newImage
+    }
+    
+    func deleteImage(context: ModelContext) {
+        if let image = self.image {
+            if image.decrementReference() {
+                context.delete(image)
+            }
+            self.image = nil
+        }
+    }
 
-    init(name: String = "",
+    required init(name: String = "",
          note: String = "",
          camera: String = "Other",
          counter: Int = 24,
@@ -510,19 +810,6 @@ class Roll: Codable {
         if let img = image, img.decrementReference() {
             context.delete(img)
         }
-    }
-
-    func updateImage(to newImage: ImageData?, context: ModelContext) {
-        if let current = self.image {
-            if current.decrementReference() {
-                context.delete(current)
-            }
-            
-        }
-        if let newImage = newImage {
-            newImage.incrementReference()
-        }
-        self.image = newImage
     }
 
     enum CodingKeys: String, CodingKey {
@@ -575,7 +862,7 @@ class Shot: Codable {
     var aspectRatio: String
     var name: String
     var note: String
-    var location: LocationOptions.Location?
+    var location: LocationUtils.Location?
     var locationTimestamp: Date?
     var locationColorTemperature: Int?
     var locationElevation: Double?
@@ -601,15 +888,58 @@ class Shot: Codable {
     var exposureSkinFill: String
     var isLocked: Bool
 
-    @Relationship var image: ImageData?
-    @Relationship var lightMeterImage: ImageData?
+    @Relationship private var image: ImageData?
+    
+    public var imageData: ImageData? {
+        return image
+    }
+    
+    func updateImage(to newImage: ImageData?, context: ModelContext) {
+        deleteImage(context: context)
+        if let newImage = newImage {
+            newImage.incrementReference()
+        }
+        self.image = newImage
+    }
+    
+    func deleteImage(context: ModelContext) {
+        if let image = self.image {
+            if image.decrementReference() {
+                context.delete(image)
+            }
+            self.image = nil
+        }
+    }
+    
+    @Relationship private var lightMeterImage: ImageData?
+    
+    public var lightMeterImageData: ImageData? {
+        return lightMeterImage
+    }
+    
+    func updateLightMeterImage(to newImage: ImageData?, context: ModelContext) {
+        deleteLightMeterImage(context: context)
+        if let newImage = newImage {
+            newImage.incrementReference()
+        }
+        self.lightMeterImage = newImage
+    }
+    
+    func deleteLightMeterImage(context: ModelContext) {
+        if let image = self.lightMeterImage {
+            if image.decrementReference() {
+                context.delete(image)
+            }
+            self.lightMeterImage = nil
+        }
+    }
 
-    init(filmSize: String = "",
+    required init(filmSize: String = "",
          filmStock: String = "",
          aspectRatio: String = "-",
          name: String = "",
          note: String = "",
-         location: LocationOptions.Location? = nil,
+         location: LocationUtils.Location? = nil,
          locationTimestamp: Date? = nil,
          locationColorTemperature: Int? = 0,
          locationElevation: Double? = 0.0,
@@ -671,12 +1001,8 @@ class Shot: Codable {
     }
     
     func cleanup(context: ModelContext) {
-        if let img = image, img.decrementReference() {
-            context.delete(img)
-        }
-        if let meter = lightMeterImage, meter.decrementReference() {
-            context.delete(meter)
-        }
+        deleteImage(context: context)
+        deleteLightMeterImage(context: context)
     }
 
     func copy(context: ModelContext) -> Shot {
@@ -717,30 +1043,6 @@ class Shot: Codable {
         return newShot
     }
 
-    func updateImage(to newImage: ImageData?, context: ModelContext) {
-        if let current = self.image {
-            if current.decrementReference() {
-                context.delete(current)
-            }
-        }
-        if let newImage = newImage {
-            newImage.incrementReference()
-        }
-        self.image = newImage
-    }
-
-    func updateLightMeterImage(to newImage: ImageData?, context: ModelContext) {
-        if let current = self.lightMeterImage {
-            if current.decrementReference() {
-                context.delete(current)
-            }
-        }
-        if let newImage = newImage {
-            newImage.incrementReference()
-        }
-        self.lightMeterImage = newImage
-    }
-
     enum CodingKeys: String, CodingKey {
         case id, timestamp, filmSize, filmStock, aspectRatio, name, note, location, locationTimestamp, locationColorTemperature,
              locationElevation, aperture, shutter, exposureCompensation, lensName, lensColorFilter, lensNdFilter, lensFocalLength,
@@ -758,7 +1060,7 @@ class Shot: Codable {
         aspectRatio = try container.decode(String.self, forKey: .aspectRatio)
         name = try container.decode(String.self, forKey: .name)
         note = try container.decode(String.self, forKey: .note)
-        location = try container.decodeIfPresent(LocationOptions.Location.self, forKey: .location)
+        location = try container.decodeIfPresent(LocationUtils.Location.self, forKey: .location)
         locationTimestamp = try container.decodeIfPresent(Date.self, forKey: .locationTimestamp)
         locationColorTemperature = try container.decode(Int.self, forKey: .locationColorTemperature)
         locationElevation = try container.decode(Double.self, forKey: .locationElevation)
@@ -827,13 +1129,19 @@ class Shot: Codable {
 }
 
 extension ModelContext {
-    func safelyDelete(_ shot: Shot) {
-        shot.cleanup(context: self)
-        self.delete(shot)
+    func safelyDelete(_ gallery: Gallery) {
+        gallery.cleanup(context: self)
+        self.delete(gallery)
     }
     
     func safelyDelete(_ roll: Roll) {
         roll.cleanup(context: self)
         self.delete(roll)
     }
+    
+    func safelyDelete(_ shot: Shot) {
+        shot.cleanup(context: self)
+        self.delete(shot)
+    }
+
 }

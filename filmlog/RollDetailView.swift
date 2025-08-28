@@ -64,13 +64,15 @@ struct RollDetailView: View {
             
             Section(header: Text("Roll")) {
                 VStack(alignment: .leading) {
-                    ThumbnailSectionView(
-                        data: roll.image?.data,
+                    PhotoPickerView(
+                        image: roll.imageData?.thumbnail,
                         label: "Add photo",
                         isLocked: roll.isLocked
-                    ) { newData in
-                        let newImage = ImageData(data: newData)
-                        roll.updateImage(to: newImage, context: modelContext)
+                    ) { newUIImage in
+                        let newImage = ImageData()
+                        if newImage.updateFile(to: newUIImage) {
+                            roll.updateImage(to: newImage, context: modelContext)
+                        }
                     }
                 }
                 
@@ -92,14 +94,14 @@ struct RollDetailView: View {
                             Spacer()
                             Button("Done") {
                                 focused = false
-                            }
                         }
                     }
+                }
             }
             
             Section(header: Text("Info")) {
                 Picker("Camera", selection: $roll.camera) {
-                    ForEach(CameraOptions.cameras, id: \.self) { camera in
+                    ForEach(CameraUtils.cameras, id: \.self) { camera in
                         Text(camera).tag(camera)
                     }
                 }
@@ -124,14 +126,14 @@ struct RollDetailView: View {
                     .disabled(roll.isLocked)
                 
                 Picker("Film size", selection: $roll.filmSize) {
-                    ForEach(CameraOptions.filmSizes, id: \.label) { size in
+                    ForEach(CameraUtils.filmSizes, id: \.label) { size in
                         Text(size.label).tag(size.label)
                     }
                 }
                 .disabled(roll.isLocked)
                 
                 Picker("Film stock", selection: $roll.filmStock) {
-                    ForEach(CameraOptions.filmStocks, id: \.label) { stock in
+                    ForEach(CameraUtils.filmStocks, id: \.label) { stock in
                         Text(stock.label).tag(stock.label)
                     }
                 }
@@ -241,18 +243,25 @@ struct RollDetailView: View {
         .navigationTitle("\(roll.status.capitalized) \(roll.name.isEmpty ? "roll" : roll.name)")
         .sheet(isPresented: $showCamera) {
             CameraPicker { image in
-                if let data = image.jpegData(compressionQuality: 0.9) {
-                    let newImage = ImageData(data: data)
+                let newImage = ImageData()
+                if newImage.updateFile(to: image) {
                     roll.updateImage(to: newImage, context: modelContext)
+                } else {
+                    print("failed to save camera image for roll")
                 }
             }
         }
         .onChange(of: selectedItem) {
             if let selectedItem {
                 Task {
-                    if let data = try? await selectedItem.loadTransferable(type: Data.self) {
-                        let newImage = ImageData(data: data)
-                        roll.updateImage(to: newImage, context: modelContext)
+                    if let data = try? await selectedItem.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        let newImage = ImageData()
+                        if newImage.updateFile(to: image) {
+                            roll.updateImage(to: newImage, context: modelContext)
+                        } else {
+                            print("failed to save selected image for roll")
+                        }
                     }
                 }
             }
@@ -392,16 +401,20 @@ struct RollDetailView: View {
                     context.beginPage()
                     yOffset = margin
                 }
-
-                if let imageData = shot.image?.data, let uiImage = UIImage(data: imageData) {
-                    let aspectRatio = uiImage.size.height / uiImage.size.width
+                
+                if let imageData = shot.imageData,
+                   let thumbnail = imageData.thumbnail {
+                    let aspectRatio = thumbnail.size.height / thumbnail.size.width
                     let imgHeight = imageMaxWidth * aspectRatio
-                    uiImage.draw(in: CGRect(x: margin, y: yOffset, width: imageMaxWidth, height: imgHeight))
+                    thumbnail.draw(in: CGRect(x: margin, y: yOffset, width: imageMaxWidth, height: imgHeight))
                 } else {
                     UIColor.black.setFill()
                     UIBezierPath(rect: CGRect(x: margin, y: yOffset, width: imageMaxWidth, height: 80)).fill()
                     "Frame #\(index + 1)".draw(in: CGRect(x: margin + 10, y: yOffset + 30, width: 100, height: 20),
-                                               withAttributes: [.font: UIFont.boldSystemFont(ofSize: 12), .foregroundColor: UIColor.white])
+                                               withAttributes: [
+                                                   .font: UIFont.boldSystemFont(ofSize: 12),
+                                                   .foregroundColor: UIColor.white
+                                               ])
                 }
 
                 let x1 = margin + imageMaxWidth + 10

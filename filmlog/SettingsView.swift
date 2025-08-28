@@ -30,6 +30,7 @@ struct SettingsView: View {
     @State private var galleries: [Gallery] = []
     @State private var showFileImporter = false
     @State private var showFileExporter = false
+    @State private var selectedExportURL: URL?
     @State private var exportData: Data? = nil
     @State private var importError: String? = nil
     @State private var exportError: String? = nil
@@ -81,7 +82,7 @@ struct SettingsView: View {
                     calculateAppDataStats()
                 }
             }
-            
+            /*
             Section(header: Text("Shared Container")) {
                 VStack(alignment: .leading, spacing: 12) {
                     if let stats = sharedContainerStats {
@@ -127,21 +128,25 @@ struct SettingsView: View {
                 .onAppear {
                     calculateSharedContainerStats()
                 }
-            }
-            
+            }*/
+            /*
             Section(header: Text("Backup Management")) {
                 Button("Backup data to JSON") {
-                    backupData()
+                    showFileExporter = true
                 }
                 .fileExporter(
                     isPresented: $showFileExporter,
-                    document: JSONFile(data: exportData ?? Data()),
+                    document: JSONFile(data: Data()), // empty at first
                     contentType: .json,
-                    defaultFilename: backupFilename()
+                    defaultFilename: backupFilename(),
+                    allowsMultipleSelection: false
                 ) { result in
                     switch result {
                     case .success(let url):
-                        backupSuccess = "Backup saved to:\n\(url.lastPathComponent)"
+                        selectedExportURL = url
+                        Task {
+                            await backupData(to: url)
+                        }
                     case .failure(let error):
                         exportError = "Backup failed: \(error.localizedDescription)"
                     }
@@ -164,7 +169,7 @@ struct SettingsView: View {
                         importError = "Restore failed: \(error.localizedDescription)"
                     }
                 }
-            }
+            }*/
         }
         .alert("Restore error", isPresented: .constant(importError != nil)) {
             Button("OK", role: .cancel) { importError = nil }
@@ -209,22 +214,24 @@ struct SettingsView: View {
         func addImageIfUnique(_ image: ImageData?) {
             guard let image = image else { return }
             if uniqueImageIDs.insert(image.id).inserted {
-                totalImageSize += image.data.count
+                for type in ImageUtils.FileType.allCases {
+                    totalImageSize += ImageUtils.FileStorage.shared.imageSize(id: image.id, type: type)
+                }
             }
         }
 
         for roll in rolls {
             for shot in roll.shots {
                 shotCount += 1
-                addImageIfUnique(shot.image)
-                addImageIfUnique(shot.lightMeterImage)
+                addImageIfUnique(shot.imageData)
+                addImageIfUnique(shot.lightMeterImageData)
             }
-            addImageIfUnique(roll.image)
+            addImageIfUnique(roll.imageData)
         }
 
         for gallery in galleries {
             galleryCount += 1
-            for image in gallery.images {
+            for image in gallery.orderedImages {
                 addImageIfUnique(image)
             }
             categoryCount += gallery.categories.count
@@ -326,7 +333,38 @@ struct SettingsView: View {
         galleries = (try? modelContext.fetch(descriptor)) ?? []
     }
 
-    private func backupData() {
+    func backupData(to url: URL) async {
+        
+        /*
+        do {
+            let tempData = try await writeBackupData()
+            let dataSize = tempData.count
+            
+            if dataSize > 100_000_000 { // >100 MB warning
+                await MainActor.run {
+                    exportError = "Backup is over 100MB. Confirm?"
+                }
+                // If you're using a custom alert or confirmation dialog,
+                // you'd wait for user confirmation here.
+                // For now, just continue.
+            }
+
+            try tempData.write(to: url)
+            await MainActor.run {
+                backupSuccess = "Backup saved to:\n\(url.lastPathComponent)"
+            }
+
+        } catch {
+            await MainActor.run {
+                exportError = "Backup failed: \(error.localizedDescription)"
+            }
+        }*/
+    }
+    
+    func writeBackupData(to url: URL) async {
+        
+        
+        /*
         do {
             var imageMap: [UUID: ImageData] = [:]
             var shotMap: [UUID: Shot] = [:]
@@ -354,10 +392,11 @@ struct SettingsView: View {
             let exportImages = imageMap.values
                 .sorted(by: { $0.timestamp < $1.timestamp })
                 .map {
+                    let path = ImageUtils.FileStorage.shared.saveImageData($0.data)
                     ImageDataExport(
                         id: $0.id,
                         timestamp: $0.timestamp,
-                        data: $0.data.base64EncodedString(),
+                        filePath: path,
                         name: $0.name,
                         note: $0.note,
                         creator: $0.creator,
@@ -454,12 +493,11 @@ struct SettingsView: View {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             exportData = try encoder.encode(backup)
-            showFileExporter = true
             
         } catch {
             backupSuccess = nil
             exportError = "Failed to encode backup: \(error.localizedDescription)"
-        }
+        }*/
     }
     
     private func readFile(from url: URL) throws -> Data {
@@ -472,6 +510,8 @@ struct SettingsView: View {
     }
 
     private func restoreData(from url: URL) {
+        
+        /*
         do {
             let data = try readFile(from: url)
             let decoder = JSONDecoder()
@@ -491,18 +531,18 @@ struct SettingsView: View {
             }
             
             for imgExport in backup.images {
-                if let imgData = Data(base64Encoded: imgExport.data) {
-                    let img = ImageData(data: imgData)
-                    img.id = imgExport.id
-                    img.timestamp = imgExport.timestamp
-                    img.name = imgExport.name
-                    img.note = imgExport.note
-                    img.creator = imgExport.creator
-                    if let categoryId = imgExport.category {
-                        img.category = categoryMap[categoryId]
-                    }
-                    imageMap[img.id] = img
+                let imgData = ImageUtils.FileStorage.shared.loadImageData(from: imgExport.filePath)
+                let img = ImageData(data: imgData)
+                img.id = imgExport.id
+                img.timestamp = imgExport.timestamp
+                img.name = imgExport.name
+                img.note = imgExport.note
+                img.creator = imgExport.creator
+                if let categoryId = imgExport.category {
+                    img.category = categoryMap[categoryId]
                 }
+                imageMap[img.id] = img
+                
             }
             
             for shotExport in backup.shots.sorted(by: { $0.timestamp < $1.timestamp }) {
@@ -596,7 +636,7 @@ struct SettingsView: View {
         } catch {
             restoreSuccess = nil
             importError = "failed to restore rolls: \(error.localizedDescription)"
-        }
+        }*/
     }
 }
 
@@ -611,7 +651,7 @@ struct BackupData: Codable {
 struct ImageDataExport: Codable {
     var id: UUID
     var timestamp: Date
-    var data: String
+    var filePath: String
     var name: String?
     var note: String?
     var creator: String?
@@ -643,7 +683,7 @@ struct ShotExport: Codable {
     var aspectRatio: String
     var name: String
     var note: String
-    var location: LocationOptions.Location?
+    var location: LocationUtils.Location?
     var locationTimestamp: Date?
     var locationColorTemperature: Int?
     var locationElevation: Double?

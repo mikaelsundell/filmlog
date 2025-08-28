@@ -12,8 +12,20 @@ Think like a film photographer — Filmlog encourages a traditional analogue min
 
 Designed with a photographic look and feel, Filmlog blends tactile analogue inspiration with modern iPhone controls. It's both a practical companion for traditional photography workflows and a creative tool for visual planning and exposure training.
 
+Change log:
 
-Preview
+| Date       | Description                             |
+|------------|-----------------------------------------|
+| 2025-08-19 | PD-Tonemap: Improved reinhard, now luma preserving |
+| 2025-08-16 | Fixed typos in comments for color space matrices |
+| 2025-08-05 | PD-Transform: Added support for YCbCr conversion |
+| 2025-06-15 | PD-LogC3-FilmMatrix: Added legacy LogC3 film matrix |
+| 2025-06-15 | PD-Transform: Fixed issue with sRGB in and out |
+| 2025-06-06 | PD-Transform: Added support for DaVinci Wide Gamut |
+| 2025-06-03 | PD-Transform: Fixed an issue with incorrect INGEN5 instead of INFILM5 enum |
+
+
+Screenshot
 ------------
 
 
@@ -65,6 +77,13 @@ The iPhone’s **Image Signal Processor (ISP)** performs automatic tone mapping 
 - Minor “auto exposure” behavior even under manual control.
 
 > Keeping the phone still, or using fixed scenes with stable lighting, helps minimize this effect.
+
+### YCbCr to sRGB custom Metal pipeline and AVCaptureVideoPreviewLayer
+
+The estimated exposure value (EV) from the custom Metal pipeline differs by approximately 3 stops compared to AVCaptureVideoPreviewLayer. This discrepancy is likely due to differences in pixel formats or tone mapping. While this offset is compensated for in EV exposure mode, the underlying cause remains technically unresolved.
+
+* Apple Developer Forum
+https://developer.apple.com/forums/thread/795593
 
 Documentation
 -------

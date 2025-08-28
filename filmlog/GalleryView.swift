@@ -6,13 +6,12 @@ import SwiftUI
 import PhotosUI
 import SwiftData
 
-struct ThumbnailView: View {
+struct ImageView: View {
     let imageData: ImageData
     let size: CGFloat
-
     var body: some View {
         Group {
-            if let uiImage = UIImage(data: imageData.data) {
+            if let uiImage = imageData.thumbnail {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
@@ -50,7 +49,8 @@ struct GalleryView: View {
     @State private var selectedImageForEdit: ImageData? = nil
     @State private var newName = ""
     @State private var newNote = ""
-    @State private var newCategory: Category? = nil
+    @State private var newCategories: [Category] = []
+    @State private var newSelectedCategories: Set<Category> = []
     @FocusState private var selectedImageFocused: Bool
     
     @State private var showDeleteImageAlert = false
@@ -140,14 +140,14 @@ struct GalleryView: View {
                         
                         LazyVGrid(columns: columns, spacing: 6) {
                             ForEach(filteredImages, id: \.id) { image in
-                                ThumbnailView(imageData: image, size: gridWidth)
+                                ImageView(imageData: image, size: gridWidth)
                                     .contentShape(Rectangle())
                                     .contextMenu {
                                         Button {
                                             selectedImageForEdit = image
                                             newName = image.name ?? ""
                                             newNote = image.note ?? ""
-                                            newCategory = image.category
+                                            newCategories = image.categories
                                         } label: {
                                             Label("Edit image", systemImage: "pencil")
                                         }
@@ -180,17 +180,22 @@ struct GalleryView: View {
                 guard let newItem else { return }
                 
                 Task {
-                    if let data = try? await newItem.loadTransferable(type: Data.self) {
+                    if let data = try? await newItem.loadTransferable(type: Data.self),
+                       let uiImage = UIImage(data: data) {
                         do {
-                            let newImage = ImageData(data: data, category: selectedCategory)
-                            modelContext.insert(newImage)
-                            try modelContext.save()
- 
-                            withAnimation {
-                                currentGallery.images.append(newImage)
-                            }
-                            try modelContext.save()
+                            let newImage = ImageData()
+                            if newImage.updateFile(to: uiImage) {
+                                modelContext.insert(newImage)
+                                try modelContext.save()
 
+                                withAnimation {
+                                    currentGallery.addImage(newImage)
+                                }
+
+                                try modelContext.save()
+                            } else {
+                                print("failed to save image file for new image")
+                            }
                         } catch {
                             print("failed to insert image: \(error)")
                         }
@@ -254,12 +259,27 @@ struct GalleryView: View {
                                 .offset(x: -4)
                         }
                         
-                        Section(header: Text("Category")) {
-                            Picker("Select category", selection: $newCategory) {
-                                Text("None").tag(Category?.none)
-                                ForEach(currentGallery.orderedCategories) { category in
-                                    Text(category.name).tag(Optional(category))
+                        Section(header: Text("Categories")) {
+                            NavigationLink("Select categories") {
+                                CategoryPickerView(
+                                    selectedCategories: $newSelectedCategories,
+                                    allCategories: currentGallery.orderedCategories
+                                )
+                                .navigationTitle("Select Categories")
+                            }
+
+                            if !newSelectedCategories.isEmpty {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack {
+                                        ForEach(Array(newSelectedCategories)) { category in
+                                            Text(category.name)
+                                                .padding(8)
+                                                .background(Color.accentColor.opacity(0.2))
+                                                .cornerRadius(8)
+                                        }
+                                    }
                                 }
+                                .padding(.top, 4)
                             }
                         }
                     }
@@ -272,7 +292,7 @@ struct GalleryView: View {
                             Button("Save") {
                                 image.name = newName
                                 image.note = newNote
-                                image.category = newCategory
+                                image.categories = Array(newSelectedCategories)
                                 try? modelContext.save()
                                 selectedImageForEdit = nil
                             }
@@ -308,20 +328,26 @@ struct GalleryView: View {
             .onChange(of: selectedItems) { oldItems, newItems in
                 for item in newItems {
                     Task {
-                        if let data = try? await item.loadTransferable(type: Data.self) {
+                        if let data = try? await item.loadTransferable(type: Data.self),
+                           let uiImage = UIImage(data: data) {
                             do {
-                                let newImage = ImageData(data: data, category: selectedCategory)
-                                modelContext.insert(newImage)
-                                try modelContext.save()
-                                
-                                withAnimation {
-                                    currentGallery.images.append(newImage)
-                                }
-                                try modelContext.save()
+                                let newImage = ImageData()
+                                if newImage.updateFile(to: uiImage) {
+                                    modelContext.insert(newImage)
+                                    try modelContext.save()
 
+                                    withAnimation {
+                                        currentGallery.addImage(newImage)
+                                    }
+                                    try modelContext.save()
+                                } else {
+                                    print("failed to save image file for new image")
+                                }
                             } catch {
                                 print("failed to insert image: \(error)")
                             }
+                        } else {
+                            print("could not load image from PhotosPicker")
                         }
                     }
                 }
@@ -344,7 +370,7 @@ struct GalleryView: View {
     private var filteredImages: [ImageData] {
         var imgs = currentGallery.orderedImages
         if let category = selectedCategory {
-            imgs = imgs.filter { $0.category == category }
+            imgs = imgs.filter { $0.categories.contains(category) }
         }
         if !searchText.isEmpty {
             imgs = imgs.filter {
@@ -371,12 +397,16 @@ struct GalleryView: View {
 
     private func deleteCategory(_ category: Category) {
         do {
-            for image in currentGallery.images where image.category?.id == category.id {
-                image.category = nil
+            for image in currentGallery.orderedImages {
+                if let index = image.categories.firstIndex(where: { $0.id == category.id }) {
+                    image.categories.remove(at: index)
+                }
             }
+
             if let index = currentGallery.categories.firstIndex(where: { $0.id == category.id }) {
                 currentGallery.categories.remove(at: index)
             }
+
             modelContext.delete(category)
             try modelContext.save()
 
@@ -387,12 +417,9 @@ struct GalleryView: View {
     
     private func deleteImage(_ image: ImageData) {
         do {
-            if let index = currentGallery.images.firstIndex(where: { $0.id == image.id }) {
-                currentGallery.images.remove(at: index)
-            }
-            modelContext.delete(image)
+            currentGallery.deleteImage(image, context: modelContext)
             try modelContext.save()
-            
+
         } catch {
             print("failed to delete image: \(error)")
         }
@@ -414,12 +441,14 @@ struct GalleryView: View {
             if imageFiles.isEmpty {
                 return
             }
-
+            
             for imageFile in imageFiles {
                 let baseName = imageFile.deletingPathExtension().lastPathComponent
                 let jsonFile = containerURL.appendingPathComponent("\(baseName).json")
 
-                if let data = try? Data(contentsOf: imageFile) {
+                if let data = try? Data(contentsOf: imageFile),
+                   let image = UIImage(data: data) {
+
                     var name: String? = nil
                     var note: String? = nil
                     var creator: String? = nil
@@ -431,24 +460,38 @@ struct GalleryView: View {
                         name = jsonObject["name"] as? String
                         note = jsonObject["note"] as? String
                         creator = jsonObject["creator"] as? String
-                        timestamp = jsonObject["timestamp"] as? Date
+                        if let timestampString = jsonObject["timestamp"] as? String {
+                            let formatter = ISO8601DateFormatter()
+                            timestamp = formatter.date(from: timestampString)
+                        }
                     }
-                    let newImage = ImageData(data: data, category: selectedCategory, name: name, note: note, creator: creator)
+
+                    let newImage = ImageData(name: name, note: note, creator: creator)
                     newImage.timestamp = timestamp ?? Date()
-                    
-                    modelContext.insert(newImage)
-                    try modelContext.save()
 
-                    currentGallery.images.append(newImage)
-
-                    try? fileManager.removeItem(at: imageFile)
-                    if fileManager.fileExists(atPath: jsonFile.path) {
-                        try? fileManager.removeItem(at: jsonFile)
+                    if let selectedCategory {
+                        newImage.categories.append(selectedCategory)
                     }
+
+                    if newImage.updateFile(to: image) {
+                        modelContext.insert(newImage)
+                        try modelContext.save()
+
+                        currentGallery.addImage(newImage)
+
+                        try? fileManager.removeItem(at: imageFile)
+                        if fileManager.fileExists(atPath: jsonFile.path) {
+                            try? fileManager.removeItem(at: jsonFile)
+                        }
+                    } else {
+                        print("failed to save image data for file: \(imageFile.lastPathComponent)")
+                    }
+                } else {
+                    print("could not load image from file: \(imageFile.lastPathComponent)")
                 }
             }
             try modelContext.save()
-
+            
         } catch {
             print("error reading shared images: \(error)")
         }

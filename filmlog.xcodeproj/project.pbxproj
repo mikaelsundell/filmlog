@@ -40,7 +40,6 @@
 		1F9DC7E82E3BC3FB00D95B79 /* CameraMetalPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9DC7E72E3BC3FB00D95B79 /* CameraMetalPreview.swift */; };
 		1F9DC7EA2E3BC42900D95B79 /* CameraMetalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9DC7E92E3BC42900D95B79 /* CameraMetalRenderer.swift */; };
 		1F9DC7EC2E3BC70400D95B79 /* CameraMetalProgram.metal in Sources */ = {isa = PBXBuildFile; fileRef = 1F9DC7EB2E3BC70400D95B79 /* CameraMetalProgram.metal */; };
-		1FBFBBCD2E38C894007E92F8 /* ThumbnailSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FBFBBCC2E38C894007E92F8 /* ThumbnailSectionView.swift */; };
 		1FD3D14F2E2102F100A1C9EF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FD3D14E2E2102F100A1C9EF /* SettingsView.swift */; };
 		1FEDFF2A2E1EA54400E64567 /* FullscreenImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */; };
 /* End PBXBuildFile section */
@@ -123,7 +122,6 @@
 		1F9DC7E72E3BC3FB00D95B79 /* CameraMetalPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraMetalPreview.swift; sourceTree = "<group>"; };
 		1F9DC7E92E3BC42900D95B79 /* CameraMetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraMetalRenderer.swift; sourceTree = "<group>"; };
 		1F9DC7EB2E3BC70400D95B79 /* CameraMetalProgram.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = CameraMetalProgram.metal; sourceTree = "<group>"; };
-		1FBFBBCC2E38C894007E92F8 /* ThumbnailSectionView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ThumbnailSectionView.swift; sourceTree = "<group>"; };
 		1FD3D14E2E2102F100A1C9EF /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		1FD3D1502E2108A100A1C9EF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullscreenImageView.swift; sourceTree = "<group>"; };
@@ -207,14 +205,6 @@
 				1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */,
 				1F9DC7E52E3AB90B00D95B79 /* GalleryView.swift */,
 				1F9B3E982E1AE48C005F95A0 /* Item.swift */,
-				1F2A9A362E42216600C304FA /* LutExposure.cube */,
-				1F2A9A402E422EF300C304FA /* LutFujiNeutral.cube */,
-				1F2A9A412E422EF300C304FA /* LutFujiWarm.cube */,
-				1F2A9A482E42302300C304FA /* LutLookExposure.cube */,
-				1F2A9A4A2E42304000C304FA /* LutBWNeutral.cube */,
-				1F2A9A4C2E4230D100C304FA /* LutBWContrast.cube */,
-				1F2A9A3F2E422EF300C304FA /* LutKodakNeutral.cube */,
-				1F2A9A3E2E422EF300C304FA /* LutKodakWarm.cube */,
 				1F9B3E9A2E1AE48F005F95A0 /* Assets.xcassets */,
 				1F9B3E9C2E1AE48F005F95A0 /* Preview Content */,
 				1F64D2E32E1B1362009EA1A8 /* Models.swift */,
@@ -225,10 +215,17 @@
 				1F70B3702E30124B0021DB93 /* ShotImageView.swift */,
 				1F70B3722E30124B0021DB93 /* ShotSectionView.swift */,
 				1F70B3732E30124B0021DB93 /* ShotViewfinderView.swift */,
-				1FBFBBCC2E38C894007E92F8 /* ThumbnailSectionView.swift */,
 				1F9DC7E72E3BC3FB00D95B79 /* CameraMetalPreview.swift */,
 				1F9DC7E92E3BC42900D95B79 /* CameraMetalRenderer.swift */,
 				1F9DC7EB2E3BC70400D95B79 /* CameraMetalProgram.metal */,
+				1F2A9A362E42216600C304FA /* LutExposure.cube */,
+				1F2A9A402E422EF300C304FA /* LutFujiNeutral.cube */,
+				1F2A9A412E422EF300C304FA /* LutFujiWarm.cube */,
+				1F2A9A482E42302300C304FA /* LutLookExposure.cube */,
+				1F2A9A4A2E42304000C304FA /* LutBWNeutral.cube */,
+				1F2A9A4C2E4230D100C304FA /* LutBWContrast.cube */,
+				1F2A9A3F2E422EF300C304FA /* LutKodakNeutral.cube */,
+				1F2A9A3E2E422EF300C304FA /* LutKodakWarm.cube */,
 			);
 			path = filmlog;
 			sourceTree = "<group>";
@@ -448,7 +445,6 @@
 				1FD3D14F2E2102F100A1C9EF /* SettingsView.swift in Sources */,
 				1F64D2E82E1B1457009EA1A8 /* CameraPicker.swift in Sources */,
 				1F70B3762E30124B0021DB93 /* ShotSectionView.swift in Sources */,
-				1FBFBBCD2E38C894007E92F8 /* ThumbnailSectionView.swift in Sources */,
 				1F64D2E42E1B1362009EA1A8 /* Models.swift in Sources */,
 				1F70B3742E30124B0021DB93 /* ShotImageView.swift in Sources */,
 				1F2A9A252E41543F00C304FA /* Views.swift in Sources */,

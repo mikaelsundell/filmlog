@@ -64,9 +64,11 @@ struct ShotDetailView: View {
                 ShotSectionView(
                     shot: shot,
                     isLocked: shot.isLocked,
-                    onImagePicked: { newData in
-                        let newImage = ImageData(data: newData)
-                        shot.updateImage(to: newImage, context: modelContext)
+                    onImagePicked: { newUIImage in
+                        let newImage = ImageData()
+                        if newImage.updateFile(to: newUIImage) {
+                            shot.updateImage(to: newImage, context: modelContext)
+                        }
                     }
                 )
                 
@@ -77,7 +79,7 @@ struct ShotDetailView: View {
                 }
                 
                 Picker("Aspect Ratio", selection: $shot.aspectRatio) {
-                    ForEach(CameraOptions.aspectRatios, id: \.label) { aspectRatio in
+                    ForEach(CameraUtils.aspectRatios, id: \.label) { aspectRatio in
                         Text(aspectRatio.label).tag(aspectRatio.label)
                     }
                 }
@@ -168,14 +170,14 @@ struct ShotDetailView: View {
             
             Section(header: Text("Camera")) {
                 Picker("Aperture", selection: $shot.aperture) {
-                    ForEach(CameraOptions.apertures, id: \.label) { aperture in
+                    ForEach(CameraUtils.apertures, id: \.label) { aperture in
                         Text(aperture.label).tag(aperture.label)
                     }
                 }
                 .disabled(shot.isLocked)
                 
                 Picker("Shutter", selection: $shot.shutter) {
-                    ForEach(CameraOptions.shutters, id: \.label) { shutter in
+                    ForEach(CameraUtils.shutters, id: \.label) { shutter in
                         Text(shutter.label).tag(shutter.label)
                     }
                 }
@@ -191,28 +193,28 @@ struct ShotDetailView: View {
             
             Section(header: Text("Lens")) {
                 Picker("Lens", selection: $shot.lensName) {
-                    ForEach(CameraOptions.lensNames, id: \.self) { item in
+                    ForEach(CameraUtils.lensNames, id: \.self) { item in
                         Text(item).tag(item)
                     }
                 }
                 .disabled(shot.isLocked)
                 
                 Picker("Lens color filter", selection: $shot.lensColorFilter) {
-                    ForEach(CameraOptions.colorFilters, id: \.label) { lensColorFilter in
+                    ForEach(CameraUtils.colorFilters, id: \.label) { lensColorFilter in
                         Text(lensColorFilter.label).tag(lensColorFilter.label)
                     }
                 }
                 .disabled(shot.isLocked)
                 
                 Picker("Lens ND filter", selection: $shot.lensNdFilter) {
-                    ForEach(CameraOptions.ndFilters, id: \.label) { lensNdFilter in
+                    ForEach(CameraUtils.ndFilters, id: \.label) { lensNdFilter in
                         Text(lensNdFilter.label).tag(lensNdFilter.label)
                     }
                 }
                 .disabled(shot.isLocked)
                 
                 Picker("Focal length", selection: $shot.lensFocalLength) {
-                    ForEach(CameraOptions.focalLengths, id: \.label) { focalLength in
+                    ForEach(CameraUtils.focalLengths, id: \.label) { focalLength in
                         Text(focalLength.label).tag(focalLength.label)
                     }
                     
@@ -278,13 +280,15 @@ struct ShotDetailView: View {
             }
             
             Section(header: Text("Lightmeter")) {
-                ThumbnailSectionView(
-                    data: shot.lightMeterImage?.data,
+                PhotoPickerView(
+                    image: shot.lightMeterImageData?.thumbnail,
                     label: "Add photo",
                     isLocked: shot.isLocked
-                ) { newData in
-                    let newImage = ImageData(data: newData)
-                    shot.updateLightMeterImage(to: newImage, context: modelContext)
+                ) { newUIImage in
+                    let newImage = ImageData()
+                    if newImage.updateFile(to: newUIImage) {
+                        shot.updateLightMeterImage(to: newImage, context: modelContext)
+                    }
                 }
                 
                 evPicker(title: "Sky", selection: $shot.exposureSky)
@@ -350,7 +354,7 @@ struct ShotDetailView: View {
         .onChange(of: shot.lensFocalLength) { _, _ in updateDof() }
         .onReceive(locationManager.$currentLocation) { location in
             if requestingLocation, let location = location {
-                shot.location = LocationOptions.Location(
+                shot.location = LocationUtils.Location(
                     latitude: location.coordinate.latitude,
                     longitude: location.coordinate.longitude,
                     altitude: location.altitude
@@ -457,17 +461,17 @@ struct ShotDetailView: View {
             Spacer()
 
             HStack(spacing: 2) {
-                Text(value > CameraOptions.FilmSize.defaultInfinity
+                Text(value > CameraUtils.FilmSize.defaultInfinity
                      ? "∞"
                      : (focusDistanceFormatter.string(from: NSNumber(value: value)) ?? "0"))
 
-                if value <= CameraOptions.FilmSize.defaultInfinity {
+                if value <= CameraUtils.FilmSize.defaultInfinity {
                     Text("mm")
                         .frame(width: 32, alignment: .trailing)
                 }
             }
 
-            Text(value > CameraOptions.FilmSize.defaultInfinity
+            Text(value > CameraUtils.FilmSize.defaultInfinity
                  ? "∞"
                  : String(format: "%.1f m", value / 1000))
                 .font(.caption)
@@ -546,9 +550,9 @@ struct ShotDetailView: View {
             return
         }
 
-        guard let filmSize = CameraOptions.filmSizes.first(where: { $0.label == shot.filmSize })?.value,
-              let aperture = CameraOptions.apertures.first(where: { $0.label == shot.aperture })?.value,
-              let focalLength = CameraOptions.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value else {
+        guard let filmSize = CameraUtils.filmSizes.first(where: { $0.label == shot.filmSize })?.value,
+              let aperture = CameraUtils.apertures.first(where: { $0.label == shot.aperture })?.value,
+              let focalLength = CameraUtils.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value else {
             shot.focusDepthOfField = 0
             return
         }

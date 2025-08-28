@@ -176,12 +176,14 @@ struct ShotViewfinderView: View {
                 focalLengthControls()
                 
                 Button(action: {
-                    cameraModel.captureTexture { cgImage in
+                    cameraModel.capturePhoto { cgImage in
                         if let cgImage = cgImage {
                             let image = UIImage(cgImage: cgImage)
-                            captureImage(image: image) // same as before
+                            captureImage(image: image)
+                            print("captured CGImage size: \(cgImage.width)x\(cgImage.height)")
                         } else {
                             print("failed to capture texture image")
+                            dismiss();
                         }
                     }
                 }) {
@@ -202,20 +204,17 @@ struct ShotViewfinderView: View {
             .padding(.vertical, 6)
         }
         .onAppear {
-            cameraModel.configure() {
-                let saved = LensType(rawValue: selectedLensRawValue) ?? .wide
-                if cameraModel.lensType != saved {
-                    cameraModel.switchCamera(to: saved)
-                }
-                switchExposure()
-                if let lutType = LUTType(rawValue: selectedLutTypeValue) {
-                    cameraModel.renderer.setLutType(lutType)
-                }
-            }
-            cameraModel.onImageCaptured = { result in
+            cameraModel.configure { result in
                 switch result {
-                case .success(let image):
-                    captureImage(image: image)
+                case .success:
+                    let saved = LensType(rawValue: selectedLensRawValue) ?? .wide
+                    if cameraModel.lensType != saved {
+                        cameraModel.switchCamera(to: saved)
+                    }
+                    switchExposure()
+                    if let lutType = LUTType(rawValue: selectedLutTypeValue) {
+                        cameraModel.renderer.setLutType(lutType)
+                    }
                 case .failure(let error):
                     print("camera error: \(error.localizedDescription)")
                 }
@@ -227,6 +226,7 @@ struct ShotViewfinderView: View {
         }
         
         .onDisappear {
+            cameraModel.stop()
             UIApplication.shared.isIdleTimerDisabled = false
         }
     }
@@ -235,9 +235,9 @@ struct ShotViewfinderView: View {
     private func focalLengthControls() -> some View {
         HStack(spacing: 6) {
             Button(action: {
-                if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == shot.lensFocalLength }) {
-                    let newIndex = (currentIndex - 1 + CameraOptions.focalLengths.count) % CameraOptions.focalLengths.count
-                    shot.lensFocalLength = CameraOptions.focalLengths[newIndex].label
+                if let currentIndex = CameraUtils.focalLengths.firstIndex(where: { $0.label == shot.lensFocalLength }) {
+                    let newIndex = (currentIndex - 1 + CameraUtils.focalLengths.count) % CameraUtils.focalLengths.count
+                    shot.lensFocalLength = CameraUtils.focalLengths[newIndex].label
                 }
             }) {
                 Image(systemName: "chevron.left")
@@ -258,9 +258,9 @@ struct ShotViewfinderView: View {
                 .rotationEffect(orientationObserver.orientation.angle)
 
             Button(action: {
-                if let currentIndex = CameraOptions.focalLengths.firstIndex(where: { $0.label == shot.lensFocalLength }) {
-                    let newIndex = (currentIndex + 1) % CameraOptions.focalLengths.count
-                    shot.lensFocalLength = CameraOptions.focalLengths[newIndex].label
+                if let currentIndex = CameraUtils.focalLengths.firstIndex(where: { $0.label == shot.lensFocalLength }) {
+                    let newIndex = (currentIndex + 1) % CameraUtils.focalLengths.count
+                    shot.lensFocalLength = CameraUtils.focalLengths[newIndex].label
                 }
             }) {
                 Image(systemName: "chevron.right")
@@ -276,9 +276,9 @@ struct ShotViewfinderView: View {
     private func aspectRatioControls() -> some View {
         HStack(spacing: 6) {
             Button(action: {
-                if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == shot.aspectRatio }) {
-                    let newIndex = (currentIndex - 1 + CameraOptions.aspectRatios.count) % CameraOptions.aspectRatios.count
-                    shot.aspectRatio = CameraOptions.aspectRatios[newIndex].label
+                if let currentIndex = CameraUtils.aspectRatios.firstIndex(where: { $0.label == shot.aspectRatio }) {
+                    let newIndex = (currentIndex - 1 + CameraUtils.aspectRatios.count) % CameraUtils.aspectRatios.count
+                    shot.aspectRatio = CameraUtils.aspectRatios[newIndex].label
                 }
                 if pickerContext != nil {
                     pickerContext = nil
@@ -303,9 +303,9 @@ struct ShotViewfinderView: View {
                 .rotationEffect(orientationObserver.orientation.angle)
 
             Button(action: {
-                if let currentIndex = CameraOptions.aspectRatios.firstIndex(where: { $0.label == shot.aspectRatio }) {
-                    let newIndex = (currentIndex + 1) % CameraOptions.aspectRatios.count
-                    shot.aspectRatio = CameraOptions.aspectRatios[newIndex].label
+                if let currentIndex = CameraUtils.aspectRatios.firstIndex(where: { $0.label == shot.aspectRatio }) {
+                    let newIndex = (currentIndex + 1) % CameraUtils.aspectRatios.count
+                    shot.aspectRatio = CameraUtils.aspectRatios[newIndex].label
                 }
                 if pickerContext != nil {
                     pickerContext = nil
@@ -443,17 +443,17 @@ struct ShotViewfinderView: View {
                     } else {
                         pickerContext = PickerContext(
                             id: "filters",
-                            labels: CameraOptions.colorFilters.map { $0.label },
+                            labels: CameraUtils.colorFilters.map { $0.label },
                             initialSelection: shot.lensColorFilter,
                             onSelect: { selected in
                                 shot.lensColorFilter = selected
                                 adjustEVExposure()
                                 adjustWhiteBalance()
                             },
-                            modeLabels: CameraOptions.ndFilters.map { $0.label },
+                            modeLabels: CameraUtils.ndFilters.map { $0.label },
                             selectedMode: shot.lensNdFilter,
                             onModeSelect: { selected in
-                                if let mode = CameraOptions.ndFilters.first(where: { $0.label == selected }) {
+                                if let mode = CameraUtils.ndFilters.first(where: { $0.label == selected }) {
                                     shot.lensNdFilter = mode.label
                                     adjustEVExposure()
                                 }
@@ -479,13 +479,13 @@ struct ShotViewfinderView: View {
             Button(action: {
                 if evMode {
                     if let context = pickerContext,
-                       context.initialSelection == CameraOptions.shutters.first(where: { $0.label == shot.shutter })?.label,
-                       context.labels == CameraOptions.shutters.map({ $0.label }) {
+                       context.initialSelection == CameraUtils.shutters.first(where: { $0.label == shot.shutter })?.label,
+                       context.labels == CameraUtils.shutters.map({ $0.label }) {
                         pickerContext = nil
                     } else {
                         pickerContext = PickerContext(
                             id: "shutters",
-                            labels: CameraOptions.shutters.map { $0.label },
+                            labels: CameraUtils.shutters.map { $0.label },
                             initialSelection: shot.shutter,
                             onSelect: { selected in
                                 shot.shutter = selected
@@ -498,7 +498,11 @@ struct ShotViewfinderView: View {
                 Image(systemName: "plusminus.circle")
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
-                    .background(Color.black.opacity(0.4))
+                    .background(
+                        pickerContext?.id == "shutters"
+                            ? Color.blue.opacity(0.4)
+                            : Color.black.opacity(0.4)
+                    )
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.angle)
             }
@@ -512,7 +516,7 @@ struct ShotViewfinderView: View {
                     } else {
                         pickerContext = PickerContext(
                             id: "apertures",
-                            labels: CameraOptions.apertures.map { $0.label },
+                            labels: CameraUtils.apertures.map { $0.label },
                             initialSelection: shot.aperture,
                             onSelect: { selected in
                                 shot.aperture = selected
@@ -540,9 +544,17 @@ struct ShotViewfinderView: View {
     }
 
     private func captureImage(image: UIImage) {
+        
+        
+        onCapture(image)
+        print("dismiss!")
+        dismiss()
+        
+        
+        /*
         let containerSize = UIScreen.main.bounds.size
-        let filmSize = CameraOptions.filmSizes.first(where: { $0.label == shot.filmSize })?.value ?? CameraOptions.FilmSize.defaultFilmSize
-        let focalLength = CameraOptions.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value ?? CameraOptions.FocalLength.defaultFocalLength
+        let filmSize = CameraUtils.filmSizes.first(where: { $0.label == shot.filmSize })?.value ?? CameraUtils.FilmSize.defaultFilmSize
+        let focalLength = CameraUtils.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value ?? CameraUtils.FocalLength.defaultFocalLength
         let frameSize = FrameHelper.frameSize(
             containerSize: containerSize.switchOrientation(), // to native
             focalLength: focalLength.length,
@@ -552,7 +564,7 @@ struct ShotViewfinderView: View {
         )
         let croppedImage = cropImage(image, frameSize: frameSize, containerSize: containerSize, orientation: orientationObserver.orientation)
         onCapture(croppedImage)
-        dismiss()
+        dismiss()*/
     }
     
     private func cropImage(_ image: UIImage,
@@ -671,11 +683,11 @@ struct ShotViewfinderView: View {
     }
     
     func adjustEVExposure() {
-        let filmStock = CameraOptions.filmStocks.first(where: { $0.label == shot.filmStock })?.value ?? CameraOptions.FilmStock.defaultFilmStock
-        let aperture = CameraOptions.apertures.first(where: { $0.label == shot.aperture })?.value ?? CameraOptions.Aperture.defaultAperture
-        let shutter = CameraOptions.shutters.first(where: { $0.label == shot.shutter })?.value ?? CameraOptions.Shutter.defaultShutter
-        let colorFilter = CameraOptions.colorFilters.first(where: { $0.label == shot.lensColorFilter })?.value ?? CameraOptions.Filter.defaultFilter
-        let ndFilter = CameraOptions.ndFilters.first(where: { $0.label == shot.lensNdFilter })?.value ?? CameraOptions.Filter.defaultFilter
+        let filmStock = CameraUtils.filmStocks.first(where: { $0.label == shot.filmStock })?.value ?? CameraUtils.FilmStock.defaultFilmStock
+        let aperture = CameraUtils.apertures.first(where: { $0.label == shot.aperture })?.value ?? CameraUtils.Aperture.defaultAperture
+        let shutter = CameraUtils.shutters.first(where: { $0.label == shot.shutter })?.value ?? CameraUtils.Shutter.defaultShutter
+        let colorFilter = CameraUtils.colorFilters.first(where: { $0.label == shot.lensColorFilter })?.value ?? CameraUtils.Filter.defaultFilter
+        let ndFilter = CameraUtils.ndFilters.first(where: { $0.label == shot.lensNdFilter })?.value ?? CameraUtils.Filter.defaultFilter
         
         cameraModel.adjustEVExposure(
             fstop: aperture.fstop,
@@ -686,9 +698,9 @@ struct ShotViewfinderView: View {
     }
     
     func adjustWhiteBalance() {
-        let filmStock = CameraOptions.filmStocks.first(where: { $0.label == shot.filmStock })?.value ?? CameraOptions.FilmStock.defaultFilmStock
+        let filmStock = CameraUtils.filmStocks.first(where: { $0.label == shot.filmStock })?.value ?? CameraUtils.FilmStock.defaultFilmStock
         if shot.lensColorFilter != "-" {
-            let colorFilter = CameraOptions.colorFilters.first(where: { $0.label == shot.lensColorFilter })?.value ?? CameraOptions.Filter.defaultFilter
+            let colorFilter = CameraUtils.colorFilters.first(where: { $0.label == shot.lensColorFilter })?.value ?? CameraUtils.Filter.defaultFilter
             cameraModel.adjustWhiteBalance(kelvin: filmStock.colorTemperature + colorFilter.colorTemperatureShift)
         } else {
             cameraModel.resetWhiteBalance()

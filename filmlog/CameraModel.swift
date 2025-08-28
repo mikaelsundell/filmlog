@@ -33,17 +33,19 @@ enum CameraError: Error, LocalizedError {
     }
 }
 
-class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
+class CameraModel: NSObject, ObservableObject {
     let session = AVCaptureSession()
     private let sessionQueue = DispatchQueue(label: "camera.session.queue")
-    private let photoCaptureOutput = AVCapturePhotoOutput()
+    
+    private let photoDataOutput = AVCaptureVideoDataOutput()
+    private let photoOutputQueue = DispatchQueue(label: "camera.photo.output.queue",
+                                                 qos: .userInitiated)
     
     private let videoDataOutput = AVCaptureVideoDataOutput()
     private let videoOutputQueue = DispatchQueue(label: "camera.video.output.queue",
                                                  qos: .userInitiated)
     
-    var onImageCaptured: ((Result<UIImage, CameraError>) -> Void)?
-    private var saveCapturedToFile = false
+    private var photoCaptureCompletion: ((CGImage?) -> Void)?
     
     @Published var horizontalFov: CGFloat = 0
     @Published var aspectRatio: CGFloat = 0
@@ -83,14 +85,22 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
         }
     }
     
-    func configure(completion: (() -> Void)? = nil) {
+    func stop() {
+        sessionQueue.async {
+            if self.session.isRunning {
+                self.session.stopRunning()
+            }
+        }
+    }
+    
+    func configure(completion: ((Result<Void, CameraError>) -> Void)? = nil) {
         Task {
             do {
                 try await checkCameraPermission()
                 configureCamera(for: lensType, completion: completion)
             } catch {
                 DispatchQueue.main.async {
-                    self.onImageCaptured?(.failure(.permissionDenied))
+                    completion?(.failure(.permissionDenied))
                 }
             }
         }
@@ -331,67 +341,43 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
         lensType = lens
         configureCamera(for: lens)
     }
+    
+    private func enablePhotoOutput(_ enable: Bool) {
+        sessionQueue.async {
+            self.session.beginConfiguration()
+            if enable {
+                print("enable photo output");
+                if !self.session.outputs.contains(self.photoDataOutput),
+                   self.session.canAddOutput(self.photoDataOutput) {
+                    self.session.addOutput(self.photoDataOutput)
+                    self.photoDataOutput.setSampleBufferDelegate(self, queue: self.photoOutputQueue)
+                }
+            } else {
+                if self.session.outputs.contains(self.photoDataOutput) {
+                    self.session.removeOutput(self.photoDataOutput)
+                }
+            }
+            self.session.commitConfiguration()
+        }
+    }
+    
+    func capturePhoto(completion: @escaping (CGImage?) -> Void) {
+        
+        print("capturePhoto");
+        
+        photoCaptureCompletion = completion
+        
+        self.photoDataOutput.videoSettings = [
+            kCVPixelBufferPixelFormatTypeKey as String:
+                kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+        ]
+        self.photoDataOutput.alwaysDiscardsLateVideoFrames = true
 
-    func capturePhoto() {
-        saveCapturedToFile = false
-        let settings = AVCapturePhotoSettings()
-        settings.flashMode = .auto
-        photoCaptureOutput.capturePhoto(with: settings, delegate: self)
+        enablePhotoOutput(true)
     }
     
     func captureTexture(completion: @escaping (CGImage?) -> Void) {
         renderer.captureTexture(completion: completion)
-    }
-
-    func capturePhotoAndSave() {
-        saveCapturedToFile = true
-        let settings = AVCapturePhotoSettings()
-        settings.flashMode = .off
-        if #available(iOS 16.0, *) {
-            // maxPhotoDimensions already set in configure
-        } else {
-            settings.isHighResolutionPhotoEnabled = true
-        }
-        photoCaptureOutput.capturePhoto(with: settings, delegate: self)
-    }
-    
-    func photoOutput(_ output: AVCapturePhotoOutput,
-                     didFinishProcessingPhoto photo: AVCapturePhoto,
-                     error: Error?) {
-        if let error = error {
-            DispatchQueue.main.async {
-                self.onImageCaptured?(.failure(.captureFailed(error.localizedDescription)))
-            }
-            return
-        }
-
-        guard let data = photo.fileDataRepresentation(),
-              let image = UIImage(data: data) else {
-            DispatchQueue.main.async {
-                self.onImageCaptured?(.failure(.captureFailed("could not process photo data.")))
-            }
-            return
-        }
-
-        if saveCapturedToFile {
-            UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-            if let jpegData = image.jpegData(compressionQuality: 1.0) {
-                let filename = FileManager.default.temporaryDirectory.appendingPathComponent("capture.jpg")
-                do {
-                    try jpegData.write(to: filename)
-                    print("saved photo to file: \(filename.path)")
-                } catch {
-                    DispatchQueue.main.async {
-                        self.onImageCaptured?(.failure(.saveFailed(error.localizedDescription)))
-                    }
-                    return
-                }
-            }
-        }
-
-        DispatchQueue.main.async {
-            self.onImageCaptured?(.success(image))
-        }
     }
     
     private func mainsFrequency() -> Int {
@@ -400,7 +386,7 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
         return sixtyHz.contains(region) ? 60 : 50
     }
     
-    private func configureCamera(for lens: LensType, completion: (() -> Void)? = nil) {
+    private func configureCamera(for lens: LensType, completion: ((Result<Void, CameraError>) -> Void)? = nil) {
         sessionQueue.async {
             self.session.beginConfiguration()
             self.session.sessionPreset = .high
@@ -416,28 +402,12 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                   let input = try? AVCaptureDeviceInput(device: device),
                   self.session.canAddInput(input) else {
                 DispatchQueue.main.async {
-                    self.onImageCaptured?(.failure(.configurationFailed("device not available for \(lens.rawValue).")))
+                    completion?(.failure(.configurationFailed("device not available for \(lens.rawValue).")))
                 }
                 self.session.commitConfiguration()
                 return
             }
             self.session.addInput(input)
-
-            if self.session.canAddOutput(self.photoCaptureOutput) {
-                self.session.addOutput(self.photoCaptureOutput)
-                if #available(iOS 16.0, *) {
-                    let dims = CMVideoFormatDescriptionGetDimensions(device.activeFormat.formatDescription)
-                    self.photoCaptureOutput.maxPhotoDimensions = dims
-                } else {
-                    self.photoCaptureOutput.isHighResolutionCaptureEnabled = true
-                }
-            } else {
-                DispatchQueue.main.async {
-                    self.onImageCaptured?(.failure(.configurationFailed("cannot add photo output.")))
-                }
-                self.session.commitConfiguration()
-                return
-            }
 
             self.videoDataOutput.videoSettings = [
                 kCVPixelBufferPixelFormatTypeKey as String:
@@ -464,7 +434,7 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
             self.updateDeviceInfo(device)
 
             DispatchQueue.main.async {
-                completion?()
+                completion?(.success(()))
             }
         }
     }
@@ -515,6 +485,26 @@ extension CameraModel: AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
-        // handle video frames here if needed
+        
+        if output === videoDataOutput {
+            renderer.captureOutput(output, didOutput: sampleBuffer, from: connection)
+        }
+        else if output === photoDataOutput {
+            guard let completion = photoCaptureCompletion else { return }
+            photoCaptureCompletion = nil
+
+            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+                DispatchQueue.main.async { completion(nil) }
+                enablePhotoOutput(false)
+                return
+            }
+
+            renderer.drawImage(pixelBuffer: pixelBuffer) { cgImage in
+                DispatchQueue.main.async {
+                    completion(cgImage)
+                }
+                self.enablePhotoOutput(false)
+            }
+        }
     }
 }
