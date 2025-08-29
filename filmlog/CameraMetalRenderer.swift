@@ -247,12 +247,13 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         }
     }
     
-    func captureTexture(completion: @escaping (CGImage?) -> Void) {
-        pendingCapture = completion
-    }
-    
     func drawImage(pixelBuffer: CVPixelBuffer, completion: @escaping (CGImage?) -> Void) {
-        guard let cache = textureCache else { completion(nil); return }
+        guard let cache = textureCache,
+              let queue = queue,
+              let pipeline = pipeline else {
+            completion(nil)
+            return
+        }
 
         let width = CVPixelBufferGetWidthOfPlane(pixelBuffer, 0)
         let height = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0)
@@ -266,9 +267,7 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                                                   .rg8Unorm, width/2, height/2, 1, &cTexRef)
 
         guard let yTex = yTexRef.flatMap(CVMetalTextureGetTexture),
-              let cbcrTex = cTexRef.flatMap(CVMetalTextureGetTexture),
-              let queue = queue,
-              let _ = pipeline else {
+              let cbcrTex = cTexRef.flatMap(CVMetalTextureGetTexture) else {
             completion(nil)
             return
         }
@@ -296,7 +295,14 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         rpd.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
 
         if let enc = cmd.makeRenderCommandEncoder(descriptor: rpd) {
-            encodeRenderPass(encoder: enc, uniforms: &uniforms, yTex: yTex, cbcrTex: cbcrTex)
+            enc.setRenderPipelineState(pipeline)
+            enc.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+            enc.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.size, index: 1)
+            enc.setFragmentTexture(yTex, index: 0)
+            enc.setFragmentTexture(cbcrTex, index: 1)
+            enc.setFragmentTexture(lutTexture, index: 2)
+            enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+            enc.endEncoding()
         }
 
         cmd.addCompletedHandler { [weak self] _ in
@@ -304,13 +310,41 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                 DispatchQueue.main.async { completion(nil) }
                 return
             }
-            let cgImage = self.makeCGImage(from: texture)
-            DispatchQueue.main.async { completion(cgImage) }
+
+            let w = texture.width
+            let h = texture.height
+            let bytesPerRow = w * 4
+
+            if captureRawData == nil || captureRawData!.count != bytesPerRow * h {
+                captureRawData = [UInt8](repeating: 0, count: bytesPerRow * h)
+            }
+
+            captureRawData!.withUnsafeMutableBytes { ptr in
+                let region = MTLRegionMake2D(0, 0, w, h)
+                texture.getBytes(ptr.baseAddress!, bytesPerRow: bytesPerRow, from: region, mipmapLevel: 0)
+            }
+
+            let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
+            let bitmapInfo = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+
+            if let ctx = captureRawData?.withUnsafeMutableBytes({ ptr -> CGContext? in
+                return CGContext(data: ptr.baseAddress,
+                                 width: w,
+                                 height: h,
+                                 bitsPerComponent: 8,
+                                 bytesPerRow: bytesPerRow,
+                                 space: colorSpace,
+                                 bitmapInfo: bitmapInfo)
+            }), let cgImage = ctx.makeImage() {
+                DispatchQueue.main.async { completion(cgImage) }
+            } else {
+                DispatchQueue.main.async { completion(nil) }
+            }
         }
 
         cmd.commit()
     }
-    
+
     func draw(in view: MTKView) {
         guard let yTex = yTexture,
               let cbcrTex = cbcrTexture,
@@ -323,34 +357,6 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         )
 
         guard let cmd = queue.makeCommandBuffer() else { return }
-
-        if let captureHandler = pendingCapture {
-            if offscreenTexture == nil ||
-                offscreenTexture!.width != Int(view.drawableSize.width) ||
-                offscreenTexture!.height != Int(view.drawableSize.height) {
-                setupOffscreenTexture(device: device, size: view.drawableSize)
-            }
-
-            let offscreenRPD = MTLRenderPassDescriptor()
-            offscreenRPD.colorAttachments[0].texture = offscreenTexture
-            offscreenRPD.colorAttachments[0].loadAction = .clear
-            offscreenRPD.colorAttachments[0].storeAction = .store
-            offscreenRPD.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
-
-            if let offEnc = cmd.makeRenderCommandEncoder(descriptor: offscreenRPD) {
-                encodeRenderPass(encoder: offEnc, uniforms: &uniforms, yTex: yTex, cbcrTex: cbcrTex)
-            }
-
-            cmd.addCompletedHandler { [weak self] _ in
-                guard let self = self, let texture = self.offscreenTexture else {
-                    DispatchQueue.main.async { captureHandler(nil) }
-                    return
-                }
-                let cgImage = self.makeCGImage(from: texture)
-                DispatchQueue.main.async { captureHandler(cgImage) }
-            }
-            pendingCapture = nil
-        }
 
         if let rpd = view.currentRenderPassDescriptor,
            let screenEnc = cmd.makeRenderCommandEncoder(descriptor: rpd) {

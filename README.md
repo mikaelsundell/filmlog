@@ -19,7 +19,7 @@ Change log:
 | 2025-08-28 | Application in development |
 
 
-Screenshot
+Screenshots
 ------------
 
 

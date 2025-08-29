@@ -47,6 +47,15 @@ class CameraModel: NSObject, ObservableObject {
     
     private var photoCaptureCompletion: ((CGImage?) -> Void)?
     
+    
+    private let photoCounterQueue = DispatchQueue(label: "photo.counter.queue")
+    private var _photoFrameCounter = 0
+    private var photoFrameCounter: Int {
+        get { photoCounterQueue.sync { _photoFrameCounter } }
+        set { photoCounterQueue.sync { _photoFrameCounter = newValue } }
+    }
+    private var didCapturePhoto = false
+    
     @Published var horizontalFov: CGFloat = 0
     @Published var aspectRatio: CGFloat = 0
     @Published var lensType: LensType = .wide
@@ -341,52 +350,89 @@ class CameraModel: NSObject, ObservableObject {
         lensType = lens
         configureCamera(for: lens)
     }
-    
-    private func enablePhotoOutput(_ enable: Bool) {
-        sessionQueue.async {
-            self.session.beginConfiguration()
-            if enable {
-                print("enable photo output");
-                if !self.session.outputs.contains(self.photoDataOutput),
-                   self.session.canAddOutput(self.photoDataOutput) {
-                    self.session.addOutput(self.photoDataOutput)
-                    self.photoDataOutput.setSampleBufferDelegate(self, queue: self.photoOutputQueue)
-                }
-            } else {
-                if self.session.outputs.contains(self.photoDataOutput) {
-                    self.session.removeOutput(self.photoDataOutput)
-                }
-            }
-            self.session.commitConfiguration()
-        }
-    }
-    
-    func capturePhoto(completion: @escaping (CGImage?) -> Void) {
-        
-        print("capturePhoto");
-        
-        photoCaptureCompletion = completion
-        
-        self.photoDataOutput.videoSettings = [
-            kCVPixelBufferPixelFormatTypeKey as String:
-                kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
-        ]
-        self.photoDataOutput.alwaysDiscardsLateVideoFrames = true
 
+    func capturePhoto(completion: @escaping (CGImage?) -> Void) {
+        photoCaptureCompletion = completion
+        didCapturePhoto = false
         enablePhotoOutput(true)
     }
-    
-    func captureTexture(completion: @escaping (CGImage?) -> Void) {
-        renderer.captureTexture(completion: completion)
-    }
-    
+
     private func mainsFrequency() -> Int {
         let region = Locale.current.region?.identifier ?? "SE"
         let sixtyHz: Set<String> = ["US","CA","MX","BR","KR","TW","PH","SA","LB"]
         return sixtyHz.contains(region) ? 60 : 50
     }
     
+    private func enablePhotoOutput(_ enable: Bool) {
+        sessionQueue.async {
+            self.session.beginConfiguration()
+            defer { self.session.commitConfiguration() }
+
+            if enable {
+                self.photoDataOutput.videoSettings = [
+                    kCVPixelBufferPixelFormatTypeKey as String:
+                        kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+                ]
+                self.photoDataOutput.alwaysDiscardsLateVideoFrames = true
+
+                if !self.session.outputs.contains(self.photoDataOutput),
+                   self.session.canAddOutput(self.photoDataOutput) {
+                    self.session.addOutput(self.photoDataOutput)
+                    self.photoDataOutput.setSampleBufferDelegate(self, queue: self.photoOutputQueue)
+                }
+
+                if let device = self.session.inputs
+                    .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
+                    .first {
+
+                    var previewFps: Double = 30.0
+                    let duration = device.activeVideoMinFrameDuration
+                    if duration.isValid && duration.seconds > 0 {
+                        previewFps = 1.0 / duration.seconds
+                    }
+                    var bestFormat: AVCaptureDevice.Format?
+                    var maxPixels = 0
+
+                    for format in device.formats {
+                        let desc = format.formatDescription
+                        let dims = CMVideoFormatDescriptionGetDimensions(desc)
+                        let mediaSubType = CMFormatDescriptionGetMediaSubType(desc)
+
+                        guard mediaSubType == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange else { continue }
+
+                        guard let range = format.videoSupportedFrameRateRanges.first else { continue }
+                        let maxRate = range.maxFrameRate
+                        
+                        if maxRate >= previewFps {
+                            let pixels = Int(dims.width) * Int(dims.height)
+                            if pixels > maxPixels {
+                                maxPixels = pixels
+                                bestFormat = format
+                            }
+                        }
+                    }
+                    if let best = bestFormat {
+                        do {
+                            try device.lockForConfiguration()
+                            device.activeFormat = best
+                            device.unlockForConfiguration()
+                        } catch {
+                            print("failed to set best photo format: \(error.localizedDescription)")
+                        }
+                    } else {
+                        print("no matching NV12 full-range format found.")
+                    }
+                }
+            } else {
+                if self.session.outputs.contains(self.photoDataOutput) {
+                    self.session.removeOutput(self.photoDataOutput)
+                }
+            }
+        }
+    }
+
     private func configureCamera(for lens: LensType, completion: ((Result<Void, CameraError>) -> Void)? = nil) {
+        print("configureCamera")
         sessionQueue.async {
             self.session.beginConfiguration()
             self.session.sessionPreset = .high
@@ -482,6 +528,12 @@ class CameraModel: NSObject, ObservableObject {
 }
 
 extension CameraModel: AVCaptureVideoDataOutputSampleBufferDelegate {
+
+    // apple explicitly mentions that auto-exposure/auto-white balance needs
+    // a few frames to settle, and apps should allow "warm-up time" before using
+    // frames for critical processing.
+    
+    private static let warmupFrameCount = 5 // cheap trick to warm
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
@@ -490,20 +542,21 @@ extension CameraModel: AVCaptureVideoDataOutputSampleBufferDelegate {
             renderer.captureOutput(output, didOutput: sampleBuffer, from: connection)
         }
         else if output === photoDataOutput {
-            guard let completion = photoCaptureCompletion else { return }
-            photoCaptureCompletion = nil
-
-            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-                DispatchQueue.main.async { completion(nil) }
-                enablePhotoOutput(false)
+            guard !didCapturePhoto else { return }
+            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+            
+            photoFrameCounter += 1
+            if photoFrameCounter < CameraModel.warmupFrameCount {
                 return
             }
-
+            
+            didCapturePhoto = true
+            guard let completion = photoCaptureCompletion else { return }
+            photoCaptureCompletion = nil
             renderer.drawImage(pixelBuffer: pixelBuffer) { cgImage in
-                DispatchQueue.main.async {
-                    completion(cgImage)
-                }
+                DispatchQueue.main.async { completion(cgImage) }
                 self.enablePhotoOutput(false)
+                self.photoFrameCounter = 0
             }
         }
     }

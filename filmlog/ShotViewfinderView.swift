@@ -182,7 +182,7 @@ struct ShotViewfinderView: View {
                             captureImage(image: image)
                             print("captured CGImage size: \(cgImage.width)x\(cgImage.height)")
                         } else {
-                            print("failed to capture texture image")
+                            print("failed to capture")
                             dismiss();
                         }
                     }
@@ -544,14 +544,6 @@ struct ShotViewfinderView: View {
     }
 
     private func captureImage(image: UIImage) {
-        
-        
-        onCapture(image)
-        print("dismiss!")
-        dismiss()
-        
-        
-        /*
         let containerSize = UIScreen.main.bounds.size
         let filmSize = CameraUtils.filmSizes.first(where: { $0.label == shot.filmSize })?.value ?? CameraUtils.FilmSize.defaultFilmSize
         let focalLength = CameraUtils.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value ?? CameraUtils.FocalLength.defaultFocalLength
@@ -564,8 +556,22 @@ struct ShotViewfinderView: View {
         )
         let croppedImage = cropImage(image, frameSize: frameSize, containerSize: containerSize, orientation: orientationObserver.orientation)
         onCapture(croppedImage)
-        dismiss()*/
+        //dismiss()
     }
+    
+    func saveToPhotos(_ image: UIImage, name: String = "debug") {
+        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+        print("✅ Saved debug image: \(name)")
+    }
+    
+    func saveToDocuments(_ image: UIImage, name: String) {
+        guard let data = image.pngData() else { return }
+        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("\(name).png")
+        try? data.write(to: url)
+        print("📂 Saved debug image at: \(url)")
+    }
+    
     
     private func cropImage(_ image: UIImage,
                            frameSize: CGSize,
@@ -573,6 +579,8 @@ struct ShotViewfinderView: View {
                            orientation: UIDeviceOrientation) -> UIImage {
         
         guard let cgImage = image.cgImage else { return image }
+        
+        saveToPhotos(UIImage(cgImage: cgImage), name: "original")
         
         let width = CGFloat(cgImage.width)
         let height = CGFloat(cgImage.height)
