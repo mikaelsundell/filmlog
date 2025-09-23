@@ -47,6 +47,7 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     struct Uniforms {
         var viewSize: SIMD2<Float>
         var videoSize: SIMD2<Float>
+        var isCapture: Int32
     }
     
     var currentLutType: LUTType = .kodakNeutral {
@@ -102,7 +103,7 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     
     private func loadCurrentLut() {
         guard let url = Bundle.main.url(forResource: currentLutType.filename, withExtension: "cube") else {
-            print("LUT file \(currentLutType.filename).cube not found in bundle.")
+            print("lut file \(currentLutType.filename).cube not found in bundle.")
             lutTexture = nil
             return
         }
@@ -257,7 +258,8 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
         let width = CVPixelBufferGetWidthOfPlane(pixelBuffer, 0)
         let height = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0)
-
+        let aspect = Double(width) / Double(height)
+        
         var yTexRef: CVMetalTexture?
         var cTexRef: CVMetalTexture?
 
@@ -280,7 +282,8 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
         var uniforms = Uniforms(
             viewSize: SIMD2(Float(width), Float(height)),
-            videoSize: SIMD2(Float(width), Float(height))
+            videoSize: SIMD2(Float(width), Float(height)),
+            isCapture: 1
         )
 
         guard let cmd = queue.makeCommandBuffer() else {
@@ -353,7 +356,8 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
         var uniforms = Uniforms(
             viewSize: SIMD2(Float(view.drawableSize.width), Float(view.drawableSize.height)),
-            videoSize: SIMD2(Float(yTex.width), Float(yTex.height))
+            videoSize: SIMD2(Float(yTex.width), Float(yTex.height)),
+            isCapture: 0
         )
 
         guard let cmd = queue.makeCommandBuffer() else { return }

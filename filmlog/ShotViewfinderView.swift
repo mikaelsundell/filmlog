@@ -180,9 +180,7 @@ struct ShotViewfinderView: View {
                         if let cgImage = cgImage {
                             let image = UIImage(cgImage: cgImage)
                             captureImage(image: image)
-                            print("captured CGImage size: \(cgImage.width)x\(cgImage.height)")
                         } else {
-                            print("failed to capture")
                             dismiss();
                         }
                     }
@@ -224,7 +222,6 @@ struct ShotViewfinderView: View {
         .onChange(of: cameraMode) { _, newMode in
             switchExposure()
         }
-        
         .onDisappear {
             cameraModel.stop()
             UIApplication.shared.isIdleTimerDisabled = false
@@ -544,11 +541,11 @@ struct ShotViewfinderView: View {
     }
 
     private func captureImage(image: UIImage) {
-        let containerSize = UIScreen.main.bounds.size
+        let containerSize = image.size
         let filmSize = CameraUtils.filmSizes.first(where: { $0.label == shot.filmSize })?.value ?? CameraUtils.FilmSize.defaultFilmSize
         let focalLength = CameraUtils.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value ?? CameraUtils.FocalLength.defaultFocalLength
         let frameSize = FrameHelper.frameSize(
-            containerSize: containerSize.switchOrientation(), // to native
+            containerSize: containerSize, //.switchOrientation(), // to native
             focalLength: focalLength.length,
             aspectRatio: filmSize.aspectRatio,
             width: filmSize.width,
@@ -556,22 +553,8 @@ struct ShotViewfinderView: View {
         )
         let croppedImage = cropImage(image, frameSize: frameSize, containerSize: containerSize, orientation: orientationObserver.orientation)
         onCapture(croppedImage)
-        //dismiss()
+        dismiss()
     }
-    
-    func saveToPhotos(_ image: UIImage, name: String = "debug") {
-        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-        print("✅ Saved debug image: \(name)")
-    }
-    
-    func saveToDocuments(_ image: UIImage, name: String) {
-        guard let data = image.pngData() else { return }
-        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("\(name).png")
-        try? data.write(to: url)
-        print("📂 Saved debug image at: \(url)")
-    }
-    
     
     private func cropImage(_ image: UIImage,
                            frameSize: CGSize,
@@ -579,15 +562,12 @@ struct ShotViewfinderView: View {
                            orientation: UIDeviceOrientation) -> UIImage {
         
         guard let cgImage = image.cgImage else { return image }
-        
-        saveToPhotos(UIImage(cgImage: cgImage), name: "original")
-        
-        let width = CGFloat(cgImage.width)
-        let height = CGFloat(cgImage.height)
-        
-        let size = containerSize.switchOrientation() // to native
+
+        let oriented = UIImage(cgImage: cgImage, scale: 1.0, orientation: .right)
+        let size = containerSize
+        let width = CGFloat(size.width)
+        let height = CGFloat(size.height)
         let ratio = size.width / size.height
-        
         let newHeight = width / ratio
         let offsetY = max((height - newHeight) / 2, 0)
         let landscapeRect = CGRect(x: 0, y: offsetY, width: width, height: newHeight)
@@ -626,20 +606,6 @@ struct ShotViewfinderView: View {
         default:
             return .right
         }
-    }
-    
-    func captureScreenshot() {
-        guard let window = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .first?.windows
-            .first(where: \.isKeyWindow) else {
-                print("unable to find key window for screenshot")
-                return
-            }
-        let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
-        let image = renderer.image { _ in window.drawHierarchy(in: window.bounds, afterScreenUpdates: true) }
-        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-        print("screenshot saved to Photos")
     }
     
     private func lensLabel(for lens: LensType) -> String {

@@ -36,17 +36,16 @@ enum CameraError: Error, LocalizedError {
 class CameraModel: NSObject, ObservableObject {
     let session = AVCaptureSession()
     private let sessionQueue = DispatchQueue(label: "camera.session.queue")
+
+    private let videoDataOutput = AVCaptureVideoDataOutput()
+    private let videoOutputQueue = DispatchQueue(label: "camera.video.output.queue",
+                                                 qos: .userInitiated)
     
     private let photoDataOutput = AVCaptureVideoDataOutput()
     private let photoOutputQueue = DispatchQueue(label: "camera.photo.output.queue",
                                                  qos: .userInitiated)
     
-    private let videoDataOutput = AVCaptureVideoDataOutput()
-    private let videoOutputQueue = DispatchQueue(label: "camera.video.output.queue",
-                                                 qos: .userInitiated)
-    
     private var photoCaptureCompletion: ((CGImage?) -> Void)?
-    
     
     private let photoCounterQueue = DispatchQueue(label: "photo.counter.queue")
     private var _photoFrameCounter = 0
@@ -533,7 +532,7 @@ extension CameraModel: AVCaptureVideoDataOutputSampleBufferDelegate {
     // a few frames to settle, and apps should allow "warm-up time" before using
     // frames for critical processing.
     
-    private static let warmupFrameCount = 5 // cheap trick to warm
+    private static let warmupFrameCount = 10
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {

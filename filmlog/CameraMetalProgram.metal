@@ -2,8 +2,9 @@
 using namespace metal;
 
 struct Uniforms {
-    float2 viewSize;
-    float2 videoSize;
+    packed_float2 viewSize;
+    packed_float2 videoSize;
+    int isCapture;
 };
 
 struct VSOut {
@@ -21,15 +22,19 @@ vertex VSOut fullscreenVS(uint vid [[vertex_id]],
     float2 position = v.xy;
     float2 texCoord = v.zw;
 
-    float viewRatio = U.viewSize.y / U.viewSize.x; // to native
-    float videoRatio = U.videoSize.x / U.videoSize.y;
-    float scaleX = videoRatio / viewRatio;
-
-    texCoord = (texCoord - 0.5) * float2(scaleX, 1.0) + 0.5;
-    texCoord = float2(texCoord.y, 1.0 - texCoord.x); // to potrait
+    if (U.isCapture) {
+        texCoord = float2(texCoord.x, texCoord.y);
+        o.uv = texCoord;
+    } else {
+        float viewRatio = U.viewSize.y / U.viewSize.x; // to native
+        float videoRatio = U.videoSize.x / U.videoSize.y;
+        float scaleX = videoRatio / viewRatio;
+        texCoord = (texCoord - 0.5) * float2(scaleX, 1.0) + 0.5;
+        texCoord = float2(texCoord.y, 1.0 - texCoord.x); // portrait
+        o.uv = texCoord;
+    }
 
     o.pos = float4(position, 0.0, 1.0);
-    o.uv = texCoord;
     return o;
 }
 
