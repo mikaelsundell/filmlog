@@ -196,7 +196,7 @@ struct ShotViewfinderView: View {
                             let ndFilter = CameraUtils.colorFilter(for: shot.ndFilter)
                             let filmSize = CameraUtils.filmSize(for: shot.filmSize)
                             let filmStock = CameraUtils.filmStock(for: shot.filmStock)
-                            let shutter = CameraUtils.filmStock(for: shot.shutter)
+                            let shutter = CameraUtils.shutter(for: shot.shutter)
                             let focalLength = CameraUtils.focalLength(for: shot.focalLength)
                             
                             let colorTempText: String = !colorFilter.isNone
@@ -337,9 +337,7 @@ struct ShotViewfinderView: View {
                             icon: "paintpalette",
                             label: "Look",
                             action: {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    activeControlType = (activeControlType == .lookPicker) ? nil : .lookPicker
-                                }
+                                activeControlType = (activeControlType == .lookPicker) ? nil : .lookPicker
                             },
                             background: (activeControlType == .lookPicker) ? Color.blue.opacity(0.4) : Color.clear,
                             rotation: orientationObserver.orientation.rotationAngle
@@ -376,9 +374,7 @@ struct ShotViewfinderView: View {
                             icon: "camera.filters",
                             label: "Color",
                             action: {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    activeControlType = (activeControlType == .colorPicker) ? nil : .colorPicker
-                                }
+                                activeControlType = (activeControlType == .colorPicker) ? nil : .colorPicker
                             },
                             background: (activeControlType == .colorPicker) ? Color.blue.opacity(0.4) : Color.clear,
                             rotation: orientationObserver.orientation.rotationAngle
@@ -387,9 +383,7 @@ struct ShotViewfinderView: View {
                             icon: "circle.lefthalf.filled",
                             label: "ND",
                             action: {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    activeControlType = (activeControlType == .ndPicker) ? nil : .ndPicker
-                                }
+                                activeControlType = (activeControlType == .ndPicker) ? nil : .ndPicker
                             },
                             background: (activeControlType == .ndPicker) ? Color.blue.opacity(0.4) : Color.clear,
                             rotation: orientationObserver.orientation.rotationAngle
@@ -439,9 +433,7 @@ struct ShotViewfinderView: View {
                             icon: "plusminus.circle",
                             label: "Shutter",
                             action: {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    activeControlType = (activeControlType == .shutterPicker) ? nil : .shutterPicker
-                                }
+                                activeControlType = (activeControlType == .shutterPicker) ? nil : .shutterPicker
                             },
                             background: (activeControlType == .shutterPicker)
                                 ? Color.blue.opacity(0.4)
@@ -453,9 +445,7 @@ struct ShotViewfinderView: View {
                             icon: "camera.aperture",
                             label: "Aperture",
                             action: {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    activeControlType = (activeControlType == .aperturePicker) ? nil : .aperturePicker
-                                }
+                                activeControlType = (activeControlType == .aperturePicker) ? nil : .aperturePicker
                             },
                             background: (activeControlType == .aperturePicker)
                                 ? Color.blue.opacity(0.4)
