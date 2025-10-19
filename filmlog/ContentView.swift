@@ -146,8 +146,3 @@ extension Roll {
         return "Unknown"
     }
 }
-
-#Preview {
-    ContentView()
-        .modelContainer(for: Roll.self, inMemory: true)
-}

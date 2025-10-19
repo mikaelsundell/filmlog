@@ -98,3 +98,6 @@ Copyright
 
 App icon:
 <a href="https://www.flaticon.com/free-icons/optics" title="optics icons">Optics icons created by meaicon - Flaticon</a>
+
+-------
+README crafted with a little help from ChatGPT

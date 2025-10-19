@@ -55,10 +55,12 @@ class CameraModel: NSObject, ObservableObject {
     }
     private var didCapturePhoto = false
     
-    @Published var horizontalFov: CGFloat = 0
-    @Published var aspectRatio: CGFloat = 0
+    @Published var fieldOfView: CGFloat = 70 // for init
+    @Published var aspectRatio: CGFloat = 16.0 / 9.0
     @Published var lensType: LensType = .wide
-
+    
+    @Published var isConfigured: Bool = false
+    
     public let renderer = CameraMetalRenderer()
     
     override init() {
@@ -431,7 +433,6 @@ class CameraModel: NSObject, ObservableObject {
     }
 
     private func configureCamera(for lens: LensType, completion: ((Result<Void, CameraError>) -> Void)? = nil) {
-        print("configureCamera")
         sessionQueue.async {
             self.session.beginConfiguration()
             self.session.sessionPreset = .high
@@ -518,10 +519,12 @@ class CameraModel: NSObject, ObservableObject {
 
         guard height != 0 else { return }
         let aspectRatio = width / height
+        
 
         DispatchQueue.main.async {
-            self.horizontalFov = fov
+            self.fieldOfView = fov
             self.aspectRatio = aspectRatio
+            self.isConfigured = true;
         }
     }
 }
@@ -532,7 +535,7 @@ extension CameraModel: AVCaptureVideoDataOutputSampleBufferDelegate {
     // a few frames to settle, and apps should allow "warm-up time" before using
     // frames for critical processing.
     
-    private static let warmupFrameCount = 10
+    private static let warmupFrameCount = 20
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {

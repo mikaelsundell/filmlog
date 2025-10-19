@@ -61,9 +61,224 @@ struct LocationUtils {
 }
 
 struct CameraUtils {
+    struct Aperture: Equatable {
+        let name: String
+        let fstop: Double
+        let isNone: Bool
+        
+        init(name: String, fstop: Double, isNone: Bool = false) {
+            self.name = name
+            self.fstop = fstop
+            self.isNone = isNone
+        }
+        
+        static let none = Aperture(name: "-", fstop: 0.0, isNone: true)
+    }
+
+    static let apertures: [Aperture] = [
+        Aperture(name: "f/1.4", fstop: 1.4),
+        Aperture(name: "f/2", fstop: 2.0),
+        Aperture(name: "f/2.8", fstop: 2.8),
+        Aperture(name: "f/4", fstop: 4.0),
+        Aperture(name: "f/5.6", fstop: 5.6),
+        Aperture(name: "f/8", fstop: 8.0),
+        Aperture(name: "f/11", fstop: 11.0),
+        Aperture(name: "f/16", fstop: 16.0),
+        Aperture(name: "f/22", fstop: 22.0)
+    ]
+
+    static func aperture(for label: String) -> Aperture {
+        apertures.first(where: { $0.name == label }) ?? .none
+    }
+    
+    struct AspectRatio: Equatable {
+        let name: String
+        let numerator: Int
+        let denominator: Int
+        let isNone: Bool
+
+        init(name: String, numerator: Int, denominator: Int, isNone: Bool = false) {
+             self.name = name
+             self.numerator = numerator
+             self.denominator = denominator
+             self.isNone = isNone
+         }
+        
+        var ratio: Double {
+            denominator == 0 ? 0.0 : Double(numerator) / Double(denominator)
+        }
+
+        static let none = AspectRatio(name: "-", numerator: 0, denominator: 0, isNone: true)
+    }
+    
+    static let aspectRatios: [AspectRatio] = [
+        .none,
+        AspectRatio(name: "1:1", numerator: 1, denominator: 1),
+        AspectRatio(name: "5:4", numerator: 5, denominator: 4),
+        AspectRatio(name: "4:3", numerator: 4, denominator: 3),
+        AspectRatio(name: "3:2", numerator: 3, denominator: 2),
+        AspectRatio(name: "16:10", numerator: 16, denominator: 10),
+        AspectRatio(name: "16:9", numerator: 16, denominator: 9),
+        AspectRatio(name: "1.43", numerator: 143, denominator: 100),
+        AspectRatio(name: "1.66", numerator: 166, denominator: 100),
+        AspectRatio(name: "1.85", numerator: 185, denominator: 100),
+        AspectRatio(name: "1.90", numerator: 190, denominator: 100),
+        AspectRatio(name: "2.00", numerator: 200, denominator: 100),
+        AspectRatio(name: "2.20", numerator: 220, denominator: 100),
+        AspectRatio(name: "2.35", numerator: 235, denominator: 100),
+        AspectRatio(name: "2.39", numerator: 239, denominator: 100),
+        AspectRatio(name: "2.55", numerator: 255, denominator: 100)
+    ]
+
+    static func aspectRatio(for label: String) -> AspectRatio {
+        aspectRatios.first(where: { $0.name == label }) ?? .none
+    }
+    
+    struct Camera: Equatable {
+        let name: String
+        let isNone: Bool
+        
+        init(name: String, isNone: Bool = false) {
+            self.name = name
+            self.isNone = isNone
+        }
+        
+        static let none = Camera(name: "-", isNone: true)
+    }
+    
+    static let cameras: [Camera] = [
+        .none,
+        Camera(name: "Canon AE-1"),
+        Camera(name: "Canon A-1"),
+        Camera(name: "Canon F-1"),
+        Camera(name: "Nikon FM2"),
+        Camera(name: "Nikon FE2"),
+        Camera(name: "Nikon F3"),
+        Camera(name: "Olympus OM-1"),
+        Camera(name: "Olympus OM-2"),
+        Camera(name: "Pentax K1000"),
+        Camera(name: "Minolta X-700"),
+        Camera(name: "Leica M3"),
+        Camera(name: "Leica M6"),
+        Camera(name: "Contax T2"),
+        Camera(name: "Hasselblad 500C/M"),
+        Camera(name: "Mamiya RB67"),
+        Camera(name: "Yashica Mat-124G"),
+        Camera(name: "Other")
+    ]
+
+    static func camera(for label: String) -> Camera {
+        cameras.first(where: { $0.name == label }) ?? .none
+    }
+    
+    struct Filter: Equatable {
+        let name: String
+        let exposureCompensation: Double
+        let colorTemperatureShift: Double
+        let isNone: Bool
+        
+        init(name: String, exposureCompensation: Double, colorTemperatureShift: Double, isNone: Bool = false) {
+            self.name = name
+            self.exposureCompensation = exposureCompensation
+            self.colorTemperatureShift = colorTemperatureShift
+            self.isNone = isNone
+        }
+        
+        static let none = Filter(name: "-", exposureCompensation: 0.0, colorTemperatureShift: 0.0, isNone: true)
+    }
+    
+    static let colorFilters: [Filter] = [
+        .none,
+        Filter(name: "85",  exposureCompensation: -0.6, colorTemperatureShift: -2100),
+        Filter(name: "85B", exposureCompensation: -0.6, colorTemperatureShift: -2300),
+        Filter(name: "85C", exposureCompensation: -0.3, colorTemperatureShift: -1700),
+        Filter(name: "80A", exposureCompensation: -1.0, colorTemperatureShift: +2300),
+        Filter(name: "80B", exposureCompensation: -1.0, colorTemperatureShift: +1900),
+        Filter(name: "80C", exposureCompensation: -0.6, colorTemperatureShift: +1200),
+        Filter(name: "81A", exposureCompensation: -0.3, colorTemperatureShift: -300),
+        Filter(name: "81B", exposureCompensation: -0.3, colorTemperatureShift: -450),
+        Filter(name: "81C", exposureCompensation: -0.3, colorTemperatureShift: -600),
+        Filter(name: "82A", exposureCompensation: -0.3, colorTemperatureShift: +200),
+        Filter(name: "82B", exposureCompensation: -0.3, colorTemperatureShift: +400),
+        Filter(name: "82C", exposureCompensation: -0.3, colorTemperatureShift: +600)
+    ]
+
+    static func colorFilter(for label: String) -> Filter {
+        colorFilters.first(where: { $0.name == label }) ?? .none
+    }
+    
+    static let ndFilters: [Filter] = [
+        .none,
+        Filter(name: "0.3", exposureCompensation: -1.0, colorTemperatureShift: 0.0),
+        Filter(name: "0.6", exposureCompensation: -2.0, colorTemperatureShift: 0.0),
+        Filter(name: "0.9", exposureCompensation: -3.0, colorTemperatureShift: 0.0),
+        Filter(name: "1.2", exposureCompensation: -4.0, colorTemperatureShift: 0.0),
+        Filter(name: "2.1", exposureCompensation: -6.0, colorTemperatureShift: 0.0)
+    ]
+
+    static func ndFilter(for label: String) -> Filter {
+        ndFilters.first(where: { $0.name == label }) ?? .none
+    }
+
+    struct FocalLength: Equatable {
+        let name: String
+        let length: Double
+        let isNone: Bool
+        
+        init(name: String, length: Double, isNone: Bool = false) {
+            self.name = name
+            self.length = length
+            self.isNone = isNone
+        }
+        
+        static let none = FocalLength(name: "-", length:  Double.random(in: 50...60), isNone: true)
+    }
+    
+    static let focalLengths: [FocalLength] = [
+        FocalLength(name: "12mm", length: 12),
+        FocalLength(name: "14mm", length: 14),
+        FocalLength(name: "16mm", length: 16),
+        FocalLength(name: "18mm", length: 18),
+        FocalLength(name: "19mm", length: 19),
+        FocalLength(name: "20mm", length: 20),
+        FocalLength(name: "21mm", length: 21),
+        FocalLength(name: "24mm", length: 24),
+        FocalLength(name: "25mm", length: 25),
+        FocalLength(name: "27mm", length: 27),
+        FocalLength(name: "28mm", length: 28),
+        FocalLength(name: "32mm", length: 32),
+        FocalLength(name: "35mm", length: 35),
+        FocalLength(name: "40mm", length: 40),
+        FocalLength(name: "50mm", length: 50),
+        FocalLength(name: "60mm", length: 60),
+        FocalLength(name: "65mm", length: 65),
+        FocalLength(name: "70mm", length: 70),
+        FocalLength(name: "75mm", length: 75),
+        FocalLength(name: "80mm", length: 80),
+        FocalLength(name: "85mm", length: 85),
+        FocalLength(name: "105mm", length: 105),
+        FocalLength(name: "135mm", length: 135),
+        FocalLength(name: "150mm", length: 150),
+        FocalLength(name: "200mm", length: 200),
+        FocalLength(name: "300mm", length: 300)
+    ]
+
+    static func focalLength(for label: String) -> FocalLength {
+        focalLengths.first(where: { $0.name == label }) ?? .none
+    }
+    
     struct FilmSize {
+        let name: String
         let width: Double
         let height: Double
+        let isNone: Bool
+        
+        init(name: String, width: Double, height: Double, isNone: Bool = false) {
+            self.name = name
+            self.width = width
+            self.height = height
+            self.isNone = isNone
+        }
         
         func angleOfView(focalLength: Double) -> (horizontal: Double, vertical: Double, diagonal: Double) {
             let horizontal = 2 * atan(width / (2 * focalLength)) * (180.0 / .pi)
@@ -112,233 +327,176 @@ struct CameraUtils {
         
         static let defaultInfinity: Double = 1000000
         static let defaultCocFactor: Double = 1442
-        static let defaultFilmSize = CameraUtils.FilmSize(width: 36.0, height: 24.0)
-    }
-    
-    struct AspectRatio: Equatable {
-        let numerator: Int
-        let denominator: Int
-
-        var ratio: Double {
-            return Double(numerator) / Double(denominator)
-        }
         
-        static let defaultAspectRatio = CameraUtils.AspectRatio(numerator: 0, denominator: 1)
+        static let none = FilmSize(name: "-", width: 0.0, height: 0.0, isNone: true)
     }
     
-    struct FilmStock {
+    static let filmSizes: [FilmSize] = [
+        FilmSize(name: "135 (35mm)", width: 36.0, height: 24.0),
+        FilmSize(name: "120 (6x6)", width: 60.0, height: 60.0),
+        FilmSize(name: "120 (6x7)", width: 70.0, height: 60.0),
+        FilmSize(name: "120 (6x9)", width: 90.0, height: 60.0),
+        FilmSize(name: "Large Format (4x5)", width: 127.0, height: 101.6),
+        FilmSize(name: "35mm Academy (4-perf)", width: 21.95, height: 16.00),
+        FilmSize(name: "35mm Full Aperture (Silent)", width: 24.89, height: 18.66),
+        FilmSize(name: "Super 35 (4-perf)", width: 24.89, height: 18.66),
+        FilmSize(name: "Super 35 (3-perf)", width: 24.89, height: 13.87),
+        FilmSize(name: "Techniscope (2-perf)", width: 22.00, height: 9.47),
+        FilmSize(name: "70mm (5-perf)", width: 48.56, height: 22.10),
+        FilmSize(name: "IMAX 70mm (15-perf)", width: 70.41, height: 52.63),
+        FilmSize(name: "Alexa Mini / Classic (Open Gate)", width: 28.17, height: 18.13),
+        FilmSize(name: "Alexa Mini / Classic (16:9)", width: 23.76, height: 13.37),
+        FilmSize(name: "Alexa Mini / Classic (4:3)", width: 23.76, height: 17.82),
+        FilmSize(name: "Alexa LF (Open Gate)", width: 36.70, height: 25.54),
+        FilmSize(name: "Alexa LF (16:9)", width: 31.68, height: 17.82),
+        FilmSize(name: "Alexa 65 (Open Gate)", width: 54.12, height: 25.58),
+        FilmSize(name: "RED Komodo 6K (S35)", width: 27.03, height: 14.26),
+        FilmSize(name: "RED Raptor 8K VV (Full Frame)", width: 40.96, height: 21.60),
+        FilmSize(name: "RED V-Raptor XL 8K VV", width: 40.96, height: 21.60),
+        FilmSize(name: "RED Monstro 8K VV", width: 40.96, height: 21.60),
+        FilmSize(name: "RED Helium 8K S35", width: 29.90, height: 15.77),
+        FilmSize(name: "RED Gemini 5K S35", width: 30.72, height: 18.00),
+        FilmSize(name: "Sony Venice 2 8.6K (Full Frame)", width: 36.2, height: 24.1),
+        FilmSize(name: "Sony Venice (6K S35)", width: 24.3, height: 12.9),
+        FilmSize(name: "Sony FX9 (Full Frame)", width: 35.7, height: 18.8),
+        FilmSize(name: "Sony FX6 (Full Frame)", width: 35.6, height: 18.8),
+        FilmSize(name: "Sony FS7 (S35)", width: 24.0, height: 13.5),
+        FilmSize(name: "BMPCC 4K (MFT)", width: 18.96, height: 10.00),
+        FilmSize(name: "BMPCC 6K (S35)", width: 23.10, height: 12.99),
+        FilmSize(name: "BMPCC 6K Pro (S35)", width: 23.10, height: 12.99),
+        FilmSize(name: "URSA Mini 4.6K (S35)", width: 25.34, height: 14.25),
+        FilmSize(name: "URSA Mini Pro 12K (S35)", width: 27.03, height: 14.25),
+        FilmSize(name: "Cinema Camera 6K (Full Frame)", width: 36.00, height: 24.00)
+    ]
+
+    static func filmSize(for label: String) -> FilmSize {
+        filmSizes.first(where: { $0.name == label }) ?? .none
+    }
+    
+    struct FilmStock: Equatable {
+        let name: String
         let speed: Double
         let colorTemperature: Double
+        let isNone: Bool
         
-        static let defaultFilmStock = CameraUtils.FilmStock(speed: 100, colorTemperature: 5600)
+        init(name: String, speed: Double, colorTemperature: Double, isNone: Bool = false) {
+            self.name = name
+            self.speed = speed
+            self.colorTemperature = colorTemperature
+            self.isNone = isNone
+        }
+        
+        static let none = FilmStock(name: "-", speed: 0, colorTemperature: 0, isNone: true)
     }
     
-    struct Filter: Equatable {
-        let exposureCompensation: Double
-        let colorTemperatureShift: Double
+    static let filmStocks: [FilmStock] = [
+        FilmStock(name: "Vision3 50D 5203", speed: 50, colorTemperature: 5600),
+        FilmStock(name: "Vision3 250D 5207", speed: 250, colorTemperature: 5600),
+        FilmStock(name: "Vision3 200T 5213", speed: 200, colorTemperature: 3200),
+        FilmStock(name: "Vision3 500T 5219", speed: 500, colorTemperature: 3200),
+        FilmStock(name: "Kodak Ektachrome", speed: 100, colorTemperature: 5600),
+        FilmStock(name: "Kodak Double X 5222", speed: 250, colorTemperature: 5600),
+        FilmStock(name: "EI 50", speed: 50, colorTemperature: 5600),
+        FilmStock(name: "EI 100", speed: 100, colorTemperature: 5600),
+        FilmStock(name: "EI 200", speed: 200, colorTemperature: 5600),
+        FilmStock(name: "EI 400", speed: 400, colorTemperature: 5600),
+        FilmStock(name: "EI 800", speed: 800, colorTemperature: 5600),
+        FilmStock(name: "EI 1600", speed: 1600, colorTemperature: 5600),
+        FilmStock(name: "EI 3200", speed: 3200, colorTemperature: 5600)
+    ]
+
+    static func filmStock(for label: String) -> FilmStock {
+        filmStocks.first(where: { $0.name == label }) ?? .none
+    }
+
+    struct Lens: Equatable {
+        let name: String
+        let isNone: Bool
         
-        static let defaultFilter = Filter(exposureCompensation: 0.0, colorTemperatureShift: 0.0)
+        init(name: String, isNone: Bool = false) {
+            self.name = name
+            self.isNone = isNone
+        }
+        
+        static let none = Lens(name: "-", isNone: true)
     }
     
-    struct FocalLength: Equatable {
-        let length: Double
-        
-        static let defaultFocalLength = FocalLength(length: 50)
-    }
+    static let lenses: [Lens] = [
+        Lens(name: "Arri"),
+        Lens(name: "Cooke"),
+        Lens(name: "Canon FD"),
+        Lens(name: "Canon CN-E"),
+        Lens(name: "Leica R"),
+        Lens(name: "Nikon"),
+        Lens(name: "Zeiss"),
+        Lens(name: "Other")
+    ]
     
-    struct Aperture: Equatable {
-        let fstop: Double
-        
-        static let defaultAperture = CameraUtils.Aperture(fstop: 2.8)
+    static func lens(for label: String) -> Lens {
+        lenses.first(where: { $0.name == label }) ?? .none
     }
     
     struct Shutter: Equatable {
+        let name: String
         let numerator: Int
         let denominator: Int
-
+        let isNone: Bool
+        
+        init(name: String, numerator: Int, denominator: Int, isNone: Bool = false) {
+            self.name = name
+            self.numerator = numerator
+            self.denominator = denominator
+            self.isNone = isNone
+        }
+        
         var shutter: Double {
             return Double(numerator) / Double(denominator)
         }
         
-        static let defaultShutter = CameraUtils.Shutter(numerator: 1, denominator: 125)
+        static let none = Shutter(name: "-", numerator: 0, denominator: 0, isNone: true)
     }
-    
-    static let aspectRatios: [(label: String, value: AspectRatio)] = [
-        ("-", AspectRatio(numerator: 0, denominator: 1)),
-        ("1:1", AspectRatio(numerator: 1, denominator: 1)),
-        ("5:4", AspectRatio(numerator: 5, denominator: 4)),
-        ("4:3", AspectRatio(numerator: 4, denominator: 3)),
-        ("3:2", AspectRatio(numerator: 3, denominator: 2)),
-        ("16:10", AspectRatio(numerator: 16, denominator: 10)),
-        ("16:9", AspectRatio(numerator: 16, denominator: 9)),
-        ("1.43", AspectRatio(numerator: 143, denominator: 100)),
-        ("1.66", AspectRatio(numerator: 166, denominator: 100)),
-        ("1.85", AspectRatio(numerator: 185, denominator: 100)),
-        ("1.90", AspectRatio(numerator: 190, denominator: 100)),
-        ("2.00", AspectRatio(numerator: 200, denominator: 100)),
-        ("2.20", AspectRatio(numerator: 220, denominator: 100)),
-        ("2.35", AspectRatio(numerator: 235, denominator: 100)),
-        ("2.39", AspectRatio(numerator: 239, denominator: 100)),
-        ("2.55", AspectRatio(numerator: 255, denominator: 100))
-    ]
-    
-    static let cameras: [String] = [
-        "-",
-        "Canon AE-1",
-        "Canon A-1",
-        "Canon F-1",
-        "Nikon FM2",
-        "Nikon FE2",
-        "Nikon F3",
-        "Olympus OM-1",
-        "Olympus OM-2",
-        "Pentax K1000",
-        "Minolta X-700",
-        "Leica M3",
-        "Leica M6",
-        "Contax T2",
-        "Hasselblad 500C/M",
-        "Mamiya RB67",
-        "Yashica Mat-124G",
-        "Other"];
-    
-    static let filmSizes: [(label: String, value: FilmSize)] = [
-        ("135 (35mm)", FilmSize(width: 36.0, height: 24.0)),
-        ("120 (6x6)", FilmSize(width: 60.0, height: 60.0)),
-        ("120 (6x7)", FilmSize(width: 70.0, height: 60.0)),
-        ("120 (6x9)", FilmSize(width: 90.0, height: 60.0)),
-        ("Large Format (4x5)", FilmSize(width: 127.0, height: 101.6)),
-        ("35mm Academy (4-perf)", FilmSize(width: 21.95, height: 16.00)),
-        ("35mm Full Aperture (Silent)", FilmSize(width: 24.89, height: 18.66)),
-        ("Super 35 (4-perf)", FilmSize(width: 24.89, height: 18.66)),
-        ("Super 35 (3-perf)", FilmSize(width: 24.89, height: 13.87)),
-        ("Techniscope (2-perf)", FilmSize(width: 22.00, height: 9.47)),
-        ("70mm (5-perf)", FilmSize(width: 48.56, height: 22.10)),
-        ("IMAX 70mm (15-perf)", FilmSize(width: 70.41, height: 52.63)),
-        ("Alexa Mini / Classic (Open Gate)", FilmSize(width: 28.17, height: 18.13)),
-        ("Alexa Mini / Classic (16:9)", FilmSize(width: 23.76, height: 13.37)),
-        ("Alexa Mini / Classic (4:3)", FilmSize(width: 23.76, height: 17.82)),
-        ("Alexa LF (Open Gate)", FilmSize(width: 36.70, height: 25.54)),
-        ("Alexa LF (16:9)", FilmSize(width: 31.68, height: 17.82)),
-        ("Alexa 65 (Open Gate)", FilmSize(width: 54.12, height: 25.58))
-    ]
-    
-    static let filmStocks: [(label: String, value: FilmStock)] = [
-        ("Vision3 50D 5203", FilmStock(speed: 50, colorTemperature: 5600)),
-        ("Vision3 250D 5207", FilmStock(speed: 250, colorTemperature: 5600)),
-        ("Vision3 200T 5213", FilmStock(speed: 200, colorTemperature: 3200)),
-        ("Vision3 500T 5219", FilmStock(speed: 500, colorTemperature: 3200)),
-        ("Kodak Ektachrome", FilmStock(speed: 100, colorTemperature: 5600)),
-        ("Kodak Double X 5222", FilmStock(speed: 250, colorTemperature: 5600)),
-        ("EI 50", FilmStock(speed: 50, colorTemperature: 5600)),
-        ("EI 100", FilmStock(speed: 100, colorTemperature: 5600)),
-        ("EI 200", FilmStock(speed: 200, colorTemperature: 5600)),
-        ("EI 400", FilmStock(speed: 400, colorTemperature: 5600)),
-        ("EI 800", FilmStock(speed: 800, colorTemperature: 5600)),
-        ("EI 1600", FilmStock(speed: 1600, colorTemperature: 5600)),
-        ("EI 3200", FilmStock(speed: 3200, colorTemperature: 5600)),
-        ("Q2 Test", FilmStock(speed: 400, colorTemperature: 5600)),
-    ]
-    
-    static let colorFilters: [(label: String, value: Filter)] = [
-        ("-", Filter(exposureCompensation: 0, colorTemperatureShift: 0)),
-        ("85", Filter(exposureCompensation: -0.6, colorTemperatureShift: -2100)),
-        ("85B", Filter(exposureCompensation: -0.6, colorTemperatureShift: -2300)),
-        ("85C", Filter(exposureCompensation: -0.3, colorTemperatureShift: -1700)),
-        ("80A", Filter(exposureCompensation: -1.0, colorTemperatureShift: +2300)),
-        ("80B", Filter(exposureCompensation: -1.0, colorTemperatureShift: +1900)),
-        ("80C", Filter(exposureCompensation: -0.6, colorTemperatureShift: +1200)),
-        ("81A", Filter(exposureCompensation: -0.3, colorTemperatureShift: -300)),
-        ("81B", Filter(exposureCompensation: -0.3, colorTemperatureShift: -450)),
-        ("81C", Filter(exposureCompensation: -0.3, colorTemperatureShift: -600)),
-        ("82A", Filter(exposureCompensation: -0.3, colorTemperatureShift: +200)),
-        ("82B", Filter(exposureCompensation: -0.3, colorTemperatureShift: +400)),
-        ("82C", Filter(exposureCompensation: -0.3, colorTemperatureShift: +600))
-    ]
-    
-    static let ndFilters: [(label: String, value: Filter)] = [
-        ("-", Filter(exposureCompensation: 0, colorTemperatureShift: 0)),
-        ("0.3", Filter(exposureCompensation: -1.0, colorTemperatureShift: 0)),
-        ("0.6", Filter(exposureCompensation: -2.0, colorTemperatureShift: 0)),
-        ("0.9", Filter(exposureCompensation: -3.0, colorTemperatureShift: 0)),
-        ("1.2", Filter(exposureCompensation: -4.0, colorTemperatureShift: 0)),
-        ("2.1", Filter(exposureCompensation: -6.0, colorTemperatureShift: 0))
-    ]
-    
-    static let focalLengths: [(label: String, value: FocalLength)] = [
-        ("12mm", FocalLength(length: 12)),
-        ("14mm", FocalLength(length: 14)),
-        ("16mm", FocalLength(length: 14)),
-        ("18mm", FocalLength(length: 18)),
-        ("19mm", FocalLength(length: 19)),
-        ("20mm", FocalLength(length: 20)),
-        ("21mm", FocalLength(length: 20)),
-        ("24mm", FocalLength(length: 24)),
-        ("25mm", FocalLength(length: 25)),
-        ("27mm", FocalLength(length: 27)),
-        ("28mm", FocalLength(length: 28)),
-        ("32mm", FocalLength(length: 32)),
-        ("35mm", FocalLength(length: 35)),
-        ("40mm", FocalLength(length: 40)),
-        ("50mm", FocalLength(length: 50)),
-        ("60mm", FocalLength(length: 60)),
-        ("65mm", FocalLength(length: 65)),
-        ("70mm", FocalLength(length: 70)),
-        ("75mm", FocalLength(length: 75)),
-        ("80mm", FocalLength(length: 80)),
-        ("85mm", FocalLength(length: 85)),
-        ("105mm", FocalLength(length: 105)),
-        ("135mm", FocalLength(length: 135)),
-        ("150mm", FocalLength(length: 150)),
-        ("200mm", FocalLength(length: 200)),
-        ("300mm", FocalLength(length: 300)),
+
+    static let shutters: [Shutter] = [
+        Shutter(name: "24 fps", numerator: 1, denominator: 48),
+        Shutter(name: "25 fps", numerator: 1, denominator: 50),
+        Shutter(name: "30 fps", numerator: 1, denominator: 60),
+        Shutter(name: "50 fps", numerator: 1, denominator: 100),
+        Shutter(name: "60 fps", numerator: 1, denominator: 120),
+        Shutter(name: "1/2", numerator: 1, denominator: 2),
+        Shutter(name: "1/4", numerator: 1, denominator: 4),
+        Shutter(name: "1/8", numerator: 1, denominator: 8),
+        Shutter(name: "1/15", numerator: 1, denominator: 15),
+        Shutter(name: "1/30", numerator: 1, denominator: 30),
+        Shutter(name: "1/50", numerator: 1, denominator: 50),
+        Shutter(name: "1/60", numerator: 1, denominator: 60),
+        Shutter(name: "1/100", numerator: 1, denominator: 100),
+        Shutter(name: "1/125", numerator: 1, denominator: 125),
+        Shutter(name: "1/250", numerator: 1, denominator: 250),
+        Shutter(name: "1/500", numerator: 1, denominator: 500),
+        Shutter(name: "1/1000", numerator: 1, denominator: 1000),
+        Shutter(name: "1/2000", numerator: 1, denominator: 2000),
+        Shutter(name: "1/4000", numerator: 1, denominator: 4000),
+        Shutter(name: "1", numerator: 1, denominator: 1),
+        Shutter(name: "2", numerator: 2, denominator: 1),
+        Shutter(name: "4", numerator: 4, denominator: 1)
     ]
 
-    static let apertures: [(label: String, value: Aperture)] = [
-        ("f/1.4", Aperture(fstop: 1.4)),
-        ("f/2", Aperture(fstop: 2.0)),
-        ("f/2.8", Aperture(fstop: 2.8)),
-        ("f/4", Aperture(fstop: 4)),
-        ("f/5.6", Aperture(fstop: 5.6)),
-        ("f/8", Aperture(fstop: 8)),
-        ("f/11", Aperture(fstop: 11)),
-        ("f/16", Aperture(fstop: 16)),
-        ("f/22", Aperture(fstop: 22))
-    ]
+    static func shutter(for label: String) -> Shutter {
+        shutters.first(where: { $0.name == label }) ?? .none
+    }
+}
+
+struct OrientationUtils {
+    struct Level: Equatable {
+        var roll: Double
+        var tilt: Double
+    }
     
-    static let lensNames: [String] = [
-         "-",
-         "Canon FD",
-         "Canon CN-E",
-         "Nikon",
-         "Leica R",
-         "Other"
-    ]
-    
-    static let shutters: [(label: String, value: Shutter)] = [
-        ("24 fps", Shutter(numerator: 1, denominator: 48)),
-        ("25 fps", Shutter(numerator: 1, denominator: 50)),
-        ("30 fps", Shutter(numerator: 1, denominator: 60)),
-        ("50 fps", Shutter(numerator: 1, denominator: 100)),
-        ("60 fps", Shutter(numerator: 1, denominator: 120)),
-        ("1/2", Shutter(numerator: 1, denominator: 2)),
-        ("1/4", Shutter(numerator: 1, denominator: 4)),
-        ("1/8", Shutter(numerator: 1, denominator: 8)),
-        ("1/15", Shutter(numerator: 1, denominator: 15)),
-        ("1/30", Shutter(numerator: 1, denominator: 30)),
-        ("1/50", Shutter(numerator: 1, denominator: 50)),
-        ("1/60", Shutter(numerator: 1, denominator: 60)),
-        ("1/100", Shutter(numerator: 1, denominator: 100)),
-        ("1/125", Shutter(numerator: 1, denominator: 125)),
-        ("1/250", Shutter(numerator: 1, denominator: 250)),
-        ("1/500", Shutter(numerator: 1, denominator: 500)),
-        ("1/1000", Shutter(numerator: 1, denominator: 1000)),
-        ("1/2000", Shutter(numerator: 1, denominator: 2000)),
-        ("1/4000", Shutter(numerator: 1, denominator: 4000)),
-        ("1", Shutter(numerator: 1, denominator: 1)),
-        ("2", Shutter(numerator: 2, denominator: 1)),
-        ("4", Shutter(numerator: 4, denominator: 1)),
-    ]
+    static func normalizeLevel(from level: Level) -> Level {
+        let normalizedRoll = (level.roll / 2).rounded() * 2
+        let normalizedTilt = level.tilt.clamped(to: -90...90)
+        return Level(roll: normalizedRoll, tilt: normalizedTilt)
+    }
 }
 
 struct ImageUtils {
@@ -349,7 +507,7 @@ struct ImageUtils {
         var maxDimension: CGFloat {
             switch self {
             case .original:
-                return 3840
+                return 2048
             case .thumbnail:
                 return 320
             }
@@ -358,9 +516,9 @@ struct ImageUtils {
         var compressionQuality: CGFloat {
             switch self {
             case .original:
-                return 0.9
-            case .thumbnail:
                 return 0.7
+            case .thumbnail:
+                return 0.5
             }
         }
     }
@@ -396,13 +554,45 @@ struct ImageUtils {
             return FileManager.default.fileExists(atPath: url.path)
         }
 
+        /*
         func saveImage(_ image: UIImage, id: UUID, type: FileType) -> Bool {
             let resizedImage = image.resized(toMaxDimension: type.maxDimension)
             guard let data = resizedImage.jpegData(compressionQuality: type.compressionQuality) else {
                 return false
             }
             return saveImageFile(data, id: id, type: type)
+        }*/
+        
+        // TODO: Fix the comments here and make sure they are correct
+        
+        func saveImage(_ image: UIImage, id: UUID, type: FileType) -> Bool {
+            
+            print("💾 saveImage begin for type \(type)")
+            
+            print("📸 saveImage (before resize)")
+            print(" - Size: \(image.size.width)x\(image.size.height)")
+            print(" - Scale: \(image.scale)")
+            print(" - Orientation: \(image.imageOrientation.rawValue)")
+
+            let resizedImage = image.resizedPreservingOrientation(toMaxDimension: type.maxDimension)
+
+            print("📸 saveImage (after resize)")
+            print(" - Size: \(resizedImage.size.width)x\(resizedImage.size.height)")
+            print(" - Scale: \(resizedImage.scale)")
+            print(" - Orientation: \(resizedImage.imageOrientation.rawValue)")
+
+            guard let data = resizedImage.jpegData(compressionQuality: type.compressionQuality) else {
+                print("⚠️ Failed to get JPEG data")
+                return false
+            }
+            
+            print("💾 saveImage end writing \(data.count / 1024) KB");
+
+
+            return saveImageFile(data, id: id, type: type)
         }
+        
+        
         
         func saveImage(_ image: UIImage, id: UUID, types: [FileType] = FileType.allCases) -> Bool {
             var allSucceeded = true
@@ -463,22 +653,33 @@ struct ImageUtils {
 }
 
 extension UIImage {
-    func resized(toMaxDimension max: CGFloat) -> UIImage {
-        let originalSize = self.size
+    func resizedPreservingOrientation(toMaxDimension max: CGFloat) -> UIImage {
+        guard let cgImage = self.cgImage else { return self }
+        let originalSize = CGSize(width: cgImage.width, height: cgImage.height)
         let aspectRatio = originalSize.width / originalSize.height
-
+        
         let newSize: CGSize
         if originalSize.width > originalSize.height {
             newSize = CGSize(width: max, height: max / aspectRatio)
         } else {
             newSize = CGSize(width: max * aspectRatio, height: max)
         }
-        let renderer = UIGraphicsImageRenderer(size: newSize)
-        return renderer.image { _ in
-            draw(in: CGRect(origin: .zero, size: newSize))
-        }
+        guard let context = CGContext(
+            data: nil,
+            width: Int(newSize.width),
+            height: Int(newSize.height),
+            bitsPerComponent: cgImage.bitsPerComponent,
+            bytesPerRow: 0,
+            space: cgImage.colorSpace ?? CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: cgImage.bitmapInfo.rawValue
+        ) else { return self }
+        context.interpolationQuality = .high
+        context.draw(cgImage, in: CGRect(origin: .zero, size: newSize))
+        guard let scaledCGImage = context.makeImage() else { return self }
+        return UIImage(cgImage: scaledCGImage, scale: self.scale, orientation: self.imageOrientation)
     }
 }
+
 
 enum DataValue: Codable {
     case string(String)
@@ -793,7 +994,7 @@ class Roll: Codable {
 
     required init(name: String = "",
          note: String = "",
-         camera: String = "Other",
+         camera: String = "-",
          counter: Int = 24,
          pushPull: String = "0",
          filmDate: Date = Date(),
@@ -879,10 +1080,10 @@ class Shot: Codable {
     var aperture: String
     var shutter: String
     var exposureCompensation: String
-    var lensName: String
-    var lensColorFilter: String
-    var lensNdFilter: String
-    var lensFocalLength: String
+    var lens: String
+    var colorFilter: String
+    var ndFilter: String
+    var focalLength: String
     var focusDistance: Double
     var focusDepthOfField: Double
     var focusNearLimit: Double
@@ -896,6 +1097,12 @@ class Shot: Codable {
     var exposureShadows: String
     var exposureSkinKey: String
     var exposureSkinFill: String
+    var deviceRoll: Double
+    var deviceTilt: Double
+    var deviceCameraMode: String
+    var deviceAspectRatio: Double
+    var deviceFieldOfView: Double
+    var deviceLens: String
     var isLocked: Bool
 
     @Relationship private var image: ImageData?
@@ -956,23 +1163,29 @@ class Shot: Codable {
          aperture: String = "f/2.8",
          shutter: String = "1/125",
          exposureCompensation: String = "0",
-         lensName: String = "Other",
-         lensColorFilter: String = "-",
-         lensNdFilter: String = "-",
-         lensFocalLength: String = "50mm",
+         lens: String = "-",
+         colorFilter: String = "-",
+         ndFilter: String = "-",
+         focalLength: String = "50mm",
          focusDistance: Double = 500,
          focusDepthOfField: Double = 0.0,
          focusNearLimit: Double = 0.0,
          focusFarLimit: Double = 0.0,
          focusHyperfocalDistance: Double = 0.0,
          focusHyperfocalNearLimit: Double = 0.0,
-         exposureSky: String = "-",
-         exposureFoliage: String = "-",
-         exposureHighlights: String = "-",
-         exposureMidGray: String = "-",
-         exposureShadows: String = "-",
-         exposureSkinKey: String = "-",
-         exposureSkinFill: String = "-",
+         exposureSky: String = "f/2.8",
+         exposureFoliage: String = "f/2.8",
+         exposureHighlights: String = "f/2.8",
+         exposureMidGray: String = "f/2.8",
+         exposureShadows: String = "f/2.8",
+         exposureSkinKey: String = "f/2.8",
+         exposureSkinFill: String = "f/2.8",
+         deviceRoll: Double = 0.0,
+         deviceTilt: Double = 0.0,
+         deviceCameraMode: String = "",
+         deviceAspectRatio: Double = 0.0,
+         deviceFieldOfView: Double = 0.0,
+         deviceLens: String = "",
          image: ImageData? = nil,
          lightMeterImage: ImageData? = nil,
          isLocked: Bool = false) {
@@ -988,10 +1201,10 @@ class Shot: Codable {
         self.aperture = aperture
         self.shutter = shutter
         self.exposureCompensation = exposureCompensation
-        self.lensName = lensName
-        self.lensColorFilter = lensColorFilter
-        self.lensNdFilter = lensNdFilter
-        self.lensFocalLength = lensFocalLength
+        self.lens = lens
+        self.colorFilter = colorFilter
+        self.ndFilter = ndFilter
+        self.focalLength = focalLength
         self.focusDistance = focusDistance
         self.focusDepthOfField = focusDepthOfField
         self.focusNearLimit = focusNearLimit
@@ -1005,6 +1218,12 @@ class Shot: Codable {
         self.exposureShadows = exposureShadows
         self.exposureSkinKey = exposureSkinKey
         self.exposureSkinFill = exposureSkinFill
+        self.deviceRoll = deviceRoll
+        self.deviceTilt = deviceTilt
+        self.deviceCameraMode = deviceCameraMode
+        self.deviceAspectRatio = deviceAspectRatio
+        self.deviceFieldOfView = deviceFieldOfView
+        self.deviceLens = deviceLens
         self.image = image
         self.lightMeterImage = lightMeterImage
         self.isLocked = isLocked
@@ -1029,10 +1248,10 @@ class Shot: Codable {
         newShot.aperture = self.aperture
         newShot.shutter = self.shutter
         newShot.exposureCompensation = self.exposureCompensation
-        newShot.lensName = self.lensName
-        newShot.lensColorFilter = self.lensColorFilter
-        newShot.lensNdFilter = self.lensNdFilter
-        newShot.lensFocalLength = self.lensFocalLength
+        newShot.lens = self.lens
+        newShot.colorFilter = self.colorFilter
+        newShot.ndFilter = self.ndFilter
+        newShot.focalLength = self.focalLength
         newShot.focusDistance = self.focusDistance
         newShot.focusDepthOfField = self.focusDepthOfField
         newShot.focusNearLimit = self.focusNearLimit
@@ -1046,7 +1265,13 @@ class Shot: Codable {
         newShot.exposureShadows = self.exposureShadows
         newShot.exposureSkinKey = self.exposureSkinKey
         newShot.exposureSkinFill = self.exposureSkinFill
-
+        newShot.deviceRoll = self.deviceRoll
+        newShot.deviceTilt = self.deviceTilt
+        newShot.deviceCameraMode = self.deviceCameraMode
+        newShot.deviceAspectRatio = self.deviceAspectRatio
+        newShot.deviceFieldOfView = self.deviceFieldOfView
+        newShot.deviceLens = self.deviceLens
+        
         newShot.updateImage(to: self.image, context: context)
         newShot.updateLightMeterImage(to: self.lightMeterImage, context: context)
 
@@ -1054,11 +1279,13 @@ class Shot: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, filmSize, filmStock, aspectRatio, name, note, location, locationTimestamp, locationColorTemperature,
-             locationElevation, aperture, shutter, exposureCompensation, lensName, lensColorFilter, lensNdFilter, lensFocalLength,
-             focusDistance, focusDepthOfField, focusNearLimit, focusFarLimit, focusHyperfocalDistance,
-             focusHyperfocalNearLimit, exposureSky, exposureFoliage, exposureHighlights, exposureMidGray,
-             exposureShadows, exposureSkinKey, exposureSkinFill, image, lightMeterImage, isLocked
+        case id, timestamp, filmSize, filmStock, aspectRatio, name, note, 
+             location, locationTimestamp, locationColorTemperature, locationElevation,
+             aperture, shutter, exposureCompensation, lens, colorFilter, ndFilter, focalLength,
+             focusDistance, focusDepthOfField, focusNearLimit, focusFarLimit, focusHyperfocalDistance, focusHyperfocalNearLimit,
+             exposureSky, exposureFoliage, exposureHighlights, exposureMidGray, exposureShadows, exposureSkinKey, exposureSkinFill,
+             deviceRoll, deviceTilt, deviceCameraMode, deviceAspectRatio, deviceFieldOfView, deviceLens,
+             image, lightMeterImage, isLocked
     }
 
     required init(from decoder: Decoder) throws {
@@ -1077,10 +1304,10 @@ class Shot: Codable {
         aperture = try container.decode(String.self, forKey: .aperture)
         shutter = try container.decode(String.self, forKey: .shutter)
         exposureCompensation = try container.decode(String.self, forKey: .exposureCompensation)
-        lensName = try container.decode(String.self, forKey: .lensName)
-        lensColorFilter = try container.decode(String.self, forKey: .lensColorFilter)
-        lensNdFilter = try container.decode(String.self, forKey: .lensNdFilter)
-        lensFocalLength = try container.decode(String.self, forKey: .lensFocalLength)
+        lens = try container.decode(String.self, forKey: .lens)
+        colorFilter = try container.decode(String.self, forKey: .colorFilter)
+        ndFilter = try container.decode(String.self, forKey: .ndFilter)
+        focalLength = try container.decode(String.self, forKey: .focalLength)
         focusDistance = try container.decode(Double.self, forKey: .focusDistance)
         focusDepthOfField = try container.decode(Double.self, forKey: .focusDepthOfField)
         focusNearLimit = try container.decode(Double.self, forKey: .focusNearLimit)
@@ -1094,6 +1321,12 @@ class Shot: Codable {
         exposureShadows = try container.decode(String.self, forKey: .exposureShadows)
         exposureSkinKey = try container.decode(String.self, forKey: .exposureSkinKey)
         exposureSkinFill = try container.decode(String.self, forKey: .exposureSkinFill)
+        deviceRoll = try container.decode(Double.self, forKey: .deviceRoll)
+        deviceTilt = try container.decode(Double.self, forKey: .deviceTilt)
+        deviceCameraMode = try container.decode(String.self, forKey: .deviceCameraMode)
+        deviceAspectRatio = try container.decode(Double.self, forKey: .deviceAspectRatio)
+        deviceFieldOfView = try container.decode(Double.self, forKey: .deviceFieldOfView)
+        deviceLens = try container.decode(String.self, forKey: .deviceLens)
         image = try container.decodeIfPresent(ImageData.self, forKey: .image)
         lightMeterImage = try container.decodeIfPresent(ImageData.self, forKey: .lightMeterImage)
         isLocked = try container.decode(Bool.self, forKey: .isLocked)
@@ -1115,10 +1348,10 @@ class Shot: Codable {
         try container.encode(aperture, forKey: .aperture)
         try container.encode(shutter, forKey: .shutter)
         try container.encode(exposureCompensation, forKey: .exposureCompensation)
-        try container.encode(lensName, forKey: .lensName)
-        try container.encode(lensColorFilter, forKey: .lensColorFilter)
-        try container.encode(lensNdFilter, forKey: .lensNdFilter)
-        try container.encode(lensFocalLength, forKey: .lensFocalLength)
+        try container.encode(lens, forKey: .lens)
+        try container.encode(colorFilter, forKey: .colorFilter)
+        try container.encode(ndFilter, forKey: .ndFilter)
+        try container.encode(focalLength, forKey: .focalLength)
         try container.encode(focusDistance, forKey: .focusDistance)
         try container.encode(focusDepthOfField, forKey: .focusDepthOfField)
         try container.encode(focusNearLimit, forKey: .focusNearLimit)
@@ -1132,6 +1365,12 @@ class Shot: Codable {
         try container.encode(exposureShadows, forKey: .exposureShadows)
         try container.encode(exposureSkinKey, forKey: .exposureSkinKey)
         try container.encode(exposureSkinFill, forKey: .exposureSkinFill)
+        try container.encode(deviceRoll, forKey: .deviceRoll)
+        try container.encode(deviceTilt, forKey: .deviceTilt)
+        try container.encode(deviceCameraMode, forKey: .deviceCameraMode)
+        try container.encode(deviceAspectRatio, forKey: .deviceAspectRatio)
+        try container.encode(deviceFieldOfView, forKey: .deviceFieldOfView)
+        try container.encode(deviceLens, forKey: .deviceLens)
         try container.encodeIfPresent(image, forKey: .image)
         try container.encodeIfPresent(lightMeterImage, forKey: .lightMeterImage)
         try container.encode(isLocked, forKey: .isLocked)
@@ -1153,5 +1392,4 @@ extension ModelContext {
         shot.cleanup(context: self)
         self.delete(shot)
     }
-
 }

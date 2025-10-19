@@ -71,14 +71,7 @@ struct ShotSectionView: View {
             }
         }
         .fullScreenCover(isPresented: $showFullImage) {
-            if let imageData = shot.imageData,
-               let thumbnail = imageData.thumbnail {
-                ShotImageView(image: thumbnail)
-            } else {
-                Text("No image available")
-                    .font(.headline)
-                    .padding()
-            }
+            ShotImageView(shot: shot)
         }
         .onChange(of: selectedItem) {
             if let selectedItem {

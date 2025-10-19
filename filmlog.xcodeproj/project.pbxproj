@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1F0E65D02E84866800C7FD85 /* ShotImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F0E65CF2E84866800C7FD85 /* ShotImageView.swift */; };
+		1F0E65D22E85583700C7FD85 /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F0E65D12E85583700C7FD85 /* Extensions.swift */; };
 		1F2A9A252E41543F00C304FA /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F2A9A242E41543F00C304FA /* Views.swift */; };
 		1F2A9A3A2E42216600C304FA /* LutExposure.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A362E42216600C304FA /* LutExposure.cube */; };
 		1F2A9A432E422EF300C304FA /* LutKodakWarm.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A3E2E422EF300C304FA /* LutKodakWarm.cube */; };
@@ -24,7 +26,6 @@
 		1F64D2E42E1B1362009EA1A8 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F64D2E32E1B1362009EA1A8 /* Models.swift */; };
 		1F64D2E62E1B1384009EA1A8 /* RollDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F64D2E52E1B1384009EA1A8 /* RollDetailView.swift */; };
 		1F64D2E82E1B1457009EA1A8 /* CameraPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F64D2E72E1B1457009EA1A8 /* CameraPicker.swift */; };
-		1F70B3742E30124B0021DB93 /* ShotImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F70B3702E30124B0021DB93 /* ShotImageView.swift */; };
 		1F70B3752E30124B0021DB93 /* ShotDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F70B3712E30124B0021DB93 /* ShotDetailView.swift */; };
 		1F70B3762E30124B0021DB93 /* ShotSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F70B3722E30124B0021DB93 /* ShotSectionView.swift */; };
 		1F70B3772E30124B0021DB93 /* ShotViewfinderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F70B3732E30124B0021DB93 /* ShotViewfinderView.swift */; };
@@ -84,6 +85,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1F0E65CF2E84866800C7FD85 /* ShotImageView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShotImageView.swift; sourceTree = "<group>"; };
+		1F0E65D12E85583700C7FD85 /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
 		1F2A9A242E41543F00C304FA /* Views.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views.swift; sourceTree = "<group>"; };
 		1F2A9A362E42216600C304FA /* LutExposure.cube */ = {isa = PBXFileReference; lastKnownFileType = text; name = LutExposure.cube; path = filmlog/LutExposure.cube; sourceTree = SOURCE_ROOT; };
 		1F2A9A3E2E422EF300C304FA /* LutKodakWarm.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LutKodakWarm.cube; sourceTree = "<group>"; };
@@ -104,7 +107,6 @@
 		1F64D2E32E1B1362009EA1A8 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		1F64D2E52E1B1384009EA1A8 /* RollDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RollDetailView.swift; sourceTree = "<group>"; };
 		1F64D2E72E1B1457009EA1A8 /* CameraPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPicker.swift; sourceTree = "<group>"; };
-		1F70B3702E30124B0021DB93 /* ShotImageView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShotImageView.swift; sourceTree = "<group>"; };
 		1F70B3712E30124B0021DB93 /* ShotDetailView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShotDetailView.swift; sourceTree = "<group>"; };
 		1F70B3722E30124B0021DB93 /* ShotSectionView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShotSectionView.swift; sourceTree = "<group>"; };
 		1F70B3732E30124B0021DB93 /* ShotViewfinderView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShotViewfinderView.swift; sourceTree = "<group>"; };
@@ -200,26 +202,28 @@
 				1FD3D1502E2108A100A1C9EF /* Info.plist */,
 				1F2D89F12E2E762E0040D673 /* filmlog.entitlements */,
 				1F9B3E942E1AE48C005F95A0 /* filmlogApp.swift */,
+				1F9DC7E72E3BC3FB00D95B79 /* CameraMetalPreview.swift */,
+				1F9DC7E92E3BC42900D95B79 /* CameraMetalRenderer.swift */,
+				1F9DC7EB2E3BC70400D95B79 /* CameraMetalProgram.metal */,
 				1F62CE0E2E21608C002DBAA3 /* CameraModel.swift */,
 				1F62CE102E2160BD002DBAA3 /* CameraPreview.swift */,
 				1F64D2E72E1B1457009EA1A8 /* CameraPicker.swift */,
 				1F9B3E962E1AE48C005F95A0 /* ContentView.swift */,
+				1F9D42952E82F4850072D498 /* Debug.swift */,
+				1F0E65D12E85583700C7FD85 /* Extensions.swift */,
 				1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */,
 				1F9DC7E52E3AB90B00D95B79 /* GalleryView.swift */,
 				1F9B3E982E1AE48C005F95A0 /* Item.swift */,
 				1F9B3E9A2E1AE48F005F95A0 /* Assets.xcassets */,
 				1F9B3E9C2E1AE48F005F95A0 /* Preview Content */,
 				1F64D2E32E1B1362009EA1A8 /* Models.swift */,
-				1F2A9A242E41543F00C304FA /* Views.swift */,
 				1F64D2E52E1B1384009EA1A8 /* RollDetailView.swift */,
 				1FD3D14E2E2102F100A1C9EF /* SettingsView.swift */,
 				1F70B3712E30124B0021DB93 /* ShotDetailView.swift */,
-				1F70B3702E30124B0021DB93 /* ShotImageView.swift */,
 				1F70B3722E30124B0021DB93 /* ShotSectionView.swift */,
+				1F0E65CF2E84866800C7FD85 /* ShotImageView.swift */,
 				1F70B3732E30124B0021DB93 /* ShotViewfinderView.swift */,
-				1F9DC7E72E3BC3FB00D95B79 /* CameraMetalPreview.swift */,
-				1F9DC7E92E3BC42900D95B79 /* CameraMetalRenderer.swift */,
-				1F9DC7EB2E3BC70400D95B79 /* CameraMetalProgram.metal */,
+				1F2A9A242E41543F00C304FA /* Views.swift */,
 				1F2A9A362E42216600C304FA /* LutExposure.cube */,
 				1F2A9A402E422EF300C304FA /* LutFujiNeutral.cube */,
 				1F2A9A412E422EF300C304FA /* LutFujiWarm.cube */,
@@ -228,7 +232,6 @@
 				1F2A9A4C2E4230D100C304FA /* LutBWContrast.cube */,
 				1F2A9A3F2E422EF300C304FA /* LutKodakNeutral.cube */,
 				1F2A9A3E2E422EF300C304FA /* LutKodakWarm.cube */,
-				1F9D42952E82F4850072D498 /* Debug.swift */,
 			);
 			path = filmlog;
 			sourceTree = "<group>";
@@ -448,12 +451,13 @@
 				1FEDFF2A2E1EA54400E64567 /* FullscreenImageView.swift in Sources */,
 				1FD3D14F2E2102F100A1C9EF /* SettingsView.swift in Sources */,
 				1F64D2E82E1B1457009EA1A8 /* CameraPicker.swift in Sources */,
+				1F0E65D22E85583700C7FD85 /* Extensions.swift in Sources */,
 				1F70B3762E30124B0021DB93 /* ShotSectionView.swift in Sources */,
 				1F64D2E42E1B1362009EA1A8 /* Models.swift in Sources */,
-				1F70B3742E30124B0021DB93 /* ShotImageView.swift in Sources */,
 				1F2A9A252E41543F00C304FA /* Views.swift in Sources */,
 				1F70B3752E30124B0021DB93 /* ShotDetailView.swift in Sources */,
 				1F9DC7EC2E3BC70400D95B79 /* CameraMetalProgram.metal in Sources */,
+				1F0E65D02E84866800C7FD85 /* ShotImageView.swift in Sources */,
 				1F9DC7EA2E3BC42900D95B79 /* CameraMetalRenderer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

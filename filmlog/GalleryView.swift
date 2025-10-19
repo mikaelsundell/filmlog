@@ -59,6 +59,8 @@ struct GalleryView: View {
     @State private var selectedItems: [PhotosPickerItem] = []
 
     var body: some View {
+        
+        /*
         NavigationStack {
             VStack(spacing: 0) {
                 HStack {
@@ -353,7 +355,8 @@ struct GalleryView: View {
                 }
                 selectedItems.removeAll()
             }
-        }
+        }*/
+         
     }
     
     private var currentGallery: Gallery {

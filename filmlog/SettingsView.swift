@@ -690,10 +690,10 @@ struct ShotExport: Codable {
     var aperture: String
     var shutter: String
     var exposureCompensation: String
-    var lensName: String
-    var lensColorFilter: String
-    var lensNdFilter: String
-    var lensFocalLength: String
+    var lens: String
+    var colorFilter: String
+    var ndFilter: String
+    var focalLength: String
     var focusDistance: Double
     var focusDepthOfField: Double
     var focusNearLimit: Double
@@ -707,6 +707,12 @@ struct ShotExport: Codable {
     var exposureShadows: String
     var exposureSkinKey: String
     var exposureSkinFill: String
+    var deviceRoll: Double
+    var deviceTilt: Double
+    var deviceCameraMode: String
+    var deviceAspectRatio: String
+    var deviceFieldOfView: String
+    var deviceLens: String
     var image: UUID?
     var lightMeterImage: UUID?
     var isLocked: Bool

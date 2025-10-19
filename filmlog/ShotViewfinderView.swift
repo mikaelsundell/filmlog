@@ -3,30 +3,46 @@
 // https://github.com/mikaelsundell/filmlog
 
 import SwiftUI
+import AVFoundation
 
 struct ShotViewfinderView: View {
     @Bindable var shot: Shot
     
     var onCapture: (UIImage) -> Void
+    @State private var capturedImage: UIImage? = nil
+    @State private var isCaptured = false
+    
+    @AppStorage("isFullscreen") private var isFullscreen = false
+    
     @Environment(\.dismiss) private var dismiss
     
     @State private var focusPoint: CGPoint? = nil
     @State private var imageDataToExport: Data? = nil
     @State private var showExport = false
     
-    struct PickerContext {
-        let id: String
-        var labels: [String]
-        var initialSelection: String
-        var onSelect: (String) -> Void
-        var modeLabels: [String] = []
-        var selectedMode: String = ""
-        var onModeSelect: ((String) -> Void)? = nil
+    @StateObject private var cameraModel = CameraModel()
+    
+    enum ActiveControls: String {
+        case none
+        case overlay
+        case metadata
+        case image
+        case look
+        case filter
+        case exposure
+    }
+    
+    enum ControlTypes {
+        case none
+        case lookPicker
+        case colorPicker
+        case ndPicker
+        case shutterPicker
+        case aperturePicker
     }
 
-    @State private var pickerContext: PickerContext? = nil
-    
-    @StateObject private var cameraModel = CameraModel()
+    @State private var activeControls: ActiveControls = .none
+    @State private var activeControlType: ControlTypes? = nil
     
     @AppStorage("centerMode") private var centerModeRawValue: Int = ToggleMode.off.rawValue
     private var centerMode: ToggleMode {
@@ -46,85 +62,188 @@ struct ShotViewfinderView: View {
         set { levelModeRawValue = newValue.rawValue }
     }
     
+    @AppStorage("metaDataMode") private var metaDataMode: Bool = true
+    
     @AppStorage("lensType") private var selectedLensRawValue: String = LensType.wide.rawValue
     @AppStorage("lutType") private var selectedLutTypeValue: String = LUTType.kodakNeutral.rawValue
     
     @AppStorage("cameraMode") private var cameraMode: CameraMode = .auto
-
-    @ObservedObject private var orientationObserver = OrientationObserver()
     
+    @ObservedObject private var orientationObserver = OrientationObserver()
+  
     var body: some View {
         ZStack(alignment: .bottom) {
             Color.clear
             GeometryReader { geometry in
                 ZStack {
-                    CameraMetalPreview(renderer: cameraModel.renderer)
-                    .ignoresSafeArea()
-   
-                    if let context = pickerContext {
-                        CircularPickerView(
-                            selectedLabel: context.initialSelection,
-                            labels: context.labels,
-                            onChange: context.onSelect,
-                            onRelease: { _ in },
-                            modeLabels: context.modeLabels,
-                            selectedMode: context.selectedMode,
-                            onModeSelect: context.onModeSelect ?? { _ in }
-                        )
-                        .id(context.id)
-                        .frame(width: 240, height: 240)
-                        .padding()
-                        .zIndex(2)
-                        .rotationEffect(orientationObserver.orientation.angle)
-                    }
-                    
-                    FrameOverlay(
-                        aspectRatio: shot.aspectRatio,
-                        colorFilter: shot.lensColorFilter,
-                        ndFilter: shot.lensNdFilter,
-                        focalLength: shot.lensFocalLength,
-                        aperture: shot.aperture,
-                        shutter: shot.shutter,
-                        filmSize: shot.filmSize,
-                        filmStock: shot.filmStock,
-                        horizontalFov: cameraModel.horizontalFov,
-                        orientation: orientationObserver.orientation,
-                        cameraMode: cameraMode,
-                        centerMode: centerMode,
-                        symmetryMode: symmetryMode,
-                        showOnlyText: pickerContext != nil
+                    let aspectRatio = CameraUtils.aspectRatio(for: shot.aspectRatio)
+                    let filmSize = CameraUtils.filmSize(for: shot.filmSize)
+                
+                    let projectedFrame = Projection.projectedFrame(
+                        size: geometry.size.switchOrientation(), // project for camera
+                        focalLength: CameraUtils.focalLength(for: shot.focalLength).length,
+                        aspectRatio: filmSize.aspectRatio,
+                        width: filmSize.width,
+                        fieldOfView: cameraModel.fieldOfView
                     )
-                    .frame(width: geometry.size.width, height: geometry.size.height)
 
-                    if pickerContext == nil, levelMode != .off {
-                        LevelIndicator(
-                            levelAndPitch: orientationObserver.levelAndPitch,
-                            orientation: orientationObserver.orientation,
-                            levelMode: levelMode
-                        )
-                    }
-                }
-                .ignoresSafeArea()
-            }
-            .ignoresSafeArea()
-            
-            if pickerContext == nil {
-                GeometryReader { geo in
+                    let projectedAspectRatio = Projection.frameForAspectRatio(
+                        size: projectedFrame, // is camera
+                        aspectRatio: aspectRatio.ratio > 0.0 ? aspectRatio.ratio : filmSize.aspectRatio
+                    )
+                    
+                    let width = geometry.size.width
+                    let height = geometry.size.height
+                    let projectedSize = projectedFrame.switchOrientation()
+                    
+                    let (fit): (CGFloat) = {
+                        if isFullscreen {
+                            let padding: CGFloat = 10
+                            let iw = width - padding * 2
+                            let ih = height - padding * 2
+                            let f = min(iw / projectedSize.width, ih / projectedSize.height)
+                            return (f)
+                        } else {
+                            return (1.0)
+                        }
+                    }()
+
+                    let frameSize = projectedSize * fit
+                    let frameAspectRatio = projectedAspectRatio.switchOrientation() * fit
+                    
                     ZStack {
+                        Canvas { context, size in
+                            let spacing: CGFloat = 20
+                            let lineWidth: CGFloat = 6
+                            var path = Path()
+                            for x in stride(from: -size.height, to: size.width, by: spacing) {
+                                path.move(to: CGPoint(x: x, y: 0))
+                                path.addLine(to: CGPoint(x: x + size.height, y: size.height))
+                            }
+                            
+                            context.stroke(path, with: .color(.gray.opacity(0.4)), lineWidth: lineWidth)
+                        }
+                        .frame(width: frameSize.width, height: frameSize.height)
+                        .position(x: width / 2, y: height / 2)
+                        .allowsHitTesting(false)
+                        
+                        if let image = capturedImage, isCaptured {
+                            ZStack {
+                                let scale = (height * fit) / image.size.width; // is camera
+                                ZStack {
+                                    Image(uiImage: image)
+                                        .scaleEffect(scale)
+                                        .rotationEffect(.degrees(90)) // to potrait
+                                }
+                                .clipped()
+                                .ignoresSafeArea()
+                            }
+                            .frame(width: width, height: height)
+                            .position(x: width / 2, y: height / 2)
+                            .ignoresSafeArea()
+                            
+                        } else {
+                            ZStack {
+                                let scale = (width * fit) / width;
+                                ZStack {
+                                    CameraMetalPreview(renderer: cameraModel.renderer) // is portait
+                                        .scaleEffect(scale)
+                                }
+                            }
+                            .position(x: width / 2, y: height / 2)
+                            .ignoresSafeArea()
+                        }
+                        
+                        MaskView(
+                            frameSize: frameSize,
+                            aspectSize: frameAspectRatio,
+                            inner: 0.4,
+                            outer: 0.95,
+                            geometry: geometry
+                        )
+                        
+                        if centerMode != .off && (activeControls == .overlay || activeControls == .none) {
+                            CenterView(
+                                centerMode: centerMode,
+                                size: projectedAspectRatio * fit, // draw for camera
+                                geometry: geometry
+                            )
+                            .rotationEffect(.degrees(90)) // to potrait
+                            .position(x: width / 2, y: height / 2)
+                        }
+                        
+                        if symmetryMode != .off && (activeControls == .overlay || activeControls == .none) {
+                            SymmetryView(
+                                symmetryMode: symmetryMode,
+                                size: projectedAspectRatio * fit, // draw for camera
+                                geometry: geometry
+                            )
+                            .rotationEffect(.degrees(90)) // to potrait
+                            .position(x: width / 2, y: height / 2)
+                        }
+                        
+                        if levelMode != .off && (activeControls == .overlay || activeControls == .none) {
+                            LevelIndicatorView(
+                                level: orientationObserver.level,
+                                orientation: orientationObserver.orientation,
+                                levelMode: levelMode
+                            )
+                        }
+                        
+                        if metaDataMode && (activeControls == .metadata || activeControls == .none) {
+                            let aperture = CameraUtils.aperture(for: shot.aperture)
+                            let colorFilter = CameraUtils.colorFilter(for: shot.colorFilter)
+                            let ndFilter = CameraUtils.colorFilter(for: shot.ndFilter)
+                            let filmSize = CameraUtils.filmSize(for: shot.filmSize)
+                            let filmStock = CameraUtils.filmStock(for: shot.filmStock)
+                            let shutter = CameraUtils.filmStock(for: shot.shutter)
+                            let focalLength = CameraUtils.focalLength(for: shot.focalLength)
+                            
+                            let colorTempText: String = !colorFilter.isNone
+                                ? "\(Int(filmStock.colorTemperature + colorFilter.colorTemperatureShift))K (\(colorFilter.name))"
+                                : " WB: Auto"
+
+                            let exposureCompensation = colorFilter.exposureCompensation + ndFilter.exposureCompensation
+                            let exposureText: String = (cameraMode != .auto)
+                                ? ", E: \(Int(filmStock.speed)) \(shutter.name) \(aperture.name)\(exposureCompensation != 0 ? " (\(String(format: "%+.1f", exposureCompensation)))" : "")"
+                                : ", E: Auto"
+                            
+                            let text =
+                                "\(Int(filmSize.width)) mm x \(Int(filmSize.height)) mm, " +
+                                "\(String(format: "%.1f", filmSize.angleOfView(focalLength: focalLength.length).horizontal))°, " +
+                                "\(colorTempText)\(exposureText)"
+                            
+                            TextView(
+                                text: text,
+                                alignment: .top,
+                                orientation: orientationObserver.orientation,
+                                geometry: geometry
+                            )
+                        }
+                    }
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.3), value: isCaptured)
+                    
+                    if activeControls == .none {
+                        let scale = (width * fit) / width;
                         Color.clear
                             .contentShape(Rectangle())
                             .gesture(
                                 DragGesture(minimumDistance: 0)
                                     .onEnded { gesture in
                                         let tapPoint = gesture.location
-                                        guard tapPoint.y >= 0, tapPoint.y <= geo.size.height else {
-                                            return
-                                        }
-                                        let top = CGRect(x: 0, y: 0, width: geo.size.width, height: 100)
-                                        let bottom = CGRect(x: 0, y: geo.size.height - 80, width: geo.size.width, height: 80)
+                                        let adjustedPoint = CGPoint(
+                                            x: tapPoint.x / scale,
+                                            y: tapPoint.y / scale
+                                        )
+                                        let top = CGRect(x: 0, y: 0, width: geometry.size.width, height: 140)
+                                        let bottom = CGRect(x: 0,y: geometry.size.height - 140, width: geometry.size.width, height: 140)
                                         if !top.contains(tapPoint) && !bottom.contains(tapPoint) {
+                                            cameraModel.focus(
+                                                at: adjustedPoint,
+                                                viewSize: CGSize(width: geometry.size.width / scale, height: geometry.size.height / scale)
+                                            )
                                             focusPoint = tapPoint
-                                            cameraModel.focus(at: tapPoint, viewSize: geo.size)
                                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                                                 focusPoint = nil
                                             }
@@ -133,16 +252,275 @@ struct ShotViewfinderView: View {
                             )
                             .allowsHitTesting(true)
                             .ignoresSafeArea()
-                        
+
                         if let point = focusPoint {
                             Circle()
                                 .stroke(Color.white, lineWidth: 2)
-                                .frame(width: 40, height: 40)
-                                .position(x: point.x, y: point.y - 40)
+                                .frame(width: 32, height: 32)
+                                .position(x: point.x, y: point.y)
                                 .transition(.opacity)
                                 .animation(.easeOut(duration: 0.3), value: focusPoint)
                         }
                     }
+                }
+                .ignoresSafeArea()
+            }
+            .ignoresSafeArea()
+            
+            if activeControls == .overlay {
+                ControlsView(
+                    isVisible: .constant(true),
+                    buttons: [
+                        ControlButton(
+                            icon: "gyroscope",
+                            label: "Gyroscope",
+                            action: {
+                                levelModeRawValue = levelMode.next().rawValue
+                            },
+                            background: levelMode.color,
+                            rotation: orientationObserver.orientation.rotationAngle
+                        ),
+                        ControlButton(
+                            icon: "grid",
+                            label: "Symmetry",
+                            action: {
+                                symmetryModeRawValue = symmetryMode.next().rawValue
+                            },
+                            background: symmetryMode.color,
+                            rotation: orientationObserver.orientation.rotationAngle
+                        ),
+                        ControlButton(
+                            icon: "plus.circle.fill",
+                            label: "Center",
+                            action: {
+                                centerModeRawValue = centerMode.next().rawValue
+                            },
+                            background: centerMode.color,
+                            rotation: orientationObserver.orientation.rotationAngle
+                        )
+                    ]
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.clear)
+                .ignoresSafeArea()
+                .transition(.opacity)
+                .zIndex(2)
+            }
+            
+            if activeControls == .metadata {
+                ControlsView(
+                    isVisible: .constant(true),
+                    buttons: [
+                        ControlButton(
+                            icon: "textformat",
+                            label: "Metadata",
+                            action: {
+                                metaDataMode.toggle()
+                            },
+                            background: (metaDataMode) ? Color.blue.opacity(0.4) : Color.clear,
+                            rotation: orientationObserver.orientation.rotationAngle
+                        ),
+                    ]
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.clear)
+                .ignoresSafeArea()
+                .transition(.opacity)
+                .zIndex(2)
+            }
+            
+            if activeControls == .look {
+                ControlsView(
+                    isVisible: .constant(true),
+                    buttons: [
+                        ControlButton(
+                            icon: "paintpalette",
+                            label: "Look",
+                            action: {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    activeControlType = (activeControlType == .lookPicker) ? nil : .lookPicker
+                                }
+                            },
+                            background: (activeControlType == .lookPicker) ? Color.blue.opacity(0.4) : Color.clear,
+                            rotation: orientationObserver.orientation.rotationAngle
+                        )
+                    ],
+                    showOverlay: activeControlType == .lookPicker
+                ) {
+                    CircularPickerView(
+                        selectedLabel: selectedLutTypeValue,
+                        labels: LUTType.allCases.map { $0.rawValue },
+                        onChange: { selected in
+                            selectedLutTypeValue = selected
+                            if let lutType = LUTType(rawValue: selected) {
+                                cameraModel.renderer.setLutType(lutType)
+                            }
+                        },
+                        onRelease: { _ in }
+                    )
+                    .frame(width: 240, height: 240)
+                    .rotationEffect(orientationObserver.orientation.rotationAngle)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.clear)
+                .ignoresSafeArea()
+                .transition(.opacity)
+                .zIndex(2)
+            }
+            
+            if activeControls == .filter {
+                ControlsView(
+                    isVisible: .constant(true),
+                    buttons: [
+                        ControlButton(
+                            icon: "camera.filters",
+                            label: "Color",
+                            action: {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    activeControlType = (activeControlType == .colorPicker) ? nil : .colorPicker
+                                }
+                            },
+                            background: (activeControlType == .colorPicker) ? Color.blue.opacity(0.4) : Color.clear,
+                            rotation: orientationObserver.orientation.rotationAngle
+                        ),
+                        ControlButton(
+                            icon: "circle.lefthalf.filled",
+                            label: "ND",
+                            action: {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    activeControlType = (activeControlType == .ndPicker) ? nil : .ndPicker
+                                }
+                            },
+                            background: (activeControlType == .ndPicker) ? Color.blue.opacity(0.4) : Color.clear,
+                            rotation: orientationObserver.orientation.rotationAngle
+                        )
+                    ],
+                    showOverlay: activeControlType == .colorPicker || activeControlType == .ndPicker
+                ) {
+                    if activeControlType == .colorPicker {
+                        CircularPickerView(
+                            selectedLabel: shot.colorFilter,
+                            labels: CameraUtils.colorFilters.map { $0.name },
+                            onChange: { selected in
+                                shot.colorFilter = selected
+                                adjustEVExposure()
+                                adjustWhiteBalance()
+                            },
+                            onRelease: { _ in }
+                        )
+                        .frame(width: 240, height: 240)
+                        .rotationEffect(orientationObserver.orientation.rotationAngle)
+                    } else if activeControlType == .ndPicker {
+                        CircularPickerView(
+                            selectedLabel: shot.ndFilter,
+                            labels: CameraUtils.ndFilters.map { $0.name },
+                            onChange: { selected in
+                                shot.ndFilter = selected
+                                adjustEVExposure()
+                            },
+                            onRelease: { _ in }
+                        )
+                        .frame(width: 240, height: 240)
+                        .rotationEffect(orientationObserver.orientation.rotationAngle)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.clear)
+                .ignoresSafeArea()
+                .transition(.opacity)
+                .zIndex(2)
+            }
+            
+            if activeControls == .exposure {
+                ControlsView(
+                    isVisible: .constant(true),
+                    buttons: [
+                        ControlButton(
+                            icon: "plusminus.circle",
+                            label: "Shutter",
+                            action: {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    activeControlType = (activeControlType == .shutterPicker) ? nil : .shutterPicker
+                                }
+                            },
+                            background: (activeControlType == .shutterPicker)
+                                ? Color.blue.opacity(0.4)
+                                : Color.clear,
+                            rotation: orientationObserver.orientation.rotationAngle
+                        ),
+
+                        ControlButton(
+                            icon: "camera.aperture",
+                            label: "Aperture",
+                            action: {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    activeControlType = (activeControlType == .aperturePicker) ? nil : .aperturePicker
+                                }
+                            },
+                            background: (activeControlType == .aperturePicker)
+                                ? Color.blue.opacity(0.4)
+                                : Color.clear,
+                            rotation: orientationObserver.orientation.rotationAngle
+                        )
+                    ],
+                    showOverlay: activeControlType == .shutterPicker || activeControlType == .aperturePicker
+                ) {
+                    if activeControlType == .shutterPicker {
+                        CircularPickerView(
+                            selectedLabel: shot.shutter,
+                            labels: CameraUtils.shutters.map { $0.name },
+                            onChange: { selected in
+                                shot.shutter = selected
+                                adjustEVExposure()
+                            },
+                            onRelease: { _ in }
+                        )
+                        .frame(width: 240, height: 240)
+                        .rotationEffect(orientationObserver.orientation.rotationAngle)
+                    } else if activeControlType == .aperturePicker {
+                        CircularPickerView(
+                            selectedLabel: shot.aperture,
+                            labels: CameraUtils.apertures.map { $0.name },
+                            onChange: { selected in
+                                shot.aperture = selected
+                                adjustEVExposure()
+                            },
+                            onRelease: { _ in }
+                        )
+                        .frame(width: 240, height: 240)
+                        .rotationEffect(orientationObserver.orientation.rotationAngle)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.clear)
+                .ignoresSafeArea()
+                .transition(.opacity)
+                .zIndex(2)
+            }
+            
+            if activeControls != .none {
+                GeometryReader { geometry in
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onEnded { gesture in
+                                    let tapPoint = gesture.location
+                                    let top = CGRect(x: 0, y: 0, width: geometry.size.width, height: 140)
+                                    let bottom = CGRect(
+                                        x: 0,
+                                        y: geometry.size.height - 140,
+                                        width: geometry.size.width,
+                                        height: 140
+                                    )
+                                    if !top.contains(tapPoint) && !bottom.contains(tapPoint) {
+                                        activeControls = .none
+                                        activeControlType = nil
+                                    }
+                                }
+                        )
+                        .ignoresSafeArea()
+                        .zIndex(1)
                 }
             }
             
@@ -152,17 +530,32 @@ struct ShotViewfinderView: View {
                     HStack {
                         toolsControls()
                         
-                        Button(action: { dismiss() }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 32))
-                                .foregroundColor(.white)
-                                .padding(8)
-                                .background(Color.black.opacity(0.4))
-                                .clipShape(Circle())
+                        Button(action: {
+                            if isCaptured {
+                                capturedImage = nil
+                                isCaptured = false
+                            } else {
+                                dismiss()
+                            }
+                        }) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.white)
+                                    .frame(width: 36, height: 36)
+                                Image(systemName: isCaptured ? "chevron.down" : "xmark")
+                                    .font(.system(size: 20, weight: .bold))
+                                    .foregroundColor(.black)
+                                    .offset(y: isCaptured ? 2 : 0)
+                            }
+                            .padding(6)
+                            .background(Color.black.opacity(0.4))
+                            .clipShape(Circle())
+                            .rotationEffect(orientationObserver.orientation.rotationAngle)
+                            .animation(.easeInOut(duration: 0.2), value: isCaptured)
                         }
                         .frame(width: 42)
-
-                        exposureControls()
+                        
+                        cameraControls()
                     }
                     .padding(.top, 42)
                     .padding(.horizontal)
@@ -171,35 +564,58 @@ struct ShotViewfinderView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .ignoresSafeArea()
-
-            HStack {
-                focalLengthControls()
-                
-                Button(action: {
-                    cameraModel.capturePhoto { cgImage in
-                        if let cgImage = cgImage {
-                            let image = UIImage(cgImage: cgImage)
+            
+            if (activeControls == .none) {
+                HStack {
+                    focalLengthControls()
+                    
+                    Button(action: {
+                        if isCaptured, let image = capturedImage {
                             captureImage(image: image)
+                            dismiss()
                         } else {
-                            dismiss();
+                            cameraModel.capturePhoto { cgImage in
+                                if let cgImage = cgImage {
+                                    let image = UIImage(cgImage: cgImage)
+                                    capturedImage = image
+                                    isCaptured = true
+                                }
+                            }
+                        }
+                    }) {
+                        if isCaptured {
+                            ZStack {
+                                Circle()
+                                    .stroke(Color.white, lineWidth: 2)
+                                    .frame(width: 48, height: 48)
+                                
+                                Circle()
+                                    .fill(Color.blue)
+                                    .frame(width: 36, height: 36)
+                                
+                                Image(systemName: "arrow.up")
+                                    .font(.system(size: 20, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .rotationEffect(orientationObserver.orientation.rotationAngle)
+                            }
+                        } else {
+                            ZStack {
+                                Circle()
+                                    .stroke(Color.white, lineWidth: 2)
+                                    .frame(width: 48, height: 48)
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 36, height: 36)
+                            }
                         }
                     }
-                }) {
-                    ZStack {
-                        Circle()
-                            .stroke(Color.white, lineWidth: 2)
-                            .frame(width: 48, height: 48)
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 36, height: 36)
-                    }
+                    .frame(width: 60)
+                    
+                    aspectRatioControls()
                 }
-                .frame(width: 60)
-                
-                aspectRatioControls()
+                .padding(.horizontal)
+                .padding(.vertical, 6)
             }
-            .padding(.horizontal)
-            .padding(.vertical, 6)
         }
         .onAppear {
             cameraModel.configure { result in
@@ -219,6 +635,24 @@ struct ShotViewfinderView: View {
             }
             UIApplication.shared.isIdleTimerDisabled = true
         }
+        .onChange(of: activeControls) { _, newValue in
+            switch newValue {
+            case .look:
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    activeControlType = .lookPicker
+                }
+            case .filter:
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    activeControlType = .colorPicker
+                }
+            case .exposure:
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    activeControlType = .shutterPicker
+                }
+            default:
+                activeControlType = nil
+            }
+        }
         .onChange(of: cameraMode) { _, newMode in
             switchExposure()
         }
@@ -227,14 +661,14 @@ struct ShotViewfinderView: View {
             UIApplication.shared.isIdleTimerDisabled = false
         }
     }
-    
+
     @ViewBuilder
     private func focalLengthControls() -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 0) {
             Button(action: {
-                if let currentIndex = CameraUtils.focalLengths.firstIndex(where: { $0.label == shot.lensFocalLength }) {
+                if let currentIndex = CameraUtils.focalLengths.firstIndex(where: { $0.name == shot.focalLength }) {
                     let newIndex = (currentIndex - 1 + CameraUtils.focalLengths.count) % CameraUtils.focalLengths.count
-                    shot.lensFocalLength = CameraUtils.focalLengths[newIndex].label
+                    shot.focalLength = CameraUtils.focalLengths[newIndex].name
                 }
             }) {
                 Image(systemName: "chevron.left")
@@ -243,21 +677,21 @@ struct ShotViewfinderView: View {
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
             }
-
-            Text("\(shot.lensFocalLength)")
-                .font(.system(size: 12))
+            
+            Text("\(shot.focalLength)")
+                .font(.system(size: 14))
                 .foregroundColor(.white)
-                .frame(width: 50)
+                .frame(width: 55)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 4)
                 .background(Color.black.opacity(0.4))
                 .cornerRadius(4)
-                .rotationEffect(orientationObserver.orientation.angle)
-
+                .rotationEffect(orientationObserver.orientation.rotationAngle)
+            
             Button(action: {
-                if let currentIndex = CameraUtils.focalLengths.firstIndex(where: { $0.label == shot.lensFocalLength }) {
+                if let currentIndex = CameraUtils.focalLengths.firstIndex(where: { $0.name == shot.focalLength }) {
                     let newIndex = (currentIndex + 1) % CameraUtils.focalLengths.count
-                    shot.lensFocalLength = CameraUtils.focalLengths[newIndex].label
+                    shot.focalLength = CameraUtils.focalLengths[newIndex].name
                 }
             }) {
                 Image(systemName: "chevron.right")
@@ -271,15 +705,11 @@ struct ShotViewfinderView: View {
     
     @ViewBuilder
     private func aspectRatioControls() -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 0) {
             Button(action: {
-                if let currentIndex = CameraUtils.aspectRatios.firstIndex(where: { $0.label == shot.aspectRatio }) {
+                if let currentIndex = CameraUtils.aspectRatios.firstIndex(where: { $0.name == shot.aspectRatio }) {
                     let newIndex = (currentIndex - 1 + CameraUtils.aspectRatios.count) % CameraUtils.aspectRatios.count
-                    shot.aspectRatio = CameraUtils.aspectRatios[newIndex].label
-                }
-                if pickerContext != nil {
-                    pickerContext = nil
-                    return
+                    shot.aspectRatio = CameraUtils.aspectRatios[newIndex].name
                 }
             }) {
                 Image(systemName: "chevron.left")
@@ -288,25 +718,21 @@ struct ShotViewfinderView: View {
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
             }
-
+            
             Text("\(shot.aspectRatio)")
-                .font(.system(size: 12))
+                .font(.system(size: 14))
                 .foregroundColor(.white)
-                .frame(width: 50)
+                .frame(width: 55)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 4)
                 .background(Color.black.opacity(0.4))
                 .cornerRadius(4)
-                .rotationEffect(orientationObserver.orientation.angle)
-
+                .rotationEffect(orientationObserver.orientation.rotationAngle)
+            
             Button(action: {
-                if let currentIndex = CameraUtils.aspectRatios.firstIndex(where: { $0.label == shot.aspectRatio }) {
+                if let currentIndex = CameraUtils.aspectRatios.firstIndex(where: { $0.name == shot.aspectRatio }) {
                     let newIndex = (currentIndex + 1) % CameraUtils.aspectRatios.count
-                    shot.aspectRatio = CameraUtils.aspectRatios[newIndex].label
-                }
-                if pickerContext != nil {
-                    pickerContext = nil
-                    return
+                    shot.aspectRatio = CameraUtils.aspectRatios[newIndex].name
                 }
             }) {
                 Image(systemName: "chevron.right")
@@ -323,237 +749,143 @@ struct ShotViewfinderView: View {
         HStack(spacing: 6) {
             Button(action: {
                 toggleLens()
-                if pickerContext != nil {
-                    pickerContext = nil
-                    return
-                }
             }) {
                 Text(lensLabel(for: cameraModel.lensType))
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 14, weight: .regular))
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.angle)
+                    .rotationEffect(orientationObserver.orientation.rotationAngle)
             }
             
             Button(action: {
-                centerModeRawValue = centerMode.next().rawValue
-                if pickerContext != nil {
-                    pickerContext = nil
-                    return
-                }
+                activeControls = (activeControls == .overlay) ? .none : .overlay
             }) {
-                Image(systemName: "plus.circle.fill")
+                Image(systemName: "viewfinder.circle")
+                    .font(.system(size: 14, weight: .regular))
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
-                    .background(centerMode.color)
+                    .background(activeControls == .overlay ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.angle)
+                    .rotationEffect(orientationObserver.orientation.rotationAngle)
             }
             
             Button(action: {
-                symmetryModeRawValue = symmetryMode.next().rawValue
-                if pickerContext != nil {
-                    pickerContext = nil
-                    return
-                }
+                activeControls = (activeControls == .metadata) ? .none : .metadata
             }) {
-                Image(systemName: "grid")
+                Image(systemName: "textformat")
+                    .font(.system(size: 14, weight: .regular))
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
-                    .background(symmetryMode.color)
+                    .background(activeControls == .metadata ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.angle)
-            }
-
-            Button(action: {
-                levelModeRawValue = levelMode.next().rawValue
-                if pickerContext != nil {
-                    pickerContext = nil
-                    return
-                }
-            }) {
-                Image(systemName: "gyroscope")
-                    .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
-                    .background(levelMode.color)
-                    .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.angle)
+                    .rotationEffect(orientationObserver.orientation.rotationAngle)
             }
             
-            Spacer()
-
+            Button(action: {
+                activeControls = (activeControls == .look) ? .none : .look
+            }) {
+                Image(systemName: "paintpalette")
+                .font(.system(size: 14, weight: .regular))
+                .foregroundColor(.white)
+                .frame(width: 32, height: 32)
+                .background(activeControls == .look ? Color.blue.opacity(0.4) : Color.clear)
+                .clipShape(Circle())
+                .rotationEffect(orientationObserver.orientation.rotationAngle)
+            }
         }
         .frame(width: 145)
     }
     
     @ViewBuilder
-    private func exposureControls() -> some View {
+    private func cameraControls() -> some View {
         HStack(spacing: 6) {
-            Spacer()
-
             Button(action: {
-                if pickerContext?.id == "modes" {
-                    pickerContext = nil
-                } else {
-                    pickerContext = PickerContext(
-                        id: "modes",
-                        labels: LUTType.allCases.map { $0.rawValue },
-                        initialSelection: selectedLutTypeValue,
-                        onSelect: { selected in
-                            selectedLutTypeValue = selected
-                            if let lutType = LUTType(rawValue: selected) {
-                                cameraModel.renderer.setLutType(lutType)
-                            }
-                        },
-                        modeLabels: CameraMode.allCases.map { cameraLabel(for: $0) },
-                        selectedMode: cameraLabel(for: cameraMode),
-                        onModeSelect: { selected in
-                            if let mode = CameraMode.allCases.first(where: { cameraLabel(for: $0) == selected }) {
-                                cameraMode = mode
-                            }
-                        }
-                    )
+                cameraMode = (cameraMode == .auto) ? .manual : .auto
+                if activeControls == .filter || activeControls == .exposure {
+                    activeControls = .none
+                    activeControlType = nil
                 }
             }) {
                 Text(cameraLabel(for: cameraMode))
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 14, weight: .regular))
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
-                    .background(
-                        pickerContext?.id == "modes"
-                            ? Color.blue.opacity(0.4)
-                            : Color.black.opacity(0.4)
-                    )
+                    .background(cameraMode == .manual ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.angle)
+                    .rotationEffect(orientationObserver.orientation.rotationAngle)
             }
-
-            let evMode = cameraMode == .manual
-            let opacity = evMode ? 1.0 : 0.4
-
-            Button(action: {
-                if evMode {
-                    if pickerContext?.id == "filters" {
-                        pickerContext = nil
-                    } else {
-                        pickerContext = PickerContext(
-                            id: "filters",
-                            labels: CameraUtils.colorFilters.map { $0.label },
-                            initialSelection: shot.lensColorFilter,
-                            onSelect: { selected in
-                                shot.lensColorFilter = selected
-                                adjustEVExposure()
-                                adjustWhiteBalance()
-                            },
-                            modeLabels: CameraUtils.ndFilters.map { $0.label },
-                            selectedMode: shot.lensNdFilter,
-                            onModeSelect: { selected in
-                                if let mode = CameraUtils.ndFilters.first(where: { $0.label == selected }) {
-                                    shot.lensNdFilter = mode.label
-                                    adjustEVExposure()
-                                }
-                            }
-                        )
-                    }
-                }
-            }) {
-                Image(systemName: "camera.filters")
-                    .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
-                    .background(
-                        pickerContext?.id == "filters"
-                            ? Color.blue.opacity(0.4)
-                            : Color.black.opacity(0.4)
-                    )
-                    .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.angle)
-            }
-            .disabled(!evMode)
-            .opacity(opacity)
             
             Button(action: {
-                if evMode {
-                    if let context = pickerContext,
-                       context.initialSelection == CameraUtils.shutters.first(where: { $0.label == shot.shutter })?.label,
-                       context.labels == CameraUtils.shutters.map({ $0.label }) {
-                        pickerContext = nil
-                    } else {
-                        pickerContext = PickerContext(
-                            id: "shutters",
-                            labels: CameraUtils.shutters.map { $0.label },
-                            initialSelection: shot.shutter,
-                            onSelect: { selected in
-                                shot.shutter = selected
-                                adjustEVExposure()
-                            }
-                        )
-                    }
-                }
+                activeControls = (activeControls == .filter) ? .none : .filter
             }) {
-                Image(systemName: "plusminus.circle")
+                Image(systemName: "camera.filters")
+                    .font(.system(size: 16, weight: .regular))
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
-                    .background(
-                        pickerContext?.id == "shutters"
-                            ? Color.blue.opacity(0.4)
-                            : Color.black.opacity(0.4)
-                    )
+                    .background(activeControls == .filter ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.angle)
+                    .rotationEffect(orientationObserver.orientation.rotationAngle)
             }
-            .disabled(!evMode)
-            .opacity(opacity)
+            .disabled(cameraMode == .auto)
+            .opacity(cameraMode == .auto ? 0.4 : 1.0)
 
             Button(action: {
-                if evMode {
-                    if pickerContext?.id == "apertures" {
-                        pickerContext = nil
-                    } else {
-                        pickerContext = PickerContext(
-                            id: "apertures",
-                            labels: CameraUtils.apertures.map { $0.label },
-                            initialSelection: shot.aperture,
-                            onSelect: { selected in
-                                shot.aperture = selected
-                                adjustEVExposure()
-                            }
-                        )
-                    }
-                }
+                activeControls = (activeControls == .exposure) ? .none : .exposure
             }) {
                 Image(systemName: "camera.aperture")
+                    .font(.system(size: 16, weight: .regular))
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
-                    .background(
-                        pickerContext?.id == "apertures"
-                            ? Color.blue.opacity(0.4)
-                            : Color.black.opacity(0.4)
-                    )
+                    .background(activeControls == .exposure ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.angle)
+                    .rotationEffect(orientationObserver.orientation.rotationAngle)
             }
-            .disabled(!evMode)
-            .opacity(opacity)
+            .disabled(cameraMode == .auto)
+            .opacity(cameraMode == .auto ? 0.4 : 1.0)
+
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isFullscreen.toggle()
+                }
+            }) {
+                Image(systemName: isFullscreen
+                      ? "arrow.down.right.and.arrow.up.left"
+                      : "arrow.up.left.and.arrow.down.right")
+                .font(.system(size: 16, weight: .regular))
+                .foregroundColor(.white)
+                .frame(width: 32, height: 32)
+                .background(Color.black.opacity(0.4))
+                .clipShape(Circle())
+                .rotationEffect(orientationObserver.orientation.rotationAngle)
+            }
         }
         .frame(width: 145)
     }
-
+    
     private func captureImage(image: UIImage) {
         let containerSize = image.size
-        let filmSize = CameraUtils.filmSizes.first(where: { $0.label == shot.filmSize })?.value ?? CameraUtils.FilmSize.defaultFilmSize
-        let focalLength = CameraUtils.focalLengths.first(where: { $0.label == shot.lensFocalLength })?.value ?? CameraUtils.FocalLength.defaultFocalLength
-        let frameSize = FrameHelper.frameSize(
-            containerSize: containerSize, //.switchOrientation(), // to native
-            focalLength: focalLength.length,
+        let filmSize = CameraUtils.filmSize(for: shot.filmSize)
+        let projectedSize = Projection.projectedFrame(
+            size: containerSize, //.switchOrientation(), // to native // TODO: verify this one!
+            focalLength: CameraUtils.focalLength(for: shot.focalLength).length,
             aspectRatio: filmSize.aspectRatio,
             width: filmSize.width,
-            horizontalFov: cameraModel.horizontalFov
+            fieldOfView: cameraModel.fieldOfView
         )
-        let croppedImage = cropImage(image, frameSize: frameSize, containerSize: containerSize, orientation: orientationObserver.orientation)
+        let croppedImage = cropImage(
+            image,
+            frameSize: projectedSize,
+            containerSize: containerSize,
+            orientation: orientationObserver.orientation
+        )
+        //shot.deviceRoll
+        //shot.deviceTilt
+        shot.deviceAspectRatio = Double(image.size.width / image.size.height)
+        shot.deviceFieldOfView = cameraModel.fieldOfView
+        shot.deviceLens = cameraModel.lensType.rawValue
         onCapture(croppedImage)
-        dismiss()
     }
     
     private func cropImage(_ image: UIImage,
@@ -562,8 +894,6 @@ struct ShotViewfinderView: View {
                            orientation: UIDeviceOrientation) -> UIImage {
         
         guard let cgImage = image.cgImage else { return image }
-
-        let oriented = UIImage(cgImage: cgImage, scale: 1.0, orientation: .right)
         let size = containerSize
         let width = CGFloat(size.width)
         let height = CGFloat(size.height)
@@ -588,14 +918,69 @@ struct ShotViewfinderView: View {
         let cropY = max((cropHeight - targetCropHeight) / 2, 0)
         let cropRect = CGRect(x: cropX, y: cropY, width: targetCropWidth, height: targetCropHeight)
         
+        /*
+         guard let targetImage = nativeImage.cropping(to: cropRect) else {
+         return UIImage(cgImage: nativeImage,
+         scale: image.scale,
+         orientation: imageOrientation(for: orientation) // correct orientation for UI views
+         )
+         }
+         
+         return UIImage(cgImage: targetImage, scale: image.scale, orientation: imageOrientation(for: orientation))*/
+        
         guard let targetImage = nativeImage.cropping(to: cropRect) else {
-            return UIImage(cgImage: nativeImage, scale: image.scale, orientation: cropOrientation(for: orientation)) // landscape with orientation
+            let fallbackImage = UIImage(
+                cgImage: nativeImage,
+                scale: image.scale,
+                orientation: imageOrientation(for: orientation)
+            )
+            
+            print("📸 cropImage (FALLBACK)")
+            print(" - Native size: \(nativeImage.width)x\(nativeImage.height)")
+            print(" - Crop rect: \(cropRect)")
+            print(" - Returning fallback UIImage")
+            print("   • Size: \(fallbackImage.size.width)x\(fallbackImage.size.height)")
+            print("   • Scale: \(fallbackImage.scale)")
+            print("   • Orientation: \(fallbackImage.imageOrientation.rawValue) -> \(orientationDescription(fallbackImage.imageOrientation))")
+            
+            return fallbackImage
         }
         
-        return UIImage(cgImage: targetImage, scale: image.scale, orientation: cropOrientation(for: orientation))
+        let croppedUIImage = UIImage(
+            cgImage: targetImage,
+            scale: image.scale,
+            orientation: imageOrientation(for: orientation)
+        )
+        
+        print("📸 cropImage (SUCCESS)")
+        print(" - Native size: \(nativeImage.width)x\(nativeImage.height)")
+        print(" - Crop rect: \(cropRect)")
+        print(" - Cropped CGImage size: \(targetImage.width)x\(targetImage.height)")
+        print(" - Returning UIImage")
+        print("   • Size: \(croppedUIImage.size.width)x\(croppedUIImage.size.height)")
+        print("   • Scale: \(croppedUIImage.scale)")
+        print("   • Orientation: \(croppedUIImage.imageOrientation.rawValue) -> \(orientationDescription(croppedUIImage.imageOrientation))")
+        
+        
+        
+        return croppedUIImage
     }
     
-    private func cropOrientation(for deviceOrientation: UIDeviceOrientation) -> UIImage.Orientation {
+    private func orientationDescription(_ orientation: UIImage.Orientation) -> String {
+        switch orientation {
+        case .up: return "up (default)"
+        case .down: return "down (180° rotated)"
+        case .left: return "left (90° CCW)"
+        case .right: return "right (90° CW)"
+        case .upMirrored: return "upMirrored"
+        case .downMirrored: return "downMirrored"
+        case .leftMirrored: return "leftMirrored"
+        case .rightMirrored: return "rightMirrored"
+        @unknown default: return "unknown"
+        }
+    }
+    
+    private func imageOrientation(for deviceOrientation: UIDeviceOrientation) -> UIImage.Orientation {
         switch deviceOrientation {
         case .landscapeLeft:
             return .up
@@ -657,25 +1042,18 @@ struct ShotViewfinderView: View {
     }
     
     func adjustEVExposure() {
-        let filmStock = CameraUtils.filmStocks.first(where: { $0.label == shot.filmStock })?.value ?? CameraUtils.FilmStock.defaultFilmStock
-        let aperture = CameraUtils.apertures.first(where: { $0.label == shot.aperture })?.value ?? CameraUtils.Aperture.defaultAperture
-        let shutter = CameraUtils.shutters.first(where: { $0.label == shot.shutter })?.value ?? CameraUtils.Shutter.defaultShutter
-        let colorFilter = CameraUtils.colorFilters.first(where: { $0.label == shot.lensColorFilter })?.value ?? CameraUtils.Filter.defaultFilter
-        let ndFilter = CameraUtils.ndFilters.first(where: { $0.label == shot.lensNdFilter })?.value ?? CameraUtils.Filter.defaultFilter
-        
         cameraModel.adjustEVExposure(
-            fstop: aperture.fstop,
-            speed: filmStock.speed,
-            shutter: shutter.shutter,
-            exposureCompensation: colorFilter.exposureCompensation + ndFilter.exposureCompensation
+            fstop: CameraUtils.aperture(for: shot.aperture).fstop,
+            speed: CameraUtils.filmStock(for: shot.filmStock).speed,
+            shutter: CameraUtils.shutter(for: shot.shutter).shutter,
+            exposureCompensation: CameraUtils.colorFilter(for: shot.colorFilter).exposureCompensation + CameraUtils.ndFilter(for: shot.ndFilter).exposureCompensation
         )
     }
     
     func adjustWhiteBalance() {
-        let filmStock = CameraUtils.filmStocks.first(where: { $0.label == shot.filmStock })?.value ?? CameraUtils.FilmStock.defaultFilmStock
-        if shot.lensColorFilter != "-" {
-            let colorFilter = CameraUtils.colorFilters.first(where: { $0.label == shot.lensColorFilter })?.value ?? CameraUtils.Filter.defaultFilter
-            cameraModel.adjustWhiteBalance(kelvin: filmStock.colorTemperature + colorFilter.colorTemperatureShift)
+        let colorFilter = CameraUtils.colorFilter(for: shot.colorFilter)
+        if !colorFilter.isNone {
+            cameraModel.adjustWhiteBalance(kelvin: CameraUtils.filmStock(for: shot.filmStock).colorTemperature + colorFilter.colorTemperatureShift)
         } else {
             cameraModel.resetWhiteBalance()
         }
@@ -683,28 +1061,5 @@ struct ShotViewfinderView: View {
     
     func resetWhiteBalance() {
         cameraModel.resetWhiteBalance()
-    }
-}
-
-extension CGSize {
-    func switchOrientation() -> CGSize {
-        return CGSize(width: self.height, height: self.width)
-    }
-}
-
-extension Comparable {
-    func clamped(to range: ClosedRange<Self>) -> Self {
-        return min(max(self, range.lowerBound), range.upperBound)
-    }
-}
-
-extension UIDeviceOrientation {
-    var angle: Angle {
-        switch self {
-        case .landscapeLeft: return .degrees(90)
-        case .landscapeRight: return .degrees(-90)
-        case .portraitUpsideDown: return .degrees(180)
-        default: return .degrees(0)
-        }
     }
 }

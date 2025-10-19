@@ -46,3 +46,27 @@ func captureToPhotos(_ image: UIImage, name: String = "debug") {
     print("saved debug image to photos: \(name)")
 }
 
+func dumpImage(_ image: UIImage, name: String = "image") {
+    print("image info: \(name)")
+    print("size: \(image.size.width)x\(image.size.height)")
+    print("scale: \(image.scale)")
+    print("orientation: \(image.imageOrientation.rawValue) (\(image.imageOrientation))")
+    
+    if let cg = image.cgImage {
+        print("width: \(cg.width), height: \(cg.height)")
+        print("bitsPerComponent: \(cg.bitsPerComponent)")
+        print("bitsPerPixel: \(cg.bitsPerPixel)")
+        print("bytesPerRow: \(cg.bytesPerRow)")
+        print("bitmapInfo: \(cg.bitmapInfo)")
+        
+        if let cs = cg.colorSpace {
+            print("colorSpace: \(cs)")
+            print("name: \(cs.name as String? ?? "Unknown")")
+            print("model: \(cs.model.rawValue)") // 1 = RGB
+        } else {
+            print("colorSpace: nil")
+        }
+    } else {
+        print("no CGImage backing this UIImage")
+    }
+}

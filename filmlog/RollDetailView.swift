@@ -101,8 +101,8 @@ struct RollDetailView: View {
             
             Section(header: Text("Info")) {
                 Picker("Camera", selection: $roll.camera) {
-                    ForEach(CameraUtils.cameras, id: \.self) { camera in
-                        Text(camera).tag(camera)
+                    ForEach(CameraUtils.cameras, id: \.name) { camera in
+                        Text(camera.name).tag(camera.name)
                     }
                 }
                 .disabled(roll.isLocked)
@@ -126,15 +126,15 @@ struct RollDetailView: View {
                     .disabled(roll.isLocked)
                 
                 Picker("Film size", selection: $roll.filmSize) {
-                    ForEach(CameraUtils.filmSizes, id: \.label) { size in
-                        Text(size.label).tag(size.label)
+                    ForEach(CameraUtils.filmSizes, id: \.name) { size in
+                        Text(size.name).tag(size.name)
                     }
                 }
                 .disabled(roll.isLocked)
                 
                 Picker("Film stock", selection: $roll.filmStock) {
-                    ForEach(CameraUtils.filmStocks, id: \.label) { stock in
-                        Text(stock.label).tag(stock.label)
+                    ForEach(CameraUtils.filmStocks, id: \.name) { stock in
+                        Text(stock.name).tag(stock.name)
                     }
                 }
                 .disabled(roll.isLocked)
@@ -439,8 +439,8 @@ struct RollDetailView: View {
                     """,
                     """
                     Lens:
-                    \(shot.lensName)
-                    Focal length: \(shot.lensFocalLength)
+                    \(shot.lens)
+                    Focal length: \(shot.focalLength)
                     """
                 ]
 
