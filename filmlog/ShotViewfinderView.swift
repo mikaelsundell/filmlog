@@ -278,7 +278,7 @@ struct ShotViewfinderView: View {
                                 levelModeRawValue = levelMode.next().rawValue
                             },
                             background: levelMode.color,
-                            rotation: orientationObserver.orientation.rotationAngle
+                            rotation: orientationObserver.orientation.toLandscape
                         ),
                         ControlButton(
                             icon: "grid",
@@ -287,7 +287,7 @@ struct ShotViewfinderView: View {
                                 symmetryModeRawValue = symmetryMode.next().rawValue
                             },
                             background: symmetryMode.color,
-                            rotation: orientationObserver.orientation.rotationAngle
+                            rotation: orientationObserver.orientation.toLandscape
                         ),
                         ControlButton(
                             icon: "plus.circle.fill",
@@ -296,7 +296,7 @@ struct ShotViewfinderView: View {
                                 centerModeRawValue = centerMode.next().rawValue
                             },
                             background: centerMode.color,
-                            rotation: orientationObserver.orientation.rotationAngle
+                            rotation: orientationObserver.orientation.toLandscape
                         )
                     ]
                 )
@@ -318,7 +318,7 @@ struct ShotViewfinderView: View {
                                 metaDataMode.toggle()
                             },
                             background: (metaDataMode) ? Color.blue.opacity(0.4) : Color.clear,
-                            rotation: orientationObserver.orientation.rotationAngle
+                            rotation: orientationObserver.orientation.toLandscape
                         ),
                     ]
                 )
@@ -340,7 +340,7 @@ struct ShotViewfinderView: View {
                                 activeControlType = (activeControlType == .lookPicker) ? nil : .lookPicker
                             },
                             background: (activeControlType == .lookPicker) ? Color.blue.opacity(0.4) : Color.clear,
-                            rotation: orientationObserver.orientation.rotationAngle
+                            rotation: orientationObserver.orientation.toLandscape
                         )
                     ],
                     showOverlay: activeControlType == .lookPicker
@@ -357,7 +357,7 @@ struct ShotViewfinderView: View {
                         onRelease: { _ in }
                     )
                     .frame(width: 240, height: 240)
-                    .rotationEffect(orientationObserver.orientation.rotationAngle)
+                    .rotationEffect(orientationObserver.orientation.toLandscape)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.clear)
@@ -377,7 +377,7 @@ struct ShotViewfinderView: View {
                                 activeControlType = (activeControlType == .colorPicker) ? nil : .colorPicker
                             },
                             background: (activeControlType == .colorPicker) ? Color.blue.opacity(0.4) : Color.clear,
-                            rotation: orientationObserver.orientation.rotationAngle
+                            rotation: orientationObserver.orientation.toLandscape
                         ),
                         ControlButton(
                             icon: "circle.lefthalf.filled",
@@ -386,7 +386,7 @@ struct ShotViewfinderView: View {
                                 activeControlType = (activeControlType == .ndPicker) ? nil : .ndPicker
                             },
                             background: (activeControlType == .ndPicker) ? Color.blue.opacity(0.4) : Color.clear,
-                            rotation: orientationObserver.orientation.rotationAngle
+                            rotation: orientationObserver.orientation.toLandscape
                         )
                     ],
                     showOverlay: activeControlType == .colorPicker || activeControlType == .ndPicker
@@ -403,7 +403,7 @@ struct ShotViewfinderView: View {
                             onRelease: { _ in }
                         )
                         .frame(width: 240, height: 240)
-                        .rotationEffect(orientationObserver.orientation.rotationAngle)
+                        .rotationEffect(orientationObserver.orientation.toLandscape)
                     } else if activeControlType == .ndPicker {
                         CircularPickerView(
                             selectedLabel: shot.ndFilter,
@@ -415,7 +415,7 @@ struct ShotViewfinderView: View {
                             onRelease: { _ in }
                         )
                         .frame(width: 240, height: 240)
-                        .rotationEffect(orientationObserver.orientation.rotationAngle)
+                        .rotationEffect(orientationObserver.orientation.toLandscape)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -438,7 +438,7 @@ struct ShotViewfinderView: View {
                             background: (activeControlType == .shutterPicker)
                                 ? Color.blue.opacity(0.4)
                                 : Color.clear,
-                            rotation: orientationObserver.orientation.rotationAngle
+                            rotation: orientationObserver.orientation.toLandscape
                         ),
 
                         ControlButton(
@@ -450,7 +450,7 @@ struct ShotViewfinderView: View {
                             background: (activeControlType == .aperturePicker)
                                 ? Color.blue.opacity(0.4)
                                 : Color.clear,
-                            rotation: orientationObserver.orientation.rotationAngle
+                            rotation: orientationObserver.orientation.toLandscape
                         )
                     ],
                     showOverlay: activeControlType == .shutterPicker || activeControlType == .aperturePicker
@@ -466,7 +466,7 @@ struct ShotViewfinderView: View {
                             onRelease: { _ in }
                         )
                         .frame(width: 240, height: 240)
-                        .rotationEffect(orientationObserver.orientation.rotationAngle)
+                        .rotationEffect(orientationObserver.orientation.toLandscape)
                     } else if activeControlType == .aperturePicker {
                         CircularPickerView(
                             selectedLabel: shot.aperture,
@@ -478,7 +478,7 @@ struct ShotViewfinderView: View {
                             onRelease: { _ in }
                         )
                         .frame(width: 240, height: 240)
-                        .rotationEffect(orientationObserver.orientation.rotationAngle)
+                        .rotationEffect(orientationObserver.orientation.toLandscape)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -540,7 +540,7 @@ struct ShotViewfinderView: View {
                             .padding(6)
                             .background(Color.black.opacity(0.4))
                             .clipShape(Circle())
-                            .rotationEffect(orientationObserver.orientation.rotationAngle)
+                            .rotationEffect(orientationObserver.orientation.toLandscape)
                             .animation(.easeInOut(duration: 0.2), value: isCaptured)
                         }
                         .frame(width: 42)
@@ -586,7 +586,7 @@ struct ShotViewfinderView: View {
                                 Image(systemName: "arrow.up")
                                     .font(.system(size: 20, weight: .bold))
                                     .foregroundColor(.white)
-                                    .rotationEffect(orientationObserver.orientation.rotationAngle)
+                                    .rotationEffect(orientationObserver.orientation.toLandscape)
                             }
                         } else {
                             ZStack {
@@ -676,7 +676,7 @@ struct ShotViewfinderView: View {
                 .padding(.vertical, 4)
                 .background(Color.black.opacity(0.4))
                 .cornerRadius(4)
-                .rotationEffect(orientationObserver.orientation.rotationAngle)
+                .rotationEffect(orientationObserver.orientation.toLandscape)
             
             Button(action: {
                 if let currentIndex = CameraUtils.focalLengths.firstIndex(where: { $0.name == shot.focalLength }) {
@@ -717,7 +717,7 @@ struct ShotViewfinderView: View {
                 .padding(.vertical, 4)
                 .background(Color.black.opacity(0.4))
                 .cornerRadius(4)
-                .rotationEffect(orientationObserver.orientation.rotationAngle)
+                .rotationEffect(orientationObserver.orientation.toLandscape)
             
             Button(action: {
                 if let currentIndex = CameraUtils.aspectRatios.firstIndex(where: { $0.name == shot.aspectRatio }) {
@@ -746,7 +746,7 @@ struct ShotViewfinderView: View {
                     .frame(width: 32, height: 32)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.rotationAngle)
+                    .rotationEffect(orientationObserver.orientation.toLandscape)
             }
             
             Button(action: {
@@ -758,7 +758,7 @@ struct ShotViewfinderView: View {
                     .frame(width: 32, height: 32)
                     .background(activeControls == .overlay ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.rotationAngle)
+                    .rotationEffect(orientationObserver.orientation.toLandscape)
             }
             
             Button(action: {
@@ -770,7 +770,7 @@ struct ShotViewfinderView: View {
                     .frame(width: 32, height: 32)
                     .background(activeControls == .metadata ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.rotationAngle)
+                    .rotationEffect(orientationObserver.orientation.toLandscape)
             }
             
             Button(action: {
@@ -782,7 +782,7 @@ struct ShotViewfinderView: View {
                 .frame(width: 32, height: 32)
                 .background(activeControls == .look ? Color.blue.opacity(0.4) : Color.clear)
                 .clipShape(Circle())
-                .rotationEffect(orientationObserver.orientation.rotationAngle)
+                .rotationEffect(orientationObserver.orientation.toLandscape)
             }
         }
         .frame(width: 145)
@@ -804,7 +804,7 @@ struct ShotViewfinderView: View {
                     .frame(width: 32, height: 32)
                     .background(cameraMode == .manual ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.rotationAngle)
+                    .rotationEffect(orientationObserver.orientation.toLandscape)
             }
             
             Button(action: {
@@ -816,7 +816,7 @@ struct ShotViewfinderView: View {
                     .frame(width: 32, height: 32)
                     .background(activeControls == .filter ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.rotationAngle)
+                    .rotationEffect(orientationObserver.orientation.toLandscape)
             }
             .disabled(cameraMode == .auto)
             .opacity(cameraMode == .auto ? 0.4 : 1.0)
@@ -830,7 +830,7 @@ struct ShotViewfinderView: View {
                     .frame(width: 32, height: 32)
                     .background(activeControls == .exposure ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.rotationAngle)
+                    .rotationEffect(orientationObserver.orientation.toLandscape)
             }
             .disabled(cameraMode == .auto)
             .opacity(cameraMode == .auto ? 0.4 : 1.0)
@@ -848,7 +848,7 @@ struct ShotViewfinderView: View {
                 .frame(width: 32, height: 32)
                 .background(Color.black.opacity(0.4))
                 .clipShape(Circle())
-                .rotationEffect(orientationObserver.orientation.rotationAngle)
+                .rotationEffect(orientationObserver.orientation.toLandscape)
             }
         }
         .frame(width: 145)

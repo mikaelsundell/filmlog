@@ -11,7 +11,19 @@ extension CGSize {
     func switchOrientation() -> CGSize {
         return CGSize(width: self.height, height: self.width)
     }
-    
+
+    var isLandscape: Bool {
+        width >= height
+    }
+
+    var isPortrait: Bool {
+        height > width
+    }
+
+    var aspectRatio: CGFloat {
+        height == 0 ? 0 : width / height
+    }
+
     static func * (lhs: CGSize, rhs: CGFloat) -> CGSize {
         CGSize(width: lhs.width * rhs, height: lhs.height * rhs)
     }
@@ -24,7 +36,7 @@ extension Comparable {
 }
 
 extension UIDeviceOrientation {
-    var rotationAngle: Angle {
+    var toLandscape: Angle {
         switch self {
         case .landscapeLeft: return .degrees(90)
         case .landscapeRight: return .degrees(-90)

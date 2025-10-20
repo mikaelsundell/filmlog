@@ -354,7 +354,6 @@ struct ControlsView<Overlay: View>: View {
             }
             .ignoresSafeArea()
             .transition(.move(edge: .bottom).combined(with: .opacity))
-            .animation(.easeInOut(duration: 0.3), value: isVisible)
         }
     }
 }
@@ -435,7 +434,7 @@ struct LevelIndicatorView: View {
                     .position(x: geo.size.width / 2, y: geo.size.height / 2)
                     .rotationEffect(.degrees(normalized.roll))
             }
-            .rotationEffect(orientation.rotationAngle)
+            .rotationEffect(orientation.toLandscape)
             .animation(.easeInOut(duration: 0.15), value: normalized.roll)
             .animation(.easeInOut(duration: 0.15), value: normalized.tilt)
             
@@ -447,7 +446,7 @@ struct LevelIndicatorView: View {
                         .background(Color.black.opacity(0.6))
                         .foregroundColor(.white)
                         .cornerRadius(4)
-                        .rotationEffect(orientation.rotationAngle)
+                        .rotationEffect(orientation.toLandscape)
                 }
                 .offset(offset(for: orientation, geo: geo))
             }
@@ -600,7 +599,7 @@ struct TextView: View {
             .background(Color.black.opacity(0.6))
             .foregroundColor(.white)
             .cornerRadius(4)
-            .rotationEffect(orientation.rotationAngle)
+            .rotationEffect(orientation.toLandscape)
         }
         .offset(offset(for: alignment, orientation: orientation, geo: geometry))
     }
