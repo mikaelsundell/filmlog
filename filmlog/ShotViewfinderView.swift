@@ -158,7 +158,7 @@ struct ShotViewfinderView: View {
                             frameSize: frameSize,
                             aspectSize: frameAspectRatio,
                             inner: 0.4,
-                            outer: 0.95,
+                            outer: 0.995,
                             geometry: geometry
                         )
                         
@@ -530,18 +530,17 @@ struct ShotViewfinderView: View {
                         }) {
                             ZStack {
                                 Circle()
-                                    .fill(Color.white)
-                                    .frame(width: 36, height: 36)
+                                    .fill(Color.black)
+                                    .frame(width: 42, height: 42)
+                                    .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+                                
                                 Image(systemName: isCaptured ? "chevron.down" : "xmark")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(.black)
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(Color.accentColor) // Blue accent
                                     .offset(y: isCaptured ? 2 : 0)
+                                    .animation(.easeInOut(duration: 0.2), value: isCaptured)
                             }
-                            .padding(6)
-                            .background(Color.black.opacity(0.4))
-                            .clipShape(Circle())
                             .rotationEffect(orientationObserver.orientation.toLandscape)
-                            .animation(.easeInOut(duration: 0.2), value: isCaptured)
                         }
                         .frame(width: 42)
                         
@@ -580,12 +579,12 @@ struct ShotViewfinderView: View {
                                     .frame(width: 48, height: 48)
                                 
                                 Circle()
-                                    .fill(Color.blue)
+                                    .fill(Color.black)
                                     .frame(width: 36, height: 36)
-                                
+
                                 Image(systemName: "arrow.up")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Color.accentColor) // Blue tint
+                                    .font(.system(size: 24, weight: .bold))
                                     .rotationEffect(orientationObserver.orientation.toLandscape)
                             }
                         } else {

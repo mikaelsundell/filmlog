@@ -7,7 +7,7 @@ import SwiftData
 import UniformTypeIdentifiers
 
 struct AppDataStats {
-    var rolls: Int
+    var projects: Int
     var shots: Int
     var galleries: Int
     var categories: Int
@@ -26,7 +26,7 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var appDataStats: AppDataStats? = nil
     @State private var sharedContainerStats: SharedContainerStats?
-    @State private var rolls: [Roll] = []
+    @State private var projects: [Project] = []
     @State private var galleries: [Gallery] = []
     @State private var showFileImporter = false
     @State private var showFileExporter = false
@@ -43,9 +43,9 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     if let stats = appDataStats {
                         HStack {
-                            Text("Rolls")
+                            Text("Projects")
                             Spacer()
-                            Text("\(stats.rolls)")
+                            Text("\(stats.projects)")
                         }
                         HStack {
                             Text("Shots")
@@ -199,7 +199,7 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .onAppear {
-            fetchRolls()
+            fetchProjects()
             fetchGalleries()
         }
     }
@@ -220,13 +220,12 @@ struct SettingsView: View {
             }
         }
 
-        for roll in rolls {
-            for shot in roll.shots {
+        for project in projects {
+            for shot in project.shots {
                 shotCount += 1
                 addImageIfUnique(shot.imageData)
                 addImageIfUnique(shot.lightMeterImageData)
             }
-            addImageIfUnique(roll.imageData)
         }
 
         for gallery in galleries {
@@ -238,7 +237,7 @@ struct SettingsView: View {
         }
 
         appDataStats = AppDataStats(
-            rolls: rolls.count,
+            projects: projects.count,
             shots: shotCount,
             galleries: galleryCount,
             categories: categoryCount,
@@ -323,9 +322,9 @@ struct SettingsView: View {
         return "filmlog_backup_\(formatter.string(from: Date())).json"
     }
 
-    private func fetchRolls() {
-        let descriptor = FetchDescriptor<Roll>()
-        rolls = (try? modelContext.fetch(descriptor)) ?? []
+    private func fetchProjects() {
+        let descriptor = FetchDescriptor<Project>()
+        projects = (try? modelContext.fetch(descriptor)) ?? []
     }
     
     private func fetchGalleries() {
@@ -371,9 +370,9 @@ struct SettingsView: View {
             var categoryMap: [UUID: Category] = [:]
             
             for roll in rolls {
-                if let img = roll.image { imageMap[img.id] = img }
+                if let img = project.image { imageMap[img.id] = img }
                 
-                for shot in roll.shots {
+                for shot in project.shots {
                     shotMap[shot.id] = shot
                     if let img = shot.image { imageMap[img.id] = img }
                     if let img = shot.lightMeterImage { imageMap[img.id] = img }
@@ -445,24 +444,24 @@ struct SettingsView: View {
                 )
             }
             
-            let exportRolls = rolls
+            let exportRolls = projects
                 .sorted(by: { $0.timestamp < $1.timestamp })
                 .map { roll in
                     RollExport(
-                    id: roll.id,
-                    timestamp: roll.timestamp,
-                    name: roll.name,
-                    note: roll.note,
-                    status: roll.status,
-                    camera: roll.camera,
-                    counter: roll.counter,
-                    pushPull: roll.pushPull,
-                    filmDate: roll.filmDate,
-                    filmSize: roll.filmSize,
-                    filmStock: roll.filmStock,
-                    isLocked: roll.isLocked,
-                    image: roll.image?.id,
-                    shots: roll.shots.map { $0.id }
+                    id: project.id,
+                    timestamp: project.timestamp,
+                    name: project.name,
+                    note: project.note,
+                    status: project.status,
+                    camera: project.camera,
+                    counter: project.counter,
+                    pushPull: project.pushPull,
+                    filmDate: project.filmDate,
+                    filmSize: project.filmSize,
+                    filmStock: project.filmStock,
+                    isLocked: project.isLocked,
+                    image: project.image?.id,
+                    shots: project.shots.map { $0.id }
                 )
             }
             
@@ -585,26 +584,26 @@ struct SettingsView: View {
             }
             
             for rollExport in backup.rolls.sorted(by: { $0.timestamp < $1.timestamp }) {
-                let roll = Roll()
-                roll.id = rollExport.id
-                roll.timestamp = rollExport.timestamp
-                roll.name = rollExport.name
-                roll.note = rollExport.note
-                roll.status = rollExport.status
-                roll.camera = rollExport.camera
-                roll.counter = rollExport.counter
-                roll.pushPull = rollExport.pushPull
-                roll.filmDate = rollExport.filmDate
-                roll.filmSize = rollExport.filmSize
-                roll.filmStock = rollExport.filmStock
-                roll.isLocked = rollExport.isLocked
-                roll.image = rollExport.image.flatMap { imageMap[$0] }
+                let project = Project()
+                project.id = rollExport.id
+                project.timestamp = rollExport.timestamp
+                project.name = rollExport.name
+                project.note = rollExport.note
+                project.status = rollExport.status
+                project.camera = rollExport.camera
+                project.counter = rollExport.counter
+                project.pushPull = rollExport.pushPull
+                project.filmDate = rollExport.filmDate
+                project.filmSize = rollExport.filmSize
+                project.filmStock = rollExport.filmStock
+                project.isLocked = rollExport.isLocked
+                project.image = rollExport.image.flatMap { imageMap[$0] }
                 for shotId in rollExport.shots {
                     if let shot = shotMap[shotId] {
-                        roll.shots.append(shot)
+                        project.shots.append(shot)
                     }
                 }
-                modelContext.insert(roll)
+                modelContext.insert(project)
             }
 
             for galleryExport in backup.galleries.sorted(by: { $0.timestamp < $1.timestamp }) {
@@ -642,7 +641,7 @@ struct SettingsView: View {
 
 struct BackupData: Codable {
     var images: [ImageDataExport]
-    var rolls: [RollExport]
+    var projects: [ProjectExport]
     var shots: [ShotExport]
     var galleries: [GalleryExport]
     var categories: [CategoryExport]
@@ -658,7 +657,7 @@ struct ImageDataExport: Codable {
     var category: UUID?
 }
 
-struct RollExport: Codable {
+struct ProjectExport: Codable {
     var id: UUID
     var timestamp: Date
     var name: String

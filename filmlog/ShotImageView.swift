@@ -19,17 +19,16 @@ struct ShotImageView: View {
                     if let image = shot.imageData?.original {
                         let width = geometry.size.width
                         let height = geometry.size.height
-
                         let imageSize = image.size
-                        let adjustedSize = imageSize.isLandscape ? imageSize.switchOrientation() : imageSize
+                        let size = imageSize.isLandscape ? imageSize.switchOrientation() : imageSize // to potrait
 
                         let padding: CGFloat = 10
                         let iw = width - padding * 2
                         let ih = height - padding * 2
-                        let fit = min(iw / adjustedSize.width, ih / adjustedSize.height)
+                        let fit = min(iw / size.width, ih / size.height)
 
-                        let frameWidth = adjustedSize.width * fit
-                        let frameHeight = adjustedSize.height * fit
+                        let frameWidth = size.width * fit
+                        let frameHeight = size.height * fit
                         let frameSize = CGSize(width: frameWidth, height: frameHeight)
 
                         let rotation: Angle = imageSize.isLandscape ? .degrees(90) : .degrees(0)

@@ -509,16 +509,16 @@ struct ImageUtils {
             case .original:
                 return 2048
             case .thumbnail:
-                return 320
+                return 1024
             }
         }
 
         var compressionQuality: CGFloat {
             switch self {
             case .original:
-                return 0.7
+                return 0.8
             case .thumbnail:
-                return 0.5
+                return 0.6
             }
         }
     }
@@ -949,7 +949,7 @@ class Gallery: Codable {
 }
 
 @Model
-class Roll: Codable {
+class Project: Codable {
     var id = UUID()
     var timestamp = Date()
     var name: String
@@ -967,29 +967,6 @@ class Roll: Codable {
     
     var orderedShots: [Shot] {
         shots.sorted(by: { $0.timestamp < $1.timestamp })
-    }
-    
-    @Relationship private var image: ImageData?
-    
-    public var imageData: ImageData? {
-        return image
-    }
-    
-    func updateImage(to newImage: ImageData?, context: ModelContext) {
-        deleteImage(context: context)
-        if let newImage = newImage {
-            newImage.incrementReference()
-        }
-        self.image = newImage
-    }
-    
-    func deleteImage(context: ModelContext) {
-        if let image = self.image {
-            if image.decrementReference() {
-                context.delete(image)
-            }
-            self.image = nil
-        }
     }
 
     required init(name: String = "",
@@ -1012,15 +989,11 @@ class Roll: Codable {
         self.filmDate = filmDate
         self.filmSize = filmSize
         self.filmStock = filmStock
-        self.image = image
         self.status = status
         self.isLocked = isLocked
     }
     
     func cleanup(context: ModelContext) {
-        if let img = image, img.decrementReference() {
-            context.delete(img)
-        }
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1039,7 +1012,6 @@ class Roll: Codable {
         filmDate = try container.decode(Date.self, forKey: .filmDate)
         filmSize = try container.decode(String.self, forKey: .filmSize)
         filmStock = try container.decode(String.self, forKey: .filmStock)
-        image = try container.decodeIfPresent(ImageData.self, forKey: .image)
         status = try container.decode(String.self, forKey: .status)
         isLocked = try container.decode(Bool.self, forKey: .isLocked)
         shots = try container.decodeIfPresent([Shot].self, forKey: .shots) ?? []
@@ -1057,7 +1029,6 @@ class Roll: Codable {
         try container.encode(filmDate, forKey: .filmDate)
         try container.encode(filmSize, forKey: .filmSize)
         try container.encode(filmStock, forKey: .filmStock)
-        try container.encodeIfPresent(image, forKey: .image)
         try container.encode(status, forKey: .status)
         try container.encode(isLocked, forKey: .isLocked)
         try container.encode(shots, forKey: .shots)
@@ -1383,9 +1354,9 @@ extension ModelContext {
         self.delete(gallery)
     }
     
-    func safelyDelete(_ roll: Roll) {
-        roll.cleanup(context: self)
-        self.delete(roll)
+    func safelyDelete(_ project: Project) {
+        project.cleanup(context: self)
+        self.delete(project)
     }
     
     func safelyDelete(_ shot: Shot) {

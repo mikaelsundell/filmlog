@@ -7,90 +7,61 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var rolls: [Roll]
-    @State private var selectedRoll: Roll? = nil
+    @Query private var projects: [Project]
+    @State private var selectedProject: Project? = nil
     
-    @State private var rollToDelete: Roll?
+    @State private var projectToDelete: Project?
     @State private var showDeleteAlert = false
+    
+    @State private var searchText: String = ""
+
+    var filteredProjects: [Project] {
+        if searchText.isEmpty {
+            return projects
+        } else {
+            return projects.filter {
+                $0.name.localizedCaseInsensitiveContains(searchText) ||
+                $0.filmStock.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+    }
 
     var body: some View {
         NavigationStack {
-            List(selection: $selectedRoll) {
-                let newRolls = rolls.filter { $0.status == "new" }
-                Section(header: Text("New rolls")) {
-                    if newRolls.isEmpty {
-                        Text("No new rolls.")
+            List(selection: $selectedProject) {
+                let newProjects = filteredProjects.filter { $0.status == "new" }
+                Section(header: Text("New projects")) {
+                    if newProjects.isEmpty {
+                        Text("No new projects.")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(Array(newRolls.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { localIndex, roll in
-                            NavigationLink(destination: {
-                                RollDetailView(roll: roll, selectedRoll: $selectedRoll, index: localIndex)
-                            }) {
-                                Label {
-                                    Text("\(localIndex + 1).) \(roll.name.isEmpty ? roll.timestamp.formatted(date: .numeric, time: .standard) : roll.name) (\(roll.daysAgoText))")
-                                        .font(.footnote)
-                                } icon: {
-                                    Image(systemName: "film.fill")
-                                }
-                            }
+                        ForEach(Array(newProjects.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { localIndex, project in
+                            projectRow(project: project, localIndex: localIndex)
                         }
                     }
                 }
-                let shootingRolls = rolls.filter { $0.status == "shooting" }
-                Section(header: Text("Shooting rolls")) {
-                    if shootingRolls.isEmpty {
-                        Text("No rolls currently shooting.")
+                
+                let shootingProjects = filteredProjects.filter { $0.status == "shooting" }
+                Section(header: Text("Shooting projects")) {
+                    if shootingProjects.isEmpty {
+                        Text("No projects currently shooting.")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(Array(shootingRolls.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { localIndex, roll in
-                            NavigationLink(destination: {
-                                RollDetailView(roll: roll, selectedRoll: $selectedRoll, index: localIndex)
-                            }) {
-                                Label {
-                                    Text("\(localIndex + 1).) \(roll.name.isEmpty ? roll.timestamp.formatted(date: .numeric, time: .standard) : roll.name) (\(roll.daysAgoText))")
-                                        .font(.footnote)
-                                } icon: {
-                                    Image(systemName: "film.fill")
-                                }
-                            }
-                        }
-                    }
-                }
-                let processingRolls = rolls.filter { $0.status == "processing" }
-                Section(header: Text("For processing rolls")) {
-                    if processingRolls.isEmpty {
-                        Text("No rolls waiting for processing.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(Array(processingRolls.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { localIndex, roll in
-                            NavigationLink(destination: {
-                                RollDetailView(roll: roll, selectedRoll: $selectedRoll, index: localIndex)
-                            }) {
-                                Label {
-                                    Text("\(localIndex + 1).) \(roll.name.isEmpty ? roll.timestamp.formatted(date: .numeric, time: .standard) : roll.name) (\(roll.daysAgoText))")
-                                        .font(.footnote)
-                                } icon: {
-                                    Image(systemName: "film.fill")
-                                }
-                            }
+                        ForEach(Array(shootingProjects.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { localIndex, project in
+                            projectRow(project: project, localIndex: localIndex)
                         }
                     }
                 }
 
-                let finishedRolls = rolls.filter { $0.status == "finished" }
-                Section(header: Text("Finished rolls")) {
-                    if finishedRolls.isEmpty {
-                        Text("No rolls finished.")
+                let finishedProjects = filteredProjects.filter { $0.status == "finished" }
+                Section(header: Text("Finished projects")) {
+                    if finishedProjects.isEmpty {
+                        Text("No projects finished.")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(Array(finishedRolls.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { localIndex, roll in
-                            NavigationLink(value: roll) {
-                                Label {
-                                    Text("\(localIndex + 1).) \(roll.name.isEmpty ? roll.timestamp.formatted(date: .numeric, time: .standard) : roll.name), Film: \(roll.filmStock) (\(roll.shots.count))")
-                                        .font(.footnote)
-                                } icon: {
-                                    Image(systemName: "film.fill")
-                                }
+                        ForEach(Array(finishedProjects.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { localIndex, project in
+                            NavigationLink(value: project) {
+                                projectLabel(project: project, localIndex: localIndex)
                             }
                         }
                     }
@@ -99,8 +70,8 @@ struct ContentView: View {
             .navigationTitle("Filmlog")
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    Button(action: addRoll) {
-                        Label("Add roll", systemImage: "plus")
+                    Button(action: addProject) {
+                        Label("Add project", systemImage: "plus")
                     }
 
                     NavigationLink(destination: GalleryView()) {
@@ -117,32 +88,58 @@ struct ContentView: View {
                     .help("More actions")
                 }
             }
+            .searchable(text: $searchText, prompt: "Search projects")
+        }
+    }
+    
+    private func projectRow(project: Project, localIndex: Int) -> some View {
+        NavigationLink(destination: {
+            ProjectDetailView(project: project, selectedProject: $selectedProject, index: localIndex)
+        }) {
+            projectLabel(project: project, localIndex: localIndex)
         }
     }
 
-    private func addRoll() {
+    private func projectLabel(project: Project, localIndex: Int) -> some View {
+        let displayName: String = {
+            if project.name.isEmpty {
+                return project.timestamp.formatted(date: .numeric, time: .standard)
+            } else {
+                return project.name
+            }
+        }()
+
+        let firstShotThumbnail = project.shots.first(where: { $0.imageData?.thumbnail != nil })?.imageData?.thumbnail
+        let shotCount = project.shots.count
+
+        return Label {
+            Text("\(displayName) (\(shotCount))")
+                .font(.footnote)
+        } icon: {
+            if let thumbnail = firstShotThumbnail {
+                Image(uiImage: thumbnail)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 32, height: 32)
+                    .clipShape(RoundedRectangle(cornerRadius: 2))
+            } else {
+                Image(systemName: "film.fill")
+            }
+        }
+    }
+
+    private func addProject() {
         withAnimation {
             let baseName = "Untitled"
             var name = baseName
             var index = 1
-            let names = Set(rolls.map { $0.name })
+            let names = Set(projects.map { $0.name })
             while names.contains(name) {
                 name = "\(baseName) \(index)"
                 index += 1
             }
-            let newRoll = Roll(name: name)
-            modelContext.insert(newRoll)
+            let newProject = Project(name: name)
+            modelContext.insert(newProject)
         }
-    }
-}
-
-extension Roll {
-    var daysAgoText: String {
-        let calendar = Calendar.current
-        let now = Date()
-        if let days = calendar.dateComponents([.day], from: timestamp, to: now).day {
-            return "\(days) day\(days == 1 ? "" : "s")"
-        }
-        return "Unknown"
     }
 }

@@ -7,8 +7,9 @@ import CoreLocation
 
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
+    @State private var newShotToShow: Shot?
     @Published var currentLocation: CLLocation?
-
+    
     override init() {
         super.init()
         manager.delegate = self
@@ -40,9 +41,10 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
 
 struct ShotDetailView: View {
     @Bindable var shot: Shot
-    var roll: Roll
+    var project: Project
     var index: Int
     var count: Int
+    var onAdd: ((Shot) -> Void)?
     var onDelete: (() -> Void)?
     
     @Environment(\.modelContext) private var modelContext
@@ -60,40 +62,45 @@ struct ShotDetailView: View {
     
     var body: some View {
         Form {
-            Section(header: Text("Shot")) {
+            Section(header: Text("Camera")) {
                 ShotSectionView(
-                    shot: shot,
-                    isLocked: shot.isLocked,
-                    onImagePicked: { newUIImage in
+                        shot: shot,
+                        isLocked: shot.isLocked
+                    ) { newUIImage in
                         let newImage = ImageData()
                         if newImage.updateFile(to: newUIImage) {
                             shot.updateImage(to: newImage, context: modelContext)
                         }
                     }
-                )
-                
-                HStack {
-                    Text("Film size")
-                    Spacer()
-                    Text(shot.filmSize)
-                }
-                
-                Picker("Aspect Ratio", selection: $shot.aspectRatio) {
-                    ForEach(CameraUtils.aspectRatios, id: \.name) { ratio in
-                        Text(ratio.name).tag(ratio.name)
-                    }
-                }
-                .disabled(shot.isLocked)
-                
+            }
+
+            Section(header: Text("Info")) {
                 TextField("Name", text: $shot.name)
                     .focused($activeField, equals: .name)
                     .disabled(shot.isLocked)
                 
                 TextEditor(text: $shot.note)
-                    .frame(height: 100)
-                    .disabled(shot.isLocked)
-                    .focused($activeField, equals: .note)
-                    .offset(x: -4)
+                        .frame(height: 44)
+                        .focused($activeField, equals: .note)
+                        .disabled(shot.isLocked)
+                        .font(.footnote)
+                        .padding(.horizontal, -4)
+                        .scrollContentBackground(.hidden)
+                        .background(Color(uiColor: .secondarySystemGroupedBackground))
+                        .cornerRadius(6)
+                        .toolbar {
+                            ToolbarItemGroup(placement: .keyboard) {
+                                Spacer()
+                                Button("Done") { activeField = nil }
+                            }
+                        }
+                
+                HStack {
+                    Text("Created:")
+                    Text(shot.timestamp.formatted(date: .abbreviated, time: .shortened))
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             }
             
             Section(header: Text("Location")) {
@@ -302,7 +309,7 @@ struct ShotDetailView: View {
                 Button(action: {
                     showDialog = true
                 }) {
-                    Label("Next shot", systemImage: "film")
+                    Label("Add shot", systemImage: "film")
                         .font(.subheadline)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -312,24 +319,20 @@ struct ShotDetailView: View {
                 }
                 .listRowBackground(Color.clear)
                 .confirmationDialog("Choose an option", isPresented: $showDialog) {
-                    Button("Add one shot") {
-                        addNextShot(count: 1)
+                    Button("Add shot") {
+                        addShot(count: 1)
                         dismiss()
                     }
-                    Button("Copy to next shot") {
-                        copyNextShot(count: 1)
+                    Button("Add 2 shots") {
+                        addShot(count: 2)
                         dismiss()
                     }
-                    Button("Copy to 2 shots") {
-                        copyNextShot(count: 2)
+                    Button("Add 5 shots") {
+                        addShot(count: 5)
                         dismiss()
                     }
-                    Button("Copy to 5 shots") {
-                        copyNextShot(count: 5)
-                        dismiss()
-                    }
-                    Button("Copy to 10 shots") {
-                        copyNextShot(count: 10)
+                    Button("Add 10 shots") {
+                        addShot(count: 10)
                         dismiss()
                     }
                     Button("Cancel", role: .cancel) {}
@@ -372,24 +375,20 @@ struct ShotDetailView: View {
                 }
                 .listRowBackground(Color.clear)
                 .confirmationDialog("Choose an option", isPresented: $showDialog) {
-                    Button("Add one shot") {
-                        addNextShot(count: 1)
+                    Button("Add shot") {
+                        addShot(count: 1)
                         dismiss()
                     }
-                    Button("Copy to next shot") {
-                        copyNextShot(count: 1)
+                    Button("Add 2 shots") {
+                        addShot(count: 2)
                         dismiss()
                     }
-                    Button("Copy to 2 shots") {
-                        copyNextShot(count: 2)
+                    Button("Add 5 shots") {
+                        addShot(count: 5)
                         dismiss()
                     }
-                    Button("Copy to 5 shots") {
-                        copyNextShot(count: 5)
-                        dismiss()
-                    }
-                    Button("Copy to 10 shots") {
-                        copyNextShot(count: 10)
+                    Button("Add 10 shots") {
+                        addShot(count: 10)
                         dismiss()
                     }
                     Button("Cancel", role: .cancel) {}
@@ -477,39 +476,10 @@ struct ShotDetailView: View {
                 .frame(width: 50, alignment: .trailing)
         }
     }
-    
-    private func addNextShot(count: Int) {
-        let baseName = "Untitled"
-        let names = Set(roll.shots.map { $0.name })
-        
-        for _ in 0..<count {
-            var name = baseName
-            var suffix = 1
-            while names.contains(name) {
-                name = "\(baseName) \(suffix)"
-                suffix += 1
-            }
-            do {
-                let newShot = Shot()
-                newShot.name = name
-                newShot.filmSize = roll.filmSize
-                newShot.filmStock = roll.filmStock
 
-                modelContext.insert(newShot)
-                try modelContext.save()
-
-                roll.shots.append(newShot)
-                try modelContext.save()
-                
-            } catch {
-                print("failed to save shot: \(error)")
-            }
-        }
-    }
-
-    private func copyNextShot(count: Int) {
+    private func addShot(count: Int) {
         let baseName = shot.name.isEmpty ? "Copy" : shot.name
-        let names = Set(roll.shots.map { $0.name })
+        let names = Set(project.shots.map { $0.name })
 
         for _ in 0..<count {
             var name = baseName
@@ -521,13 +491,13 @@ struct ShotDetailView: View {
             do {
                 let newShot = shot.copy(context: modelContext)
                 newShot.name = name
+                newShot.deleteImage(context: modelContext)
 
                 modelContext.insert(newShot)
                 try modelContext.save()
 
-                roll.shots.append(newShot)
+                project.shots.append(newShot)
                 try modelContext.save()
-                
             } catch {
                 print("failed to save shot: \(error)")
             }

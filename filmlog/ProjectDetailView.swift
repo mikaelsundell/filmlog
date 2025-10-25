@@ -16,9 +16,9 @@ class PDFPreviewController: NSObject, QLPreviewControllerDataSource {
     }
 }
 
-struct RollDetailView: View {
-    @Bindable var roll: Roll
-    @Binding var selectedRoll: Roll?
+struct ProjectDetailView: View {
+    @Bindable var project: Project
+    @Binding var selectedProject: Project?
     var index: Int
     
     @Environment(\.modelContext) private var modelContext
@@ -34,27 +34,34 @@ struct RollDetailView: View {
 
     var body: some View {
         Form {
-            if roll.status == "shooting" || roll.status == "processing" || roll.status == "finished" {
+            if project.status == "shooting" || project.status == "finished" {
                 Section(header: Text("Shots")) {
-                    if roll.orderedShots.isEmpty {
+                    if project.orderedShots.isEmpty {
                         Text("No shots")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(Array(roll.orderedShots.enumerated()), id: \.element.id) { index, shot in
+                        ForEach(Array(project.orderedShots.enumerated()), id: \.element.id) { index, shot in
                             NavigationLink(destination: {
                                 ShotDetailView(shot: shot,
-                                                roll: roll,
+                                                project: project,
                                                 index: index,
-                                                count: roll.shots.count,
+                                                count: project.shots.count,
                                                 onDelete: {
-                                                    roll.shots = roll.shots.filter { $0.id != shot.id }
+                                                    project.shots = project.shots.filter { $0.id != shot.id }
                                                 })
                             }) {
                                 Label {
-                                    Text("\(index + 1).) \(shot.name.isEmpty ? shot.timestamp.formatted(date: .numeric, time: .standard) : shot.name) (\(shot.daysAgoText))")
-                                        .font(.footnote)
+                                    Text(shot.name.isEmpty ? shot.timestamp.formatted(date: .numeric, time: .standard) : shot.name).font(.footnote)
                                 } icon: {
-                                    Image(systemName: "film.fill")
+                                    if let thumbnail = shot.imageData?.thumbnail {
+                                        Image(uiImage: thumbnail)
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: 32, height: 32)
+                                            .clipShape(RoundedRectangle(cornerRadius: 2))
+                                    } else {
+                                        Image(systemName: "film.fill")
+                                    }
                                 }
                             }
                         }
@@ -62,85 +69,81 @@ struct RollDetailView: View {
                 }
             }
             
-            Section(header: Text("Roll")) {
-                VStack(alignment: .leading) {
-                    PhotoPickerView(
-                        image: roll.imageData?.thumbnail,
-                        label: "Add photo",
-                        isLocked: roll.isLocked
-                    ) { newUIImage in
-                        let newImage = ImageData()
-                        if newImage.updateFile(to: newUIImage) {
-                            roll.updateImage(to: newImage, context: modelContext)
-                        }
-                    }
-                }
-                
-                TextField("Name", text: $roll.name)
+            Section(header: Text("Project")) {
+                TextField("Name", text: $project.name)
                     .focused($focused)
                     .submitLabel(.done)
                     .onSubmit {
                         focused = false
                     }
-                    .disabled(roll.isLocked)
+                    .disabled(project.isLocked)
                 
-                TextEditor(text: $roll.note)
-                    .frame(height: 100)
+                TextEditor(text: $project.note)
+                    .frame(height: 44)
                     .focused($focused)
-                    .disabled(roll.isLocked)
-                    .offset(x: -4)
+                    .disabled(project.isLocked)
+                    .font(.footnote)
+                    .padding(.horizontal, -4)
+                    .scrollContentBackground(.hidden)
+                    .background(Color(uiColor: .secondarySystemGroupedBackground))
+                    .cornerRadius(6)
                     .toolbar {
                         ToolbarItemGroup(placement: .keyboard) {
                             Spacer()
-                            Button("Done") {
-                                focused = false
+                            Button("Done") { focused = false }
                         }
                     }
+                
+                HStack {
+                    Text("Created:")
+                    Text(project.timestamp.formatted(date: .abbreviated, time: .shortened))
                 }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             }
             
             Section(header: Text("Info")) {
-                Picker("Camera", selection: $roll.camera) {
+                Picker("Camera", selection: $project.camera) {
                     ForEach(CameraUtils.cameras, id: \.name) { camera in
                         Text(camera.name).tag(camera.name)
                     }
                 }
-                .disabled(roll.isLocked)
+                .disabled(project.isLocked)
                 
-                Picker("Counter", selection: $roll.counter) {
+                Picker("Counter", selection: $project.counter) {
                     ForEach([5, 10, 20, 24, 30, 34], id: \.self) { value in
                         Text("\(value)").tag(value)
                     }
                 }
-                .disabled(roll.isLocked)
+                .disabled(project.isLocked)
                 
-                Picker("Push/ pull", selection: $roll.pushPull) {
+                Picker("Push/ pull", selection: $project.pushPull) {
                     ForEach(["-3", "-2", "-1", "0", "+1", "+2", "+3"], id: \.self) { value in
                         Text("EV\(value)").tag(value)
                     }
                 }
-                .disabled(roll.isLocked)
+                .disabled(project.isLocked)
                 
-                DatePicker("Film date", selection: $roll.filmDate, in: ...Date(), displayedComponents: .date)
+                DatePicker("Film date", selection: $project.filmDate, in: ...Date(), displayedComponents: .date)
                     .datePickerStyle(.compact)
-                    .disabled(roll.isLocked)
+                    .disabled(project.isLocked)
                 
-                Picker("Film size", selection: $roll.filmSize) {
+                Picker("Film size", selection: $project.filmSize) {
                     ForEach(CameraUtils.filmSizes, id: \.name) { size in
                         Text(size.name).tag(size.name)
                     }
                 }
-                .disabled(roll.isLocked)
+                .disabled(project.isLocked)
                 
-                Picker("Film stock", selection: $roll.filmStock) {
+                Picker("Film stock", selection: $project.filmStock) {
                     ForEach(CameraUtils.filmStocks, id: \.name) { stock in
                         Text(stock.name).tag(stock.name)
                     }
                 }
-                .disabled(roll.isLocked)
+                .disabled(project.isLocked)
             }
         
-            if roll.status == "new" {
+            if project.status == "new" {
                 Section {
                     Button(action: {
                         confirmMoveToShooting = true
@@ -158,8 +161,8 @@ struct RollDetailView: View {
                         Button("Confirm", role: .destructive) {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                 withAnimation {
-                                    roll.status = "shooting"
-                                    roll.isLocked = true
+                                    project.status = "shooting"
+                                    project.isLocked = true
                                     addShot()
                                 }
                             }
@@ -169,45 +172,12 @@ struct RollDetailView: View {
                             confirmMoveToShooting = false
                         }
                     } message: {
-                        Text("Are you sure you want to move this roll to shooting?")
-                    }
-                }
-            }
-            
-            if roll.status == "shooting" {
-                Section {
-                    Button(action: {
-                        confirmMoveToProcessing = true
-                    }) {
-                        Label("Move to Processing", systemImage: "tray.and.arrow.down.fill")
-                            .font(.subheadline)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.accentColor)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                    }
-                    .listRowBackground(Color.clear)
-                    .alert("Move to Processing?", isPresented: $confirmMoveToProcessing) {
-                        Button("Confirm", role: .destructive) {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                withAnimation {
-                                    roll.status = "processing"
-                                    roll.isLocked = true
-                                }
-                            }
-                            confirmMoveToProcessing = false
-                        }
-                        Button("Cancel", role: .cancel) {
-                            confirmMoveToProcessing = false
-                        }
-                    } message: {
-                        Text("Are you sure you want to move this roll to processing?")
+                        Text("Are you sure you want to move this project to shooting?")
                     }
                 }
             }
 
-            if roll.status == "processing" {
+            if project.status == "shooting" {
                 Section {
                     Button(action: {
                         confirmMoveToFinished = true
@@ -225,8 +195,8 @@ struct RollDetailView: View {
                         Button("Confirm", role: .destructive) {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                 withAnimation {
-                                    roll.status = "finished"
-                                    roll.isLocked = true
+                                    project.status = "finished"
+                                    project.isLocked = true
                                 }
                             }
                             confirmMoveToFinished = false
@@ -235,52 +205,27 @@ struct RollDetailView: View {
                             confirmMoveToFinished = false
                         }
                     } message: {
-                        Text("Do you want to mark this roll as finished?")
+                        Text("Do you want to mark this project as finished?")
                     }
                 }
             }
         }
-        .navigationTitle("\(roll.status.capitalized) \(roll.name.isEmpty ? "roll" : roll.name)")
-        .sheet(isPresented: $showCamera) {
-            CameraPicker { image in
-                let newImage = ImageData()
-                if newImage.updateFile(to: image) {
-                    roll.updateImage(to: newImage, context: modelContext)
-                } else {
-                    print("failed to save camera image for roll")
-                }
-            }
-        }
-        .onChange(of: selectedItem) {
-            if let selectedItem {
-                Task {
-                    if let data = try? await selectedItem.loadTransferable(type: Data.self),
-                       let image = UIImage(data: data) {
-                        let newImage = ImageData()
-                        if newImage.updateFile(to: image) {
-                            roll.updateImage(to: newImage, context: modelContext)
-                        } else {
-                            print("failed to save selected image for roll")
-                        }
-                    }
-                }
-            }
-        }
+        .navigationTitle("\(project.status.capitalized) \(project.name.isEmpty ? "project" : project.name)")
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 Button(action: {
-                    roll.isLocked.toggle()
+                    project.isLocked.toggle()
                 }) {
-                    Image(systemName: roll.isLocked ? "lock.fill" : "lock.open")
+                    Image(systemName: project.isLocked ? "lock.fill" : "lock.open")
                 }
-                .help(roll.isLocked ? "Unlock to edit roll info" : "Lock to prevent editing")
+                .help(project.isLocked ? "Unlock to edit project info" : "Lock to prevent editing")
 
                 Button(role: .destructive) {
                     showDeleteAlert = true
                 } label: {
                     Image(systemName: "trash")
                 }
-                .help("Delete this roll")
+                .help("Delete this project")
 
                 Menu {
                     Button {
@@ -298,14 +243,14 @@ struct RollDetailView: View {
         .alert("Are you sure?", isPresented: $showDeleteAlert) {
             Button("Delete", role: .destructive) {
                 withAnimation {
-                    modelContext.safelyDelete(roll)
-                    selectedRoll = nil
+                    modelContext.safelyDelete(project)
+                    selectedProject = nil
                     dismiss()
                 }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This roll contains \(roll.shots.count) shot\(roll.shots.count == 1 ? "" : "s"). Are you sure you want to delete it?")
+            Text("This project contains \(project.shots.count) shot\(project.shots.count == 1 ? "" : "s"). Are you sure you want to delete it?")
         }
     }
 
@@ -314,12 +259,12 @@ struct RollDetailView: View {
             do {
                 let newShot = Shot()
                 newShot.name = "Untitled"
-                newShot.filmSize = roll.filmSize
-                newShot.filmStock = roll.filmStock
+                newShot.filmSize = project.filmSize
+                newShot.filmStock = project.filmStock
                 modelContext.insert(newShot)
                 try modelContext.save()
                 
-                roll.shots.append(newShot)
+                project.shots.append(newShot)
                 try modelContext.save()
                 
             } catch {
@@ -352,10 +297,10 @@ struct RollDetailView: View {
                 icon.draw(in: CGRect(x: margin, y: yOffset, width: 40, height: 40))
             }
 
-            let title = "Roll - \(roll.name.isEmpty ? "Untitled" : roll.name)"
+            let title = "Project - \(project.name.isEmpty ? "Untitled" : project.name)"
             let dateFormatter = DateFormatter()
             dateFormatter.dateStyle = .medium
-            let dateText = dateFormatter.string(from: roll.timestamp)
+            let dateText = dateFormatter.string(from: project.timestamp)
 
             title.draw(at: CGPoint(x: margin + 50, y: yOffset), withAttributes: [
                 .font: UIFont.boldSystemFont(ofSize: 18)
@@ -366,16 +311,16 @@ struct RollDetailView: View {
             ])
             yOffset += 60
 
-            if let rollImage = UIImage(named: "RollPlaceholder") {
-                let aspectRatio = rollImage.size.height / rollImage.size.width
+            if let projectImage = UIImage(named: "ProjectPlaceholder") {
+                let aspectRatio = projectImage.size.height / projectImage.size.width
                 let imageHeight = imageMaxWidth * aspectRatio
-                rollImage.draw(in: CGRect(x: margin, y: yOffset, width: imageMaxWidth, height: imageHeight))
+                projectImage.draw(in: CGRect(x: margin, y: yOffset, width: imageMaxWidth, height: imageHeight))
             }
 
-            let rollDetails = """
-            Name: \(roll.name)
-            Note: \(roll.note)
-            Status: \(roll.status)
+            let projectDetails = """
+            Name: \(project.name)
+            Note: \(project.note)
+            Status: \(project.status)
 
             Camera:
             Counter
@@ -385,7 +330,7 @@ struct RollDetailView: View {
             Film stock
             """
 
-            rollDetails.draw(in: CGRect(x: margin + imageMaxWidth + 10, y: yOffset, width: contentWidth - imageMaxWidth - 10, height: 100), withAttributes: [
+            projectDetails.draw(in: CGRect(x: margin + imageMaxWidth + 10, y: yOffset, width: contentWidth - imageMaxWidth - 10, height: 100), withAttributes: [
                 .font: UIFont.systemFont(ofSize: 12)
             ])
 
@@ -396,7 +341,7 @@ struct RollDetailView: View {
             line.fill()
             yOffset += 20
 
-            for (index, shot) in roll.orderedShots.enumerated() {
+            for (index, shot) in project.orderedShots.enumerated() {
                 if yOffset + 150 > pageHeight - margin {
                     context.beginPage()
                     yOffset = margin
@@ -461,7 +406,7 @@ struct RollDetailView: View {
                             withAttributes: [.font: UIFont.systemFont(ofSize: 10), .foregroundColor: UIColor.gray])
         }
 
-        let tmpURL = FileManager.default.temporaryDirectory.appendingPathComponent("Roll-\(roll.name).pdf")
+        let tmpURL = FileManager.default.temporaryDirectory.appendingPathComponent("Project-\(project.name).pdf")
         do {
             try data.write(to: tmpURL)
 

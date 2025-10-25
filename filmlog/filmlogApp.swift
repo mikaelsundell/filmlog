@@ -10,7 +10,7 @@ import SwiftData
 struct filmlogApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Roll.self,
+            Project.self,
             Shot.self,
             Gallery.self
         ])
