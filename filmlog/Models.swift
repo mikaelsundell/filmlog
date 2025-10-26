@@ -269,12 +269,14 @@ struct CameraUtils {
     
     struct FilmSize {
         let name: String
+        let category: String
         let width: Double
         let height: Double
         let isNone: Bool
         
-        init(name: String, width: Double, height: Double, isNone: Bool = false) {
+        init(name: String, category: String, width: Double, height: Double, isNone: Bool = false) {
             self.name = name
+            self.category = category
             self.width = width
             self.height = height
             self.isNone = isNone
@@ -328,82 +330,94 @@ struct CameraUtils {
         static let defaultInfinity: Double = 1000000
         static let defaultCocFactor: Double = 1442
         
-        static let none = FilmSize(name: "-", width: 0.0, height: 0.0, isNone: true)
+        static let none = FilmSize(name: "-", category: "-", width: 0.0, height: 0.0, isNone: true)
     }
     
     static let filmSizes: [FilmSize] = [
-        FilmSize(name: "135 (35mm)", width: 36.0, height: 24.0),
-        FilmSize(name: "120 (6x6)", width: 60.0, height: 60.0),
-        FilmSize(name: "120 (6x7)", width: 70.0, height: 60.0),
-        FilmSize(name: "120 (6x9)", width: 90.0, height: 60.0),
-        FilmSize(name: "Large Format (4x5)", width: 127.0, height: 101.6),
-        FilmSize(name: "35mm Academy (4-perf)", width: 21.95, height: 16.00),
-        FilmSize(name: "35mm Full Aperture (Silent)", width: 24.89, height: 18.66),
-        FilmSize(name: "Super 35 (4-perf)", width: 24.89, height: 18.66),
-        FilmSize(name: "Super 35 (3-perf)", width: 24.89, height: 13.87),
-        FilmSize(name: "Techniscope (2-perf)", width: 22.00, height: 9.47),
-        FilmSize(name: "70mm (5-perf)", width: 48.56, height: 22.10),
-        FilmSize(name: "IMAX 70mm (15-perf)", width: 70.41, height: 52.63),
-        FilmSize(name: "Alexa Mini / Classic (Open Gate)", width: 28.17, height: 18.13),
-        FilmSize(name: "Alexa Mini / Classic (16:9)", width: 23.76, height: 13.37),
-        FilmSize(name: "Alexa Mini / Classic (4:3)", width: 23.76, height: 17.82),
-        FilmSize(name: "Alexa LF (Open Gate)", width: 36.70, height: 25.54),
-        FilmSize(name: "Alexa LF (16:9)", width: 31.68, height: 17.82),
-        FilmSize(name: "Alexa 65 (Open Gate)", width: 54.12, height: 25.58),
-        FilmSize(name: "RED Komodo 6K (S35)", width: 27.03, height: 14.26),
-        FilmSize(name: "RED Raptor 8K VV (Full Frame)", width: 40.96, height: 21.60),
-        FilmSize(name: "RED V-Raptor XL 8K VV", width: 40.96, height: 21.60),
-        FilmSize(name: "RED Monstro 8K VV", width: 40.96, height: 21.60),
-        FilmSize(name: "RED Helium 8K S35", width: 29.90, height: 15.77),
-        FilmSize(name: "RED Gemini 5K S35", width: 30.72, height: 18.00),
-        FilmSize(name: "Sony Venice 2 8.6K (Full Frame)", width: 36.2, height: 24.1),
-        FilmSize(name: "Sony Venice (6K S35)", width: 24.3, height: 12.9),
-        FilmSize(name: "Sony FX9 (Full Frame)", width: 35.7, height: 18.8),
-        FilmSize(name: "Sony FX6 (Full Frame)", width: 35.6, height: 18.8),
-        FilmSize(name: "Sony FS7 (S35)", width: 24.0, height: 13.5),
-        FilmSize(name: "BMPCC 4K (MFT)", width: 18.96, height: 10.00),
-        FilmSize(name: "BMPCC 6K (S35)", width: 23.10, height: 12.99),
-        FilmSize(name: "BMPCC 6K Pro (S35)", width: 23.10, height: 12.99),
-        FilmSize(name: "URSA Mini 4.6K (S35)", width: 25.34, height: 14.25),
-        FilmSize(name: "URSA Mini Pro 12K (S35)", width: 27.03, height: 14.25),
-        FilmSize(name: "Cinema Camera 6K (Full Frame)", width: 36.00, height: 24.00)
+        FilmSize(name: "135 (35mm)", category: "Still Photography", width: 36.0, height: 24.0),
+        FilmSize(name: "120 (6x6)", category: "Still Photography", width: 60.0, height: 60.0),
+        FilmSize(name: "120 (6x7)", category: "Still Photography", width: 70.0, height: 60.0),
+        FilmSize(name: "120 (6x9)", category: "Still Photography", width: 90.0, height: 60.0),
+        FilmSize(name: "Large Format (4x5)", category: "Still Photography", width: 127.0, height: 101.6),
+        FilmSize(name: "35mm Academy (4-perf)", category: "Motion Picture Film", width: 21.95, height: 16.00),
+        FilmSize(name: "35mm Full Aperture (Silent)", category: "Motion Picture Film", width: 24.89, height: 18.66),
+        FilmSize(name: "Super 35 (4-perf)", category: "Motion Picture Film", width: 24.89, height: 18.66),
+        FilmSize(name: "Super 35 (3-perf)", category: "Motion Picture Film", width: 24.89, height: 13.87),
+        FilmSize(name: "Techniscope (2-perf)", category: "Motion Picture Film", width: 22.00, height: 9.47),
+        FilmSize(name: "70mm (5-perf)", category: "Motion Picture Film", width: 48.56, height: 22.10),
+        FilmSize(name: "IMAX 70mm (15-perf)", category: "Motion Picture Film", width: 70.41, height: 52.63),
+        FilmSize(name: "Alexa Mini / Classic (Open Gate)", category: "ARRI Alexa", width: 28.17, height: 18.13),
+        FilmSize(name: "Alexa Mini / Classic (16:9)", category: "ARRI Alexa", width: 23.76, height: 13.37),
+        FilmSize(name: "Alexa Mini / Classic (4:3)", category: "ARRI Alexa", width: 23.76, height: 17.82),
+        FilmSize(name: "Alexa LF (Open Gate)", category: "ARRI Alexa", width: 36.70, height: 25.54),
+        FilmSize(name: "Alexa LF (16:9)", category: "ARRI Alexa", width: 31.68, height: 17.82),
+        FilmSize(name: "Alexa 65 (Open Gate)", category: "ARRI Alexa", width: 54.12, height: 25.58),
+        FilmSize(name: "RED Komodo 6K (S35)", category: "RED", width: 27.03, height: 14.26),
+        FilmSize(name: "RED Raptor 8K VV (Full Frame)", category: "RED", width: 40.96, height: 21.60),
+        FilmSize(name: "RED V-Raptor XL 8K VV", category: "RED", width: 40.96, height: 21.60),
+        FilmSize(name: "RED Monstro 8K VV", category: "RED", width: 40.96, height: 21.60),
+        FilmSize(name: "RED Helium 8K S35", category: "RED", width: 29.90, height: 15.77),
+        FilmSize(name: "RED Gemini 5K S35", category: "RED", width: 30.72, height: 18.00),
+        FilmSize(name: "Sony Venice 2 8.6K (Full Frame)", category: "Sony", width: 36.2, height: 24.1),
+        FilmSize(name: "Sony Venice (6K S35)", category: "Sony", width: 24.3, height: 12.9),
+        FilmSize(name: "Sony FX9 (Full Frame)", category: "Sony", width: 35.7, height: 18.8),
+        FilmSize(name: "Sony FX6 (Full Frame)", category: "Sony", width: 35.6, height: 18.8),
+        FilmSize(name: "Sony FS7 (S35)", category: "Sony", width: 24.0, height: 13.5),
+        FilmSize(name: "BMPCC 4K (MFT)", category: "Blackmagic", width: 18.96, height: 10.00),
+        FilmSize(name: "BMPCC 6K (S35)", category: "Blackmagic", width: 23.10, height: 12.99),
+        FilmSize(name: "BMPCC 6K Pro (S35)", category: "Blackmagic", width: 23.10, height: 12.99),
+        FilmSize(name: "URSA Mini 4.6K (S35)", category: "Blackmagic", width: 25.34, height: 14.25),
+        FilmSize(name: "URSA Mini Pro 12K (S35)", category: "Blackmagic", width: 27.03, height: 14.25),
+        FilmSize(name: "Cinema Camera 6K (Full Frame)", category: "Blackmagic", width: 36.00, height: 24.00),
+        FilmSize(name: "-", category: "", width: 0.0, height: 0.0)
     ]
 
     static func filmSize(for label: String) -> FilmSize {
         filmSizes.first(where: { $0.name == label }) ?? .none
     }
     
+    static var groupedFilmSizes: [String: [FilmSize]] {
+        Dictionary(grouping: filmSizes, by: { $0.category })
+    }
+    
     struct FilmStock: Equatable {
         let name: String
+        let category: String
         let speed: Double
         let colorTemperature: Double
         let isNone: Bool
         
-        init(name: String, speed: Double, colorTemperature: Double, isNone: Bool = false) {
+        init(name: String, category: String, speed: Double, colorTemperature: Double, isNone: Bool = false) {
             self.name = name
+            self.category = category
             self.speed = speed
             self.colorTemperature = colorTemperature
             self.isNone = isNone
         }
         
-        static let none = FilmStock(name: "-", speed: 0, colorTemperature: 0, isNone: true)
+        static let none = FilmStock(name: "-", category: "-", speed: 0, colorTemperature: 0, isNone: true)
     }
     
     static let filmStocks: [FilmStock] = [
-        FilmStock(name: "Vision3 50D 5203", speed: 50, colorTemperature: 5600),
-        FilmStock(name: "Vision3 250D 5207", speed: 250, colorTemperature: 5600),
-        FilmStock(name: "Vision3 200T 5213", speed: 200, colorTemperature: 3200),
-        FilmStock(name: "Vision3 500T 5219", speed: 500, colorTemperature: 3200),
-        FilmStock(name: "Kodak Ektachrome", speed: 100, colorTemperature: 5600),
-        FilmStock(name: "Kodak Double X 5222", speed: 250, colorTemperature: 5600),
-        FilmStock(name: "EI 50", speed: 50, colorTemperature: 5600),
-        FilmStock(name: "EI 100", speed: 100, colorTemperature: 5600),
-        FilmStock(name: "EI 200", speed: 200, colorTemperature: 5600),
-        FilmStock(name: "EI 400", speed: 400, colorTemperature: 5600),
-        FilmStock(name: "EI 800", speed: 800, colorTemperature: 5600),
-        FilmStock(name: "EI 1600", speed: 1600, colorTemperature: 5600),
-        FilmStock(name: "EI 3200", speed: 3200, colorTemperature: 5600)
+        FilmStock(name: "50", category: "Generic ISO", speed: 50, colorTemperature: 5600),
+        FilmStock(name: "100", category: "Generic ISO", speed: 100, colorTemperature: 5600),
+        FilmStock(name: "200", category: "Generic ISO", speed: 200, colorTemperature: 5600),
+        FilmStock(name: "400", category: "Generic ISO", speed: 400, colorTemperature: 5600),
+        FilmStock(name: "800", category: "Generic ISO", speed: 800, colorTemperature: 5600),
+        FilmStock(name: "1600", category: "Generic ISO", speed: 1600, colorTemperature: 5600),
+        FilmStock(name: "3200", category: "Generic ISO", speed: 3200, colorTemperature: 5600),
+        FilmStock(name: "50D 5203", category: "Kodak", speed: 50, colorTemperature: 5600),
+        FilmStock(name: "250D 5207", category: "Kodak", speed: 250, colorTemperature: 5600),
+        FilmStock(name: "200T 5213", category: "Kodak", speed: 200, colorTemperature: 3200),
+        FilmStock(name: "500T 5219", category: "Kodak", speed: 500, colorTemperature: 3200),
+        FilmStock(name: "Ektachrome", category: "Kodak", speed: 100, colorTemperature: 5600),
+        FilmStock(name: "Double X 5222", category: "Kodak", speed: 250, colorTemperature: 5600),
+
     ]
+    
+    static var groupedFilmStocks: [String: [FilmStock]] {
+        Dictionary(grouping: filmStocks, by: { $0.category })
+    }
 
     static func filmStock(for label: String) -> FilmStock {
         filmStocks.first(where: { $0.name == label }) ?? .none
@@ -422,6 +436,7 @@ struct CameraUtils {
     }
     
     static let lenses: [Lens] = [
+        .none,
         Lens(name: "Arri"),
         Lens(name: "Cooke"),
         Lens(name: "Canon FD"),
@@ -960,7 +975,7 @@ class Project: Codable {
     var filmDate: Date
     var filmSize: String
     var filmStock: String
-    var status: String
+    var isArchived: Bool
     var isLocked: Bool
 
     @Relationship var shots: [Shot] = []
@@ -976,10 +991,10 @@ class Project: Codable {
          pushPull: String = "0",
          filmDate: Date = Date(),
          filmSize: String = "135 (35mm)",
-         filmStock: String = "Vision3 50D 5203",
+         filmStock: String = "100",
          image: ImageData? = nil,
          lightMeterImage: ImageData? = nil,
-         status: String = "new",
+         archived: Bool = false,
          isLocked: Bool = false) {
         self.name = name
         self.note = note
@@ -989,7 +1004,7 @@ class Project: Codable {
         self.filmDate = filmDate
         self.filmSize = filmSize
         self.filmStock = filmStock
-        self.status = status
+        self.isArchived = archived
         self.isLocked = isLocked
     }
     
@@ -997,7 +1012,7 @@ class Project: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, name, note, camera, counter, pushPull, filmDate, filmSize, filmStock, image, status, isLocked, shots
+        case id, timestamp, name, note, camera, counter, pushPull, filmDate, filmSize, filmStock, image, isArchived, isLocked, shots
     }
 
     required init(from decoder: Decoder) throws {
@@ -1012,7 +1027,7 @@ class Project: Codable {
         filmDate = try container.decode(Date.self, forKey: .filmDate)
         filmSize = try container.decode(String.self, forKey: .filmSize)
         filmStock = try container.decode(String.self, forKey: .filmStock)
-        status = try container.decode(String.self, forKey: .status)
+        isArchived = try container.decode(Bool.self, forKey: .isArchived)
         isLocked = try container.decode(Bool.self, forKey: .isLocked)
         shots = try container.decodeIfPresent([Shot].self, forKey: .shots) ?? []
     }
@@ -1029,9 +1044,32 @@ class Project: Codable {
         try container.encode(filmDate, forKey: .filmDate)
         try container.encode(filmSize, forKey: .filmSize)
         try container.encode(filmStock, forKey: .filmStock)
-        try container.encode(status, forKey: .status)
+        try container.encode(isArchived, forKey: .isArchived)
         try container.encode(isLocked, forKey: .isLocked)
         try container.encode(shots, forKey: .shots)
+    }
+}
+
+extension Project {
+    static func createDefault(in context: ModelContext) -> Project {
+        let baseName = "Untitled"
+        var name = baseName
+        var index = 1
+
+        let projects = try? context.fetch(FetchDescriptor<Project>())
+        let names = Set(projects?.map { $0.name } ?? [])
+        while names.contains(name) {
+            name = "\(baseName) \(index)"
+            index += 1
+        }
+
+        let project = Project(name: name)
+        context.insert(project)
+
+        let firstShot = Shot.createDefault(for: project, in: context)
+        project.shots.append(firstShot)
+
+        return project
     }
 }
 
@@ -1122,8 +1160,8 @@ class Shot: Codable {
         }
     }
 
-    required init(filmSize: String = "",
-         filmStock: String = "",
+    required init(filmSize: String = "135 (35mm)",
+         filmStock: String = "100",
          aspectRatio: String = "-",
          name: String = "",
          note: String = "",
@@ -1144,13 +1182,13 @@ class Shot: Codable {
          focusFarLimit: Double = 0.0,
          focusHyperfocalDistance: Double = 0.0,
          focusHyperfocalNearLimit: Double = 0.0,
-         exposureSky: String = "f/2.8",
-         exposureFoliage: String = "f/2.8",
-         exposureHighlights: String = "f/2.8",
-         exposureMidGray: String = "f/2.8",
-         exposureShadows: String = "f/2.8",
-         exposureSkinKey: String = "f/2.8",
-         exposureSkinFill: String = "f/2.8",
+         exposureSky: String = "0",
+         exposureFoliage: String = "0",
+         exposureHighlights: String = "0",
+         exposureMidGray: String = "0",
+         exposureShadows: String = "0",
+         exposureSkinKey: String = "0",
+         exposureSkinFill: String = "0",
          deviceRoll: Double = 0.0,
          deviceTilt: Double = 0.0,
          deviceCameraMode: String = "",
@@ -1345,6 +1383,26 @@ class Shot: Codable {
         try container.encodeIfPresent(image, forKey: .image)
         try container.encodeIfPresent(lightMeterImage, forKey: .lightMeterImage)
         try container.encode(isLocked, forKey: .isLocked)
+    }
+}
+
+extension Shot {
+    static func createDefault(for project: Project, in context: ModelContext) -> Shot {
+        let baseName = "Shot"
+        var name = baseName
+        var index = 1
+        let names = Set(project.shots.map { $0.name })
+        while names.contains(name) {
+            name = "\(baseName) \(index)"
+            index += 1
+        }
+        let shot = Shot(
+            filmSize: project.filmSize,
+            filmStock: project.filmStock,
+            name: name
+        )
+        context.insert(shot)
+        return shot
     }
 }
 

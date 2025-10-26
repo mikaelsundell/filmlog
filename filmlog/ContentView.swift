@@ -12,7 +12,6 @@ struct ContentView: View {
     
     @State private var projectToDelete: Project?
     @State private var showDeleteAlert = false
-    
     @State private var searchText: String = ""
 
     var filteredProjects: [Project] {
@@ -29,40 +28,26 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             List(selection: $selectedProject) {
-                let newProjects = filteredProjects.filter { $0.status == "new" }
-                Section(header: Text("New projects")) {
-                    if newProjects.isEmpty {
-                        Text("No new projects.")
+                let projects = filteredProjects.filter { $0.isArchived == false }
+                Section(header: Text("Projects")) {
+                    if projects.isEmpty {
+                        Text("No projects.")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(Array(newProjects.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { localIndex, project in
-                            projectRow(project: project, localIndex: localIndex)
-                        }
-                    }
-                }
-                
-                let shootingProjects = filteredProjects.filter { $0.status == "shooting" }
-                Section(header: Text("Shooting projects")) {
-                    if shootingProjects.isEmpty {
-                        Text("No projects currently shooting.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(Array(shootingProjects.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { localIndex, project in
+                        ForEach(Array(projects.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { localIndex, project in
                             projectRow(project: project, localIndex: localIndex)
                         }
                     }
                 }
 
-                let finishedProjects = filteredProjects.filter { $0.status == "finished" }
-                Section(header: Text("Finished projects")) {
-                    if finishedProjects.isEmpty {
-                        Text("No projects finished.")
+                let archivedProjects = filteredProjects.filter { $0.isArchived == true  }
+                Section(header: Text("Archived projects")) {
+                    if archivedProjects.isEmpty {
+                        Text("No projects archived.")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(Array(finishedProjects.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { localIndex, project in
-                            NavigationLink(value: project) {
-                                projectLabel(project: project, localIndex: localIndex)
-                            }
+                        ForEach(Array(archivedProjects.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { localIndex, project in
+                            projectRow(project: project, localIndex: localIndex)
                         }
                     }
                 }
@@ -109,37 +94,71 @@ struct ContentView: View {
             }
         }()
 
-        let firstShotThumbnail = project.shots.first(where: { $0.imageData?.thumbnail != nil })?.imageData?.thumbnail
+        let thumbnails = project.shots
+            .compactMap { $0.imageData?.thumbnail }
+            .suffix(3)
+            .reversed()
+
         let shotCount = project.shots.count
 
-        return Label {
-            Text("\(displayName) (\(shotCount))")
-                .font(.footnote)
-        } icon: {
-            if let thumbnail = firstShotThumbnail {
-                Image(uiImage: thumbnail)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 32, height: 32)
-                    .clipShape(RoundedRectangle(cornerRadius: 2))
-            } else {
-                Image(systemName: "film.fill")
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(displayName) (\(shotCount))")
+                    .font(.footnote)
+                    .lineLimit(1)
             }
+
+            Spacer()
+
+            ZStack(alignment: .trailing) {
+                if thumbnails.isEmpty {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.white.opacity(0.1))
+                            .frame(width: 32, height: 32)
+                        
+                        Image(systemName: "film.fill")
+                            .renderingMode(.template)
+                            .foregroundStyle(.white.opacity(0.7))
+                            .font(.system(size: 16, weight: .regular))
+                    }
+                    .frame(width: 32, height: 32)
+                } else if thumbnails.count == 1, let image = thumbnails.first {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 32, height: 32)
+                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 3)
+                                .stroke(Color.black.opacity(0.7), lineWidth: 0.5)
+                        )
+                        .frame(width: 48, alignment: .trailing)
+                } else {
+                    HStack(spacing: -12) {
+                        ForEach(Array(thumbnails.enumerated()), id: \.offset) { index, image in
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 32, height: 32)
+                                .clipShape(RoundedRectangle(cornerRadius: 3))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .stroke(Color.black.opacity(0.7), lineWidth: 0.5)
+                                )
+                                .shadow(radius: 1)
+                        }
+                    }
+                    .frame(width: 64, alignment: .trailing)
+                }
+            }
+            .frame(width: 64, height: 32, alignment: .trailing)
         }
     }
 
     private func addProject() {
         withAnimation {
-            let baseName = "Untitled"
-            var name = baseName
-            var index = 1
-            let names = Set(projects.map { $0.name })
-            while names.contains(name) {
-                name = "\(baseName) \(index)"
-                index += 1
-            }
-            let newProject = Project(name: name)
-            modelContext.insert(newProject)
+            _ = Project.createDefault(in: modelContext)
         }
     }
 }
