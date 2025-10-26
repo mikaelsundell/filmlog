@@ -157,8 +157,12 @@ struct ProjectDetailView: View {
                             }
                         ) {
                             Picker("Camera", selection: $project.camera) {
-                                ForEach(CameraUtils.cameras, id: \.name) { camera in
-                                    Text(camera.name).tag(camera.name)
+                                ForEach(CameraUtils.groupedCameras.keys.sorted(), id: \.self) { category in
+                                    Section(header: Text(category)) {
+                                        ForEach(CameraUtils.groupedCameras[category] ?? [], id: \.name) { stock in
+                                            Text(stock.name).tag(stock.name)
+                                        }
+                                    }
                                 }
                             }
                             .disabled(project.isLocked)

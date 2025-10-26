@@ -136,39 +136,64 @@ struct CameraUtils {
     
     struct Camera: Equatable {
         let name: String
+        let category: String
         let isNone: Bool
-        
-        init(name: String, isNone: Bool = false) {
+
+        init(name: String, category: String, isNone: Bool = false) {
             self.name = name
+            self.category = category
             self.isNone = isNone
         }
-        
-        static let none = Camera(name: "-", isNone: true)
+
+        static let none = Camera(name: "-", category: "", isNone: true)
     }
-    
+
     static let cameras: [Camera] = [
         .none,
-        Camera(name: "Canon AE-1"),
-        Camera(name: "Canon A-1"),
-        Camera(name: "Canon F-1"),
-        Camera(name: "Nikon FM2"),
-        Camera(name: "Nikon FE2"),
-        Camera(name: "Nikon F3"),
-        Camera(name: "Olympus OM-1"),
-        Camera(name: "Olympus OM-2"),
-        Camera(name: "Pentax K1000"),
-        Camera(name: "Minolta X-700"),
-        Camera(name: "Leica M3"),
-        Camera(name: "Leica M6"),
-        Camera(name: "Contax T2"),
-        Camera(name: "Hasselblad 500C/M"),
-        Camera(name: "Mamiya RB67"),
-        Camera(name: "Yashica Mat-124G"),
-        Camera(name: "Other")
+        Camera(name: "Canon AE-1", category: "35mm Still"),
+        Camera(name: "Canon A-1", category: "35mm Still"),
+        Camera(name: "Canon F-1", category: "35mm Still"),
+        Camera(name: "Nikon FM2", category: "35mm Still"),
+        Camera(name: "Nikon FE2", category: "35mm Still"),
+        Camera(name: "Nikon F3", category: "35mm Still"),
+        Camera(name: "Olympus OM-1", category: "35mm Still"),
+        Camera(name: "Olympus OM-2", category: "35mm Still"),
+        Camera(name: "Pentax K1000", category: "35mm Still"),
+        Camera(name: "Minolta X-700", category: "35mm Still"),
+        Camera(name: "Leica M3", category: "35mm Still"),
+        Camera(name: "Leica M6", category: "35mm Still"),
+        Camera(name: "Contax T2", category: "35mm Still"),
+        Camera(name: "Hasselblad 500C/M", category: "Medium Format"),
+        Camera(name: "Mamiya RB67", category: "Medium Format"),
+        Camera(name: "Yashica Mat-124G", category: "Medium Format"),
+        Camera(name: "ARRIFLEX 435", category: "Motion Picture (Film)"),
+        Camera(name: "ARRIFLEX 235", category: "Motion Picture (Film)"),
+        Camera(name: "ARRIFLEX 16SR3", category: "Motion Picture (Film)"),
+        Camera(name: "Panavision Panaflex Millennium XL2", category: "Motion Picture (Film)"),
+        Camera(name: "Aaton XTR Prod", category: "Motion Picture (Film)"),
+        Camera(name: "Bolex H16", category: "Motion Picture (Film)"),
+        Camera(name: "ARRI Alexa Mini", category: "Digital Cinema"),
+        Camera(name: "ARRI Alexa LF", category: "Digital Cinema"),
+        Camera(name: "ARRI Alexa 35", category: "Digital Cinema"),
+        Camera(name: "RED Komodo 6K", category: "Digital Cinema"),
+        Camera(name: "RED Raptor 8K VV", category: "Digital Cinema"),
+        Camera(name: "RED Helium 8K S35", category: "Digital Cinema"),
+        Camera(name: "Sony Venice 2", category: "Digital Cinema"),
+        Camera(name: "Sony FX9", category: "Digital Cinema"),
+        Camera(name: "Sony FX6", category: "Digital Cinema"),
+        Camera(name: "Blackmagic URSA Mini Pro 12K", category: "Digital Cinema"),
+        Camera(name: "Blackmagic Pocket Cinema Camera 6K", category: "Digital Cinema"),
+        Camera(name: "Canon C300 Mark III", category: "Digital Cinema"),
+        Camera(name: "Canon C500 Mark II", category: "Digital Cinema"),
+        Camera(name: "Other", category: "Other")
     ]
 
     static func camera(for label: String) -> Camera {
         cameras.first(where: { $0.name == label }) ?? .none
+    }
+    
+    static var groupedCameras: [String: [Camera]] {
+        Dictionary(grouping: cameras, by: { $0.category })
     }
     
     struct Filter: Equatable {
