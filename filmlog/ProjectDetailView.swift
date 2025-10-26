@@ -119,7 +119,6 @@ struct ProjectDetailView: View {
                         }
                         .listRowBackground(Color.black)
                         
-                        
                         Section(
                             header: HStack {
                                 Text("Project")
@@ -188,8 +187,8 @@ struct ProjectDetailView: View {
                             Picker("Film size", selection: $project.filmSize) {
                                 ForEach(CameraUtils.groupedFilmSizes.keys.sorted(), id: \.self) { category in
                                     Section(header: Text(category)) {
-                                        ForEach(CameraUtils.groupedFilmSizes[category] ?? [], id: \.name) { stock in
-                                            Text(stock.name).tag(stock.name)
+                                        ForEach(CameraUtils.groupedFilmSizes[category] ?? [], id: \.name) { size in
+                                            Text(size.name).tag(size.name)
                                         }
                                     }
                                 }

@@ -67,32 +67,60 @@ struct ShotDetailView: View {
                     onBack?()
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.headline)
+                        .font(.system(size: 24, weight: .regular))
+                        .frame(width: 46, height: 46)
                 }
+                .padding(.leading, -6)
                 .buttonStyle(.borderless)
+                .frame(width: 80, alignment: .leading)
                 
-                Text("Shot \(index + 1) of \(count)")
-                    .font(.headline)
+                Spacer()
+                
+                Text(shot.name)
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
                 Spacer()
                 
-                Button {
-                    if index > 0 { onSelect?(index - 1) }
-                } label: {
-                    Image(systemName: "chevron.up")
-                }
-                .disabled(index == 0)
-                .buttonStyle(.borderless)
+                HStack(spacing: 8) {
+                    Button {
+                        if index > 0 { onSelect?(index - 1) }
+                    } label: {
+                        Image(systemName: "chevron.up")
+                            .font(.system(size: 24, weight: .regular))
+                    }
+                    .disabled(index == 0)
+                    .buttonStyle(.borderless)
 
-                Button {
-                    if index < count - 1 { onSelect?(index + 1) }
-                } label: {
-                    Image(systemName: "chevron.down")
+                    Button {
+                        if index < count - 1 { onSelect?(index + 1) }
+                    } label: {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 24, weight: .regular))
+                    }
+                    .disabled(index == count - 1)
+                    .buttonStyle(.borderless)
+                    
+                    Menu {
+                        Button {
+                            shot.isLocked.toggle()
+                            try? modelContext.save()
+                        } label: {
+                            Label(
+                                shot.isLocked ? "Unlock Shot" : "Lock Shot",
+                                systemImage: shot.isLocked ? "lock.open" : "lock.fill"
+                            )
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.system(size: 22, weight: .regular))
+                    }
                 }
-                .disabled(index == count - 1)
-                .buttonStyle(.borderless)
+                .padding(.trailing, 16)
+                .frame(width: 80, alignment: .trailing)
             }
-            .padding()
             .background(Color.black)
             .shadow(radius: 2)
             
@@ -107,31 +135,24 @@ struct ShotDetailView: View {
                                 shot.updateImage(to: newImage, context: modelContext)
                             }
                         }
+                    .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
                 }
 
-                Section(header: Text("Shot")) {
-                    HStack {
-                        TextField("Name", text: $shot.name)
-                            .focused($activeField, equals: .name)
-                            .disabled(shot.isLocked)
-
-                        if !shot.name.isEmpty && !shot.isLocked {
-                            Button {
-                                withAnimation(.easeOut(duration: 0.15)) {
-                                    shot.name = ""
-                                }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                    activeField = .name
-                                }
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.secondary)
-                                    .transition(.opacity.combined(with: .scale))
-                            }
-                            .buttonStyle(.plain)
+                Section(
+                    header: HStack {
+                        Text("Shot")
+                        if shot.isLocked {
+                            Image(systemName: "lock.fill")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                                .padding(.leading, 4)
                         }
                     }
-                    .animation(.easeOut(duration: 0.15), value: shot.name)
+                ) {
+                    TextField("Name", text: $shot.name)
+                        .focused($activeField, equals: .name)
+                        .submitLabel(.done)
+                        .disabled(shot.isLocked)
                     
                     HStack {
                         Text("Modified:")
@@ -139,24 +160,6 @@ struct ShotDetailView: View {
                     }
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                }
-                
-                Section(header: Text("Note")) {
-                    TextEditor(text: $shot.note)
-                            .frame(height: 44)
-                            .focused($activeField, equals: .note)
-                            .disabled(shot.isLocked)
-                            .font(.footnote)
-                            .padding(.horizontal, -4)
-                            .scrollContentBackground(.hidden)
-                            .background(Color(uiColor: .secondarySystemGroupedBackground))
-                            .cornerRadius(6)
-                            .toolbar {
-                                ToolbarItemGroup(placement: .keyboard) {
-                                    Spacer()
-                                    Button("Done") { activeField = nil }
-                                }
-                            }
                 }
                 
                 Section(header: Text("Location")) {
@@ -249,6 +252,28 @@ struct ShotDetailView: View {
                     Picker("Compensation", selection: $shot.exposureCompensation) {
                         ForEach(["-3", "-2", "-1", "0", "+1", "+2", "+3"], id: \.self) { value in
                             Text("EV\(value)").tag(value)
+                        }
+                    }
+                    .disabled(shot.isLocked)
+                    
+                    Picker("Film size", selection: $shot.filmSize) {
+                        ForEach(CameraUtils.groupedFilmSizes.keys.sorted(), id: \.self) { category in
+                            Section(header: Text(category)) {
+                                ForEach(CameraUtils.groupedFilmSizes[category] ?? [], id: \.name) { size in
+                                    Text(size.name).tag(size.name)
+                                }
+                            }
+                        }
+                    }
+                    .disabled(shot.isLocked)
+                    
+                    Picker("Film stock", selection: $shot.filmStock) {
+                        ForEach(CameraUtils.groupedFilmStocks.keys.sorted(), id: \.self) { category in
+                            Section(header: Text(category)) {
+                                ForEach(CameraUtils.groupedFilmStocks[category] ?? [], id: \.name) { stock in
+                                    Text(stock.name).tag(stock.name)
+                                }
+                            }
                         }
                     }
                     .disabled(shot.isLocked)
@@ -360,6 +385,33 @@ struct ShotDetailView: View {
                     evPicker(title: "Skin key", selection: $shot.exposureSkinKey)
                     evPicker(title: "Skin fill", selection: $shot.exposureSkinFill)
                 }
+                
+                Section(
+                    header: HStack {
+                        Text("Note")
+                        if shot.isLocked {
+                            Image(systemName: "lock.fill")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                                .padding(.leading, 4)
+                        }
+                    }
+                ) {
+                    TextEditor(text: $shot.note)
+                        .frame(height: 64)
+                        .focused($activeField, equals: .note)
+                        .disabled(shot.isLocked)
+                        .padding(.horizontal, -4)
+                        .scrollContentBackground(.hidden)
+                        .background(Color(uiColor: .secondarySystemGroupedBackground))
+                        .cornerRadius(6)
+                        .toolbar {
+                            ToolbarItemGroup(placement: .keyboard) {
+                                Spacer()
+                                Button("Done") { activeField = nil }
+                            }
+                        }
+                }
             }
             .onAppear {
                 locationManager.currentLocation = nil
@@ -401,55 +453,63 @@ struct ShotDetailView: View {
                 }
             }
             
-            HStack(spacing: 16) {
-                Button(action: {
-                    showDeleteAlert = true
-                }) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 18, weight: .medium))
-                        .frame(width: 36, height: 36)
-                        .foregroundColor(.blue)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .help("Delete this shot")
-
-                Spacer()
-
-                HStack(spacing: 8) {
+            if activeField == nil {
+                
+                HStack {
+                    Button {
+                        showDeleteAlert = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 18, weight: .semibold))
+                            .frame(width: 40, height: 40)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.blue)
+                    .help("Delete project")
+                    
+                    Spacer()
+                    
+                    HStack(spacing: 6) {
+                        Image(systemName: "film")
+                            .font(.system(size: 14, weight: .medium))
+                        Text("Shot \(index + 1) of \(count)")
+                            .font(.subheadline)
+                            .fontWeight(.regular)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 8)
+                    .foregroundColor(.blue)
+                    .shadow(radius: 1)
+                    
+                    Spacer()
+                    
                     Button {
                         showDialog = true
                     } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "film")
-                                .font(.system(size: 16, weight: .semibold))
-                            Text("Add shot")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .frame(height: 32)
-                        .background(Color.black)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .font(.system(size: 18, weight: .semibold))
+                            .frame(width: 40, height: 40)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
+                    .foregroundColor(.blue)
                     .help("Add new shot(s)")
                     .confirmationDialog("Choose an option", isPresented: $showDialog) {
-                        Button("Add shot") { addShot(count: 1) }
-                        Button("Add 2 shots") { addShot(count: 2) }
-                        Button("Add 5 shots") { addShot(count: 5) }
-                        Button("Add 10 shots") { addShot(count: 10) }
+                        Button("Copy shot") { copyShot(count: 1) }
+                        Button("Copy to 2 shots") { copyShot(count: 2) }
+                        Button("Copy to 5 shots") { copyShot(count: 5) }
+                        Button("Copy to 10 shots") { copyShot(count: 10) }
                         Button("Cancel", role: .cancel) {}
                     }
                 }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
+                .background(Color.black)
+                .ignoresSafeArea(edges: .bottom)
             }
-            .padding(.horizontal)
-            .padding(.vertical, 10)
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 0))
-            .shadow(radius: 3)
         }
         .navigationBarBackButtonHidden(false)
     }
@@ -484,7 +544,7 @@ struct ShotDetailView: View {
         }
     }
 
-    private func addShot(count: Int) {
+    private func copyShot(count: Int) {
         let baseName = shot.name.isEmpty ? "Copy" : shot.name
         let names = Set(project.shots.map { $0.name })
 

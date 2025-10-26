@@ -1,5 +1,52 @@
 import SwiftUI
 
+struct PhotoMetadataView: View {
+    var camera: String = "Leica M6"
+    var lens: String = "Summicron 50 mm"
+    var aperture: String = "ƒ2.8"
+    var shutter: String = "1/125 s"
+    var iso: String = "ISO 400"
+
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: "camera.fill")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
+                Text(camera)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+
+            HStack(spacing: 6) {
+                Text(lens)
+                Text("· \(aperture)")
+                Text("· \(shutter)")
+                Text("· \(iso)")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            .ultraThinMaterial,
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(Color.white.opacity(0.1))
+        )
+        .padding(.horizontal, 8)
+        .padding(.bottom, 4)
+    }
+}
+
 struct ShotSectionView: View {
     @Bindable var shot: Shot
     var isLocked: Bool = false
@@ -11,99 +58,64 @@ struct ShotSectionView: View {
     @State private var showDeleteAlert = false
     
     var body: some View {
-        VStack(spacing: 8) {
-            // --- Image preview ---
-            if let uiImage = shot.imageData?.thumbnail {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.black)
-                        .frame(height: 180)
+        VStack(spacing: 12) {
+            ZStack {
+                Rectangle()
+                    .fill(Color.black.opacity(0.9))
+                    .overlay(
+                        Rectangle()
+                            .stroke(Color.accentColor.opacity(0.7), lineWidth: 1.5)
+                    )
 
+                if let uiImage = shot.imageData?.thumbnail {
                     Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFit()
+                        .padding(6) // 👈 inner gap between image and black base
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .contentShape(Rectangle())
+                        .onTapGesture { showFullImage = true }
+                } else {
+                    Text("No image")
+                        .foregroundColor(.secondary)
                         .padding(6)
-                        .frame(height: 180)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                .onTapGesture {
-                    showFullImage = true
-                }
-
-                // --- Metadata (like Photos app) ---
-                VStack(spacing: 4) {
-                    // First line — camera + lens info
-                    HStack(spacing: 6) {
-                        if !shot.lens.isEmpty {
-                            Text(shot.lens)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        //if shot.focalLength > 0 {
-                            Text("\(Int(shot.focalLength)) mm")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        //}
-                        //if shot.aperture > 0 {
-                            Text("ƒ\(String(format: "%.1f", shot.aperture))")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        //}
-                        /*if shot.shutter > 0 {
-                            Text("\(ShotFormatUtils.shutterString(from: shot.shutter)) s")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }*/
-                        //if shot.iso > 0 {
-                        Text("ISO \(Int(shot.aperture))")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        ///}
-                    }
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .padding(.top, 2)
-                }
-                .frame(maxWidth: .infinity)
-            } else {
-                Rectangle()
-                    .fill(Color.secondary.opacity(0.2))
-                    .frame(height: 180)
-                    .overlay(Text("No image").foregroundColor(.gray))
-                    .cornerRadius(10)
             }
+            .frame(maxWidth: .infinity)
+            .frame(height: 220)
+            .cornerRadius(0)
+            .clipped()
 
-            // --- Camera buttons ---
+            PhotoMetadataView()
+
             if !isLocked {
                 HStack(spacing: 20) {
                     Button {
                         showCamera = true
                     } label: {
-                        ZStack {
-                            Circle()
-                                .fill(Color.black)
-                                .frame(width: 56, height: 56)
-                            
-                            Image(systemName: "camera.fill") // use filled variant
-                                .foregroundColor(Color.accentColor) // blue tint
-                                .font(.system(size: 22, weight: .medium))
-                                .offset(y: -2)
-                        }
+                        Circle()
+                            .fill(Color.black)
+                            .frame(width: 56, height: 56)
+                            .overlay(
+                                Image(systemName: "camera.fill")
+                                    .font(.system(size: 22, weight: .medium))
+                                    .foregroundColor(.accentColor)
+                                    .offset(y: -1)
+                            )
                     }
                     .buttonStyle(.plain)
 
                     Button {
                         showDeleteAlert = true
                     } label: {
-                        ZStack {
-                            Circle()
-                                .fill(Color.black)
-                                .frame(width: 56, height: 56)
-                            
-                            Image(systemName: "trash.fill") // filled variant
-                                .foregroundColor(Color.accentColor) // blue tint
-                                .font(.system(size: 22, weight: .medium))
-                        }
+                        Circle()
+                            .fill(Color.black)
+                            .frame(width: 56, height: 56)
+                            .overlay(
+                                Image(systemName: "trash.fill")
+                                    .font(.system(size: 22, weight: .medium))
+                                    .foregroundColor(.accentColor)
+                            )
                     }
                     .buttonStyle(.plain)
                     .alert("Delete this shot?", isPresented: $showDeleteAlert) {
