@@ -594,45 +594,14 @@ struct ImageUtils {
             return FileManager.default.fileExists(atPath: url.path)
         }
 
-        /*
         func saveImage(_ image: UIImage, id: UUID, type: FileType) -> Bool {
-            let resizedImage = image.resized(toMaxDimension: type.maxDimension)
-            guard let data = resizedImage.jpegData(compressionQuality: type.compressionQuality) else {
-                return false
-            }
-            return saveImageFile(data, id: id, type: type)
-        }*/
-        
-        // TODO: Fix the comments here and make sure they are correct
-        
-        func saveImage(_ image: UIImage, id: UUID, type: FileType) -> Bool {
-            
-            print("💾 saveImage begin for type \(type)")
-            
-            print("📸 saveImage (before resize)")
-            print(" - Size: \(image.size.width)x\(image.size.height)")
-            print(" - Scale: \(image.scale)")
-            print(" - Orientation: \(image.imageOrientation.rawValue)")
-
             let resizedImage = image.resizedPreservingOrientation(toMaxDimension: type.maxDimension)
-
-            print("📸 saveImage (after resize)")
-            print(" - Size: \(resizedImage.size.width)x\(resizedImage.size.height)")
-            print(" - Scale: \(resizedImage.scale)")
-            print(" - Orientation: \(resizedImage.imageOrientation.rawValue)")
-
             guard let data = resizedImage.jpegData(compressionQuality: type.compressionQuality) else {
-                print("⚠️ Failed to get JPEG data")
+                print("failed to compress jpeg data")
                 return false
             }
-            
-            print("💾 saveImage end writing \(data.count / 1024) KB");
-
-
             return saveImageFile(data, id: id, type: type)
         }
-        
-        
         
         func saveImage(_ image: UIImage, id: UUID, types: [FileType] = FileType.allCases) -> Bool {
             var allSucceeded = true
@@ -673,7 +642,7 @@ struct ImageUtils {
                     try FileManager.default.removeItem(at: url)
                     return true
                 } catch {
-                    print("Failed to delete image at \(url): \(error)")
+                    print("failed to delete image at \(url): \(error)")
                     return false
                 }
             }

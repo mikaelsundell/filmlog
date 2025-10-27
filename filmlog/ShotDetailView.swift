@@ -149,11 +149,26 @@ struct ShotDetailView: View {
                         }
                     }
                 ) {
-                    TextField("Name", text: $shot.name)
-                        .focused($activeField, equals: .name)
-                        .submitLabel(.done)
-                        .disabled(shot.isLocked)
-                    
+                    HStack {
+                        TextField("Name", text: $shot.name)
+                            .focused($activeField, equals: .name)
+                            .submitLabel(.done)
+                            .disabled(shot.isLocked)
+                        if !shot.name.isEmpty && !shot.isLocked {
+                            Button {
+                                shot.name = ""
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                    activeField = .name
+                                }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.trailing, 2)
+                            .transition(.opacity.combined(with: .scale))
+                        }
+                    }
                     HStack {
                         Text("Modified:")
                         Text(shot.timestamp.formatted(date: .abbreviated, time: .shortened))
@@ -161,7 +176,7 @@ struct ShotDetailView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 }
-                
+
                 Section(header: Text("Location")) {
                     if requestingLocation {
                         Text("Waiting for location...")
@@ -319,6 +334,14 @@ struct ShotDetailView: View {
                                 .multilineTextAlignment(.trailing)
                                 .focused($activeField, equals: .focusDistance)
                                 .disabled(shot.isLocked)
+                                .toolbar {
+                                    ToolbarItemGroup(placement: .keyboard) {
+                                        Spacer()
+                                        Button("Done") {
+                                            activeField = nil
+                                        }
+                                    }
+                                }
                             Text("mm").frame(width: 32, alignment: .trailing)
                         }
                         Text("\(shot.focusDistance / 1000, specifier: "%.1f") m")
@@ -488,7 +511,7 @@ struct ShotDetailView: View {
                     Button {
                         showDialog = true
                     } label: {
-                        Image(systemName: "photo.on.rectangle.angled")
+                        Image(systemName: "film.stack")
                             .font(.system(size: 18, weight: .semibold))
                             .frame(width: 40, height: 40)
                             .background(.ultraThinMaterial)
@@ -545,16 +568,22 @@ struct ShotDetailView: View {
     }
 
     private func copyShot(count: Int) {
-        let baseName = shot.name.isEmpty ? "Copy" : shot.name
-        let names = Set(project.shots.map { $0.name })
+        let originalName = shot.name.isEmpty ? "Shot" : shot.name
+        let baseName = "Copy of \(originalName)"
+        
+        let existingCount = project.shots.count
+        var existingNames = Set(project.shots.map { $0.name })
 
-        for _ in 0..<count {
+        for i in 0..<count {
             var name = baseName
             var suffix = 1
-            while names.contains(name) {
+            
+            // Ensure unique name within this session
+            while existingNames.contains(name) {
                 name = "\(baseName) \(suffix)"
                 suffix += 1
             }
+
             do {
                 let newShot = shot.copy(context: modelContext)
                 newShot.name = name
@@ -565,12 +594,18 @@ struct ShotDetailView: View {
 
                 project.shots.append(newShot)
                 try modelContext.save()
+
+                existingNames.insert(name)
+
+                if i == 0 {
+                    onSelect?(existingCount)
+                }
             } catch {
                 print("failed to save shot: \(error)")
             }
         }
     }
-    
+
     private func openInMaps(latitude: Double, longitude: Double) {
         if let url = URL(string: "http://maps.apple.com/?ll=\(latitude),\(longitude)") {
             UIApplication.shared.open(url)

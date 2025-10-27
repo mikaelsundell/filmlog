@@ -71,7 +71,7 @@ struct ShotSectionView: View {
                     Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFit()
-                        .padding(6) // 👈 inner gap between image and black base
+                        .padding(6)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                         .contentShape(Rectangle())
                         .onTapGesture { showFullImage = true }

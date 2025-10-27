@@ -83,8 +83,9 @@ struct ContentView: View {
         }) {
             projectLabel(project: project, localIndex: localIndex)
         }
+        .listRowBackground(Color.black)
     }
-
+    
     private func projectLabel(project: Project, localIndex: Int) -> some View {
         let displayName: String = {
             if project.name.isEmpty {
@@ -94,68 +95,77 @@ struct ContentView: View {
             }
         }()
 
+        let filmStock = CameraUtils.filmStock(for: project.filmStock)
+        let stockInfo = filmStock.speed > 0 ? "\(Int(filmStock.speed)) ISO" : filmStock.name
+
         let thumbnails = project.shots
             .compactMap { $0.imageData?.thumbnail }
             .suffix(3)
-            .reversed()
 
-        let shotCount = project.shots.count
-
-        return HStack {
+        return HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(displayName) (\(shotCount))")
+                Text(displayName)
                     .font(.footnote)
-                    .lineLimit(1)
-            }
+                    .foregroundStyle(.white)
 
-            Spacer()
+                Text("Film: \(project.filmStock), \(stockInfo)")
+                    .font(.caption2)
+                    .foregroundStyle(.gray.opacity(0.8))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             ZStack(alignment: .trailing) {
                 if thumbnails.isEmpty {
                     ZStack {
                         RoundedRectangle(cornerRadius: 6)
                             .fill(Color.white.opacity(0.1))
-                            .frame(width: 32, height: 32)
-                        
+                            .frame(width: 64, height: 64)
                         Image(systemName: "film.fill")
                             .renderingMode(.template)
                             .foregroundStyle(.white.opacity(0.7))
-                            .font(.system(size: 16, weight: .regular))
+                            .font(.system(size: 28, weight: .regular))
                     }
-                    .frame(width: 32, height: 32)
-                } else if thumbnails.count == 1, let image = thumbnails.first {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 32, height: 32)
-                        .clipShape(RoundedRectangle(cornerRadius: 3))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 3)
-                                .stroke(Color.black.opacity(0.7), lineWidth: 0.5)
-                        )
-                        .frame(width: 48, alignment: .trailing)
                 } else {
-                    HStack(spacing: -12) {
+                    ZStack {
                         ForEach(Array(thumbnails.enumerated()), id: \.offset) { index, image in
                             Image(uiImage: image)
                                 .resizable()
                                 .scaledToFill()
-                                .frame(width: 32, height: 32)
-                                .clipShape(RoundedRectangle(cornerRadius: 3))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 3)
-                                        .stroke(Color.black.opacity(0.7), lineWidth: 0.5)
-                                )
-                                .shadow(radius: 1)
+                                .frame(width: 50, height: 50)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                .shadow(radius: 1.5)
+                                .rotationEffect(.degrees(randomRotation(for: index)))
+                                .offset(randomOffset(for: index))
+                                .zIndex(Double(index))
                         }
                     }
-                    .frame(width: 64, alignment: .trailing)
+                    .frame(width: 70, height: 64)
+                    .padding(.trailing, 6)
                 }
             }
-            .frame(width: 64, height: 32, alignment: .trailing)
+            .frame(width: 80, height: 64, alignment: .trailing)
+        }
+        .contentShape(Rectangle())
+    }
+    
+    private func randomRotation(for index: Int) -> Double {
+        switch index {
+        case 0: return -5
+        case 1: return 3
+        case 2: return 1
+        default: return 0
         }
     }
 
+    private func randomOffset(for index: Int) -> CGSize {
+        switch index {
+        case 0: return CGSize(width: -8, height: 4)
+        case 1: return CGSize(width: -2, height: -3)
+        case 2: return CGSize(width: 4, height: 3)
+        default: return .zero
+        }
+    }
+    
     private func addProject() {
         withAnimation {
             _ = Project.createDefault(in: modelContext)

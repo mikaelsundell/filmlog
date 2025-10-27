@@ -90,7 +90,7 @@ struct ProjectDetailView: View {
                                             
                                             Image(systemName: "chevron.right")
                                                 .renderingMode(.template)
-                                                .foregroundStyle(.white)
+                                                .foregroundColor(.white.opacity(0.2))
                                         }
                                         .contentShape(Rectangle())
                                     }
@@ -130,12 +130,29 @@ struct ProjectDetailView: View {
                                 }
                             }
                         ) {
-                            TextField("Name", text: $project.name)
-                                .focused($focused)
-                                .submitLabel(.done)
-                                .onSubmit { focused = false }
-                                .disabled(project.isLocked)
-                            
+                            HStack {
+                                TextField("Name", text: $project.name)
+                                    .focused($focused)
+                                    .submitLabel(.done)
+                                    .onSubmit { focused = false }
+                                    .disabled(project.isLocked)
+
+                                if !project.name.isEmpty && !project.isLocked {
+                                    Button {
+                                        project.name = ""
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                            focused = true
+                                        }
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.trailing, 2)
+                                    .transition(.opacity.combined(with: .scale))
+                                }
+                            }
+
                             HStack {
                                 Text("Modified:")
                                 Text(project.timestamp.formatted(date: .abbreviated, time: .shortened))

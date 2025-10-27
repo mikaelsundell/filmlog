@@ -478,7 +478,7 @@ struct MaskView: View {
         let height = geometry.size.height
         
         ZStack {
-            Color(UIColor.secondarySystemGroupedBackground)
+            Color(Color.black)
                 .opacity(outer)
                 .mask(
                     Path { p in
@@ -493,7 +493,7 @@ struct MaskView: View {
                     .fill(style: FillStyle(eoFill: true))
                 )
 
-            Color(UIColor.secondarySystemGroupedBackground)
+            Color(Color.black)
                 .opacity(inner)
                 .mask(
                     Path { p in
