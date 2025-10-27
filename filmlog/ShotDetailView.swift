@@ -336,11 +336,15 @@ struct ShotDetailView: View {
                 
                 Section(header: Text("Lens")) {
                     Picker("Lens", selection: $shot.lens) {
-                        ForEach(CameraUtils.lenses, id: \.name) { lens in
-                            Text(lens.name).tag(lens.name)
+                        ForEach(CameraUtils.groupedLenses.keys.sorted(), id: \.self) { category in
+                            Section(header: Text(category)) {
+                                ForEach(CameraUtils.groupedLenses[category] ?? [], id: \.name) { lens in
+                                    Text(lens.name).tag(lens.name)
+                                }
+                            }
                         }
                     }
-                    .disabled(shot.isLocked)
+                    .disabled(project.isLocked)
                     
                     Picker("Lens color filter", selection: $shot.colorFilter) {
                         ForEach(CameraUtils.colorFilters, id: \.name) { filter in
@@ -618,7 +622,6 @@ struct ShotDetailView: View {
             var name = baseName
             var suffix = 1
             
-            // Ensure unique name within this session
             while existingNames.contains(name) {
                 name = "\(baseName) \(suffix)"
                 suffix += 1

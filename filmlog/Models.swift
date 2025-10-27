@@ -150,12 +150,12 @@ struct CameraUtils {
 
     static let cameras: [Camera] = [
         .none,
-        Camera(name: "Canon AE-1", category: "35mm Still"),
-        Camera(name: "Canon A-1", category: "35mm Still"),
-        Camera(name: "Canon F-1", category: "35mm Still"),
-        Camera(name: "Nikon FM2", category: "35mm Still"),
-        Camera(name: "Nikon FE2", category: "35mm Still"),
-        Camera(name: "Nikon F3", category: "35mm Still"),
+        Camera(name: "Canon AE-1", category: "Photo"),
+        Camera(name: "Canon A-1", category: "Photo"),
+        Camera(name: "Canon F-1", category: "Photo"),
+        Camera(name: "Nikon FM2", category: "Photo"),
+        Camera(name: "Nikon FE2", category: "Photo"),
+        Camera(name: "Nikon F3", category: "Photo"),
         Camera(name: "Olympus OM-1", category: "35mm Still"),
         Camera(name: "Olympus OM-2", category: "35mm Still"),
         Camera(name: "Pentax K1000", category: "35mm Still"),
@@ -359,42 +359,41 @@ struct CameraUtils {
     }
     
     static let filmSizes: [FilmSize] = [
-        FilmSize(name: "135 (35mm)", category: "Still Photography", width: 36.0, height: 24.0),
-        FilmSize(name: "120 (6x6)", category: "Still Photography", width: 60.0, height: 60.0),
-        FilmSize(name: "120 (6x7)", category: "Still Photography", width: 70.0, height: 60.0),
-        FilmSize(name: "120 (6x9)", category: "Still Photography", width: 90.0, height: 60.0),
-        FilmSize(name: "Large Format (4x5)", category: "Still Photography", width: 127.0, height: 101.6),
+        FilmSize(name: "135 (35mm)", category: "Photo 35mm", width: 36.0, height: 24.0),
+        FilmSize(name: "120 (6x6)", category: "Photo Medium Format", width: 60.0, height: 60.0),
+        FilmSize(name: "120 (6x7)", category: "Photo Medium Format", width: 70.0, height: 60.0),
+        FilmSize(name: "120 (6x9)", category: "Photo Medium Format", width: 90.0, height: 60.0),
+        FilmSize(name: "4x5 (Large Format)", category: "Photo Large Format", width: 127.0, height: 101.6),
         FilmSize(name: "35mm Academy (4-perf)", category: "Motion Picture Film", width: 21.95, height: 16.00),
         FilmSize(name: "35mm Full Aperture (Silent)", category: "Motion Picture Film", width: 24.89, height: 18.66),
         FilmSize(name: "Super 35 (4-perf)", category: "Motion Picture Film", width: 24.89, height: 18.66),
         FilmSize(name: "Super 35 (3-perf)", category: "Motion Picture Film", width: 24.89, height: 13.87),
         FilmSize(name: "Techniscope (2-perf)", category: "Motion Picture Film", width: 22.00, height: 9.47),
-        FilmSize(name: "70mm (5-perf)", category: "Motion Picture Film", width: 48.56, height: 22.10),
+        FilmSize(name: "65mm / 70mm (5-perf)", category: "Motion Picture Film", width: 48.56, height: 22.10),
         FilmSize(name: "IMAX 70mm (15-perf)", category: "Motion Picture Film", width: 70.41, height: 52.63),
-        FilmSize(name: "Alexa Mini / Classic (Open Gate)", category: "ARRI Alexa", width: 28.17, height: 18.13),
-        FilmSize(name: "Alexa Mini / Classic (16:9)", category: "ARRI Alexa", width: 23.76, height: 13.37),
-        FilmSize(name: "Alexa Mini / Classic (4:3)", category: "ARRI Alexa", width: 23.76, height: 17.82),
-        FilmSize(name: "Alexa LF (Open Gate)", category: "ARRI Alexa", width: 36.70, height: 25.54),
-        FilmSize(name: "Alexa LF (16:9)", category: "ARRI Alexa", width: 31.68, height: 17.82),
-        FilmSize(name: "Alexa 65 (Open Gate)", category: "ARRI Alexa", width: 54.12, height: 25.58),
-        FilmSize(name: "RED Komodo 6K (S35)", category: "RED", width: 27.03, height: 14.26),
-        FilmSize(name: "RED Raptor 8K VV (Full Frame)", category: "RED", width: 40.96, height: 21.60),
-        FilmSize(name: "RED V-Raptor XL 8K VV", category: "RED", width: 40.96, height: 21.60),
-        FilmSize(name: "RED Monstro 8K VV", category: "RED", width: 40.96, height: 21.60),
-        FilmSize(name: "RED Helium 8K S35", category: "RED", width: 29.90, height: 15.77),
-        FilmSize(name: "RED Gemini 5K S35", category: "RED", width: 30.72, height: 18.00),
-        FilmSize(name: "Sony Venice 2 8.6K (Full Frame)", category: "Sony", width: 36.2, height: 24.1),
-        FilmSize(name: "Sony Venice (6K S35)", category: "Sony", width: 24.3, height: 12.9),
-        FilmSize(name: "Sony FX9 (Full Frame)", category: "Sony", width: 35.7, height: 18.8),
-        FilmSize(name: "Sony FX6 (Full Frame)", category: "Sony", width: 35.6, height: 18.8),
-        FilmSize(name: "Sony FS7 (S35)", category: "Sony", width: 24.0, height: 13.5),
-        FilmSize(name: "BMPCC 4K (MFT)", category: "Blackmagic", width: 18.96, height: 10.00),
-        FilmSize(name: "BMPCC 6K (S35)", category: "Blackmagic", width: 23.10, height: 12.99),
-        FilmSize(name: "BMPCC 6K Pro (S35)", category: "Blackmagic", width: 23.10, height: 12.99),
-        FilmSize(name: "URSA Mini 4.6K (S35)", category: "Blackmagic", width: 25.34, height: 14.25),
-        FilmSize(name: "URSA Mini Pro 12K (S35)", category: "Blackmagic", width: 27.03, height: 14.25),
-        FilmSize(name: "Cinema Camera 6K (Full Frame)", category: "Blackmagic", width: 36.00, height: 24.00),
-        FilmSize(name: "-", category: "", width: 0.0, height: 0.0)
+        FilmSize(name: "ARRI Alexa Mini / Classic (Open Gate)", category: "Motion Picture Digital", width: 28.17, height: 18.13),
+        FilmSize(name: "ARRI Alexa Mini / Classic (16:9)", category: "Motion Picture Digital", width: 23.76, height: 13.37),
+        FilmSize(name: "ARRI Alexa Mini / Classic (4:3)", category: "Motion Picture Digital", width: 23.76, height: 17.82),
+        FilmSize(name: "ARRI Alexa LF (Open Gate)", category: "Motion Picture Digital", width: 36.70, height: 25.54),
+        FilmSize(name: "ARRI Alexa LF (16:9)", category: "Motion Picture Digital", width: 31.68, height: 17.82),
+        FilmSize(name: "ARRI Alexa 65 (Open Gate)", category: "Motion Picture Digital", width: 54.12, height: 25.58),
+        FilmSize(name: "RED Komodo 6K (S35)", category: "Motion Picture Digital", width: 27.03, height: 14.26),
+        FilmSize(name: "RED Raptor 8K VV (Full Frame)", category: "Motion Picture Digital", width: 40.96, height: 21.60),
+        FilmSize(name: "RED V-Raptor XL 8K VV", category: "Motion Picture Digital", width: 40.96, height: 21.60),
+        FilmSize(name: "RED Monstro 8K VV", category: "Motion Picture Digital", width: 40.96, height: 21.60),
+        FilmSize(name: "RED Helium 8K S35", category: "Motion Picture Digital", width: 29.90, height: 15.77),
+        FilmSize(name: "RED Gemini 5K S35", category: "Motion Picture Digital", width: 30.72, height: 18.00),
+        FilmSize(name: "Sony Venice 2 8.6K (Full Frame)", category: "Motion Picture Digital", width: 36.2, height: 24.1),
+        FilmSize(name: "Sony Venice (6K S35)", category: "Motion Picture Digital", width: 24.3, height: 12.9),
+        FilmSize(name: "Sony FX9 (Full Frame)", category: "Motion Picture Digital", width: 35.7, height: 18.8),
+        FilmSize(name: "Sony FX6 (Full Frame)", category: "Motion Picture Digital", width: 35.6, height: 18.8),
+        FilmSize(name: "Sony FS7 (S35)", category: "Motion Picture Digital", width: 24.0, height: 13.5),
+        FilmSize(name: "BMPCC 4K (MFT)", category: "Motion Picture Digital", width: 18.96, height: 10.00),
+        FilmSize(name: "BMPCC 6K (S35)", category: "Motion Picture Digital", width: 23.10, height: 12.99),
+        FilmSize(name: "BMPCC 6K Pro (S35)", category: "Motion Picture Digital", width: 23.10, height: 12.99),
+        FilmSize(name: "URSA Mini 4.6K (S35)", category: "Motion Picture Digital", width: 25.34, height: 14.25),
+        FilmSize(name: "URSA Mini Pro 12K (S35)", category: "Motion Picture Digital", width: 27.03, height: 14.25),
+        FilmSize(name: "Cinema Camera 6K (Full Frame)", category: "Motion Picture Digital", width: 36.00, height: 24.00)
     ]
 
     static func filmSize(for label: String) -> FilmSize {
@@ -450,30 +449,67 @@ struct CameraUtils {
 
     struct Lens: Equatable {
         let name: String
+        let category: String
         let isNone: Bool
         
-        init(name: String, isNone: Bool = false) {
+        init(name: String, category: String, isNone: Bool = false) {
             self.name = name
+            self.category = category
             self.isNone = isNone
         }
         
-        static let none = Lens(name: "-", isNone: true)
+        static let none = Lens(name: "-", category: "-", isNone: true)
     }
     
     static let lenses: [Lens] = [
         .none,
-        Lens(name: "Arri"),
-        Lens(name: "Cooke"),
-        Lens(name: "Canon FD"),
-        Lens(name: "Canon CN-E"),
-        Lens(name: "Leica R"),
-        Lens(name: "Nikon"),
-        Lens(name: "Zeiss"),
-        Lens(name: "Other")
+        Lens(name: "Arri Signature Prime", category: "Cinema"),
+        Lens(name: "Cooke S4/i", category: "Cinema"),
+        Lens(name: "Cooke Panchro/i Classic", category: "Cinema"),
+        Lens(name: "Zeiss Supreme Prime", category: "Cinema"),
+        Lens(name: "Zeiss CP.3", category: "Cinema"),
+        Lens(name: "Canon CN-E Prime", category: "Cinema"),
+        Lens(name: "Sigma Cine Prime", category: "Cinema"),
+        Lens(name: "Leica Summicron-C", category: "Cinema"),
+        Lens(name: "Leica Summilux-C", category: "Cinema"),
+        Lens(name: "Fujinon MK", category: "Cinema"),
+        Lens(name: "Tokina Vista Prime", category: "Cinema"),
+        Lens(name: "Canon EF", category: "Photo"),
+        Lens(name: "Canon RF", category: "Photo"),
+        Lens(name: "Nikon F", category: "Photo"),
+        Lens(name: "Nikon Z", category: "Photo"),
+        Lens(name: "Sony E", category: "Photo"),
+        Lens(name: "Leica M", category: "Photo"),
+        Lens(name: "Leica SL", category: "Photo"),
+        Lens(name: "Sigma Art", category: "Photo"),
+        Lens(name: "Tamron SP", category: "Photo"),
+        Lens(name: "Fujifilm XF", category: "Photo"),
+        Lens(name: "Panasonic Lumix", category: "Photo"),
+        Lens(name: "Canon FD", category: "Vintage"),
+        Lens(name: "Canon FL", category: "Vintage"),
+        Lens(name: "Nikon AI-S", category: "Vintage"),
+        Lens(name: "Minolta Rokkor", category: "Vintage"),
+        Lens(name: "Zeiss Contax", category: "Vintage"),
+        Lens(name: "Leica R", category: "Vintage"),
+        Lens(name: "Pentax Takumar", category: "Vintage"),
+        Lens(name: "Olympus OM", category: "Vintage"),
+        Lens(name: "Helios 44", category: "Vintage"),
+        Lens(name: "Mamiya Sekor", category: "Vintage"),
+        Lens(name: "Vivitar Series 1", category: "Vintage"),
+        Lens(name: "Laowa", category: "Other"),
+        Lens(name: "TTArtisan", category: "Other"),
+        Lens(name: "7Artisans", category: "Other"),
+        Lens(name: "Voigtländer", category: "Other"),
+        Lens(name: "Samyang / Rokinon", category: "Other"),
+        Lens(name: "Other", category: "Other")
     ]
     
     static func lens(for label: String) -> Lens {
         lenses.first(where: { $0.name == label }) ?? .none
+    }
+    
+    static var groupedLenses: [String: [Lens]] {
+        Dictionary(grouping: lenses, by: { $0.category })
     }
     
     struct Shutter: Equatable {

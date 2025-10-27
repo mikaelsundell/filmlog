@@ -906,31 +906,12 @@ struct ShotViewfinderView: View {
         let cropY = max((cropHeight - targetCropHeight) / 2, 0)
         let cropRect = CGRect(x: cropX, y: cropY, width: targetCropWidth, height: targetCropHeight)
         
-        /*
-         guard let targetImage = nativeImage.cropping(to: cropRect) else {
-         return UIImage(cgImage: nativeImage,
-         scale: image.scale,
-         orientation: imageOrientation(for: orientation) // correct orientation for UI views
-         )
-         }
-         
-         return UIImage(cgImage: targetImage, scale: image.scale, orientation: imageOrientation(for: orientation))*/
-        
         guard let targetImage = nativeImage.cropping(to: cropRect) else {
             let fallbackImage = UIImage(
                 cgImage: nativeImage,
                 scale: image.scale,
                 orientation: imageOrientation(for: orientation)
             )
-            
-            print("📸 cropImage (FALLBACK)")
-            print(" - Native size: \(nativeImage.width)x\(nativeImage.height)")
-            print(" - Crop rect: \(cropRect)")
-            print(" - Returning fallback UIImage")
-            print("   • Size: \(fallbackImage.size.width)x\(fallbackImage.size.height)")
-            print("   • Scale: \(fallbackImage.scale)")
-            print("   • Orientation: \(fallbackImage.imageOrientation.rawValue) -> \(orientationDescription(fallbackImage.imageOrientation))")
-            
             return fallbackImage
         }
         
@@ -939,18 +920,6 @@ struct ShotViewfinderView: View {
             scale: image.scale,
             orientation: imageOrientation(for: orientation)
         )
-        
-        print("📸 cropImage (SUCCESS)")
-        print(" - Native size: \(nativeImage.width)x\(nativeImage.height)")
-        print(" - Crop rect: \(cropRect)")
-        print(" - Cropped CGImage size: \(targetImage.width)x\(targetImage.height)")
-        print(" - Returning UIImage")
-        print("   • Size: \(croppedUIImage.size.width)x\(croppedUIImage.size.height)")
-        print("   • Scale: \(croppedUIImage.scale)")
-        print("   • Orientation: \(croppedUIImage.imageOrientation.rawValue) -> \(orientationDescription(croppedUIImage.imageOrientation))")
-        
-        
-        
         return croppedUIImage
     }
     

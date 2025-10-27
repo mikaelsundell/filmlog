@@ -87,28 +87,16 @@ struct ContentView: View {
     }
     
     private func projectLabel(project: Project, localIndex: Int) -> some View {
-        let displayName: String = {
-            if project.name.isEmpty {
-                return project.timestamp.formatted(date: .numeric, time: .standard)
-            } else {
-                return project.name
-            }
-        }()
-
-        let filmStock = CameraUtils.filmStock(for: project.filmStock)
-        let stockInfo = filmStock.speed > 0 ? "\(Int(filmStock.speed)) ISO" : filmStock.name
-
-        let thumbnails = project.shots
-            .compactMap { $0.imageData?.thumbnail }
-            .suffix(3)
+        let modifiedText = "Modified: \(project.timestamp.formatted(date: .abbreviated, time: .shortened))"
+        let thumbnails = latestThumbnails(from: project)
 
         return HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(displayName)
+                Text(project.name)
                     .font(.footnote)
                     .foregroundStyle(.white)
 
-                Text("Film: \(project.filmStock), \(stockInfo)")
+                Text(modifiedText)
                     .font(.caption2)
                     .foregroundStyle(.gray.opacity(0.8))
             }
@@ -127,7 +115,7 @@ struct ContentView: View {
                     }
                 } else {
                     ZStack {
-                        ForEach(Array(thumbnails.enumerated()), id: \.offset) { index, image in
+                        ForEach(Array(thumbnails.reversed().enumerated()), id: \.offset) { index, image in
                             Image(uiImage: image)
                                 .resizable()
                                 .scaledToFill()
@@ -146,6 +134,17 @@ struct ContentView: View {
             .frame(width: 80, height: 64, alignment: .trailing)
         }
         .contentShape(Rectangle())
+    }
+    
+    private func latestThumbnails(from project: Project, limit: Int = 3) -> [UIImage] {
+        var images: [UIImage] = []
+        for shot in project.shots.sorted(by: { $0.timestamp > $1.timestamp }) { // newest first
+            if let thumb = shot.imageData?.thumbnail {
+                images.append(thumb)
+                if images.count == limit { break } // stop early
+            }
+        }
+        return images
     }
     
     private func randomRotation(for index: Int) -> Double {
