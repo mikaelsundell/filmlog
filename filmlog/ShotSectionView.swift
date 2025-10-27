@@ -1,36 +1,118 @@
+// Copyright (c) 2025 Mikael Sundell
+// SPDX-License-Identifier: MIT
+// https://github.com/mikaelsundell/filmlog
+
 import SwiftUI
 
 struct PhotoMetadataView: View {
-    var camera: String = "Leica M6"
-    var lens: String = "Summicron 50 mm"
-    var aperture: String = "ƒ2.8"
-    var shutter: String = "1/125 s"
-    var iso: String = "ISO 400"
+    var focalLength: String
+    var aspectRatio: String
+    var aperture: String
+    var shutter: String
+    var location: (latitude: Double, longitude: Double)?
+    var deviceRoll: Double?
+    var deviceTilt: Double?
+
+    init(imageData: ImageData?) {
+        func stringValue(_ key: String) -> String {
+            if case let .string(value)? = imageData?.metadata[key] { return value }
+            return ""
+        }
+        func doubleValue(_ key: String) -> Double? {
+            if case let .double(value)? = imageData?.metadata[key] { return value }
+            return nil
+        }
+
+        self.focalLength = stringValue("focalLength")
+        self.aspectRatio = stringValue("aspectRatio")
+        self.aperture = stringValue("aperture")
+        self.shutter = stringValue("shutter")
+
+        if let lat = doubleValue("latitude"),
+           let lon = doubleValue("longitude") {
+            self.location = (lat, lon)
+        } else {
+            self.location = nil
+        }
+
+        self.deviceRoll = doubleValue("deviceRoll")
+        self.deviceTilt = doubleValue("deviceTilt")
+    }
+
+    var hasMetadata: Bool {
+        !focalLength.isEmpty ||
+        !aspectRatio.isEmpty ||
+        !aperture.isEmpty ||
+        !shutter.isEmpty ||
+        location != nil ||
+        deviceRoll != nil ||
+        deviceTilt != nil
+    }
 
     var body: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 8) {
-                Image(systemName: "camera.fill")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.secondary)
-                Text(camera)
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
+        Group {
+            if hasMetadata {
+                VStack(alignment: .leading, spacing: 6) {
+                    let items = [focalLength, aspectRatio, aperture, shutter].filter { !$0.isEmpty }
+                    if !items.isEmpty {
+                        HStack(spacing: 6) {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.secondary)
 
-            HStack(spacing: 6) {
-                Text(lens)
-                Text("· \(aperture)")
-                Text("· \(shutter)")
-                Text("· \(iso)")
+                            ForEach(Array(items.enumerated()), id: \.offset) { index, value in
+                                if index > 0 {
+                                    Text("· \(value)")
+                                } else {
+                                    Text(value)
+                                }
+                            }
+
+                            Spacer()
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    }
+
+                    if let roll = deviceRoll, let tilt = deviceTilt {
+                        HStack(spacing: 6) {
+                            Image(systemName: "gyroscope")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.secondary)
+                            Text(String(format: "Roll: %.1f°, Tilt: %.1f°", roll, tilt))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                        }
+                    }
+
+                    if let loc = location {
+                        HStack(spacing: 6) {
+                            Text(String(format: "Lat: %.4f, Lon: %.4f", loc.latitude, loc.longitude))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Button {
+                                openInMaps(latitude: loc.latitude, longitude: loc.longitude)
+                            } label: {
+                                Image(systemName: "map")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.blue)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            } else {
+                Text("No metadata")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 10)
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
@@ -44,6 +126,12 @@ struct PhotoMetadataView: View {
         )
         .padding(.horizontal, 8)
         .padding(.bottom, 4)
+    }
+
+    private func openInMaps(latitude: Double, longitude: Double) {
+        if let url = URL(string: "http://maps.apple.com/?ll=\(latitude),\(longitude)") {
+            UIApplication.shared.open(url)
+        }
     }
 }
 
@@ -86,7 +174,9 @@ struct ShotSectionView: View {
             .cornerRadius(0)
             .clipped()
 
-            PhotoMetadataView()
+            if let metadata = shot.imageData?.metadata, !metadata.isEmpty {
+                PhotoMetadataView(imageData: shot.imageData)
+            }
 
             if !isLocked {
                 HStack(spacing: 20) {
@@ -118,6 +208,7 @@ struct ShotSectionView: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .disabled(shot.imageData == nil)
                     .alert("Delete this shot?", isPresented: $showDeleteAlert) {
                         Button("Delete", role: .destructive) {
                             onDelete?()

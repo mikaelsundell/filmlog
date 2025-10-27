@@ -857,7 +857,7 @@ struct ShotViewfinderView: View {
         let containerSize = image.size
         let filmSize = CameraUtils.filmSize(for: shot.filmSize)
         let projectedSize = Projection.projectedFrame(
-            size: containerSize, //.switchOrientation(), // to native // TODO: verify this one!
+            size: containerSize,
             focalLength: CameraUtils.focalLength(for: shot.focalLength).length,
             aspectRatio: filmSize.aspectRatio,
             width: filmSize.width,
@@ -869,10 +869,9 @@ struct ShotViewfinderView: View {
             containerSize: containerSize,
             orientation: orientationObserver.orientation
         )
-        //shot.deviceRoll
-        //shot.deviceTilt
-        shot.deviceAspectRatio = Double(image.size.width / image.size.height)
-        shot.deviceFieldOfView = cameraModel.fieldOfView
+        let normalized = OrientationUtils.normalizeLevel(from: orientationObserver.level)
+        shot.deviceRoll = normalized.roll
+        shot.deviceTilt = normalized.tilt
         shot.deviceLens = cameraModel.lensType.rawValue
         onCapture(croppedImage)
     }

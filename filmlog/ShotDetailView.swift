@@ -130,7 +130,47 @@ struct ShotDetailView: View {
                             shot: shot,
                             isLocked: shot.isLocked
                         ) { newUIImage in
-                            let newImage = ImageData()
+                            var metadata: [String: DataValue] = [:]
+                            metadata["name"] = .string(shot.name)
+                            metadata["timestamp"] = .double(shot.timestamp.timeIntervalSince1970)
+                            metadata["camera"] = .string(project.camera)
+                            metadata["note"] = .string(shot.note)
+                            metadata["filmStock"] = .string(shot.filmStock)
+                            metadata["filmSize"] = .string(shot.filmSize)
+                            metadata["aspectRatio"] = .string(shot.aspectRatio)
+                            metadata["aperture"] = .string(shot.aperture)
+                            metadata["shutter"] = .string(shot.shutter)
+                            metadata["exposureCompensation"] = .string(shot.exposureCompensation)
+                            metadata["lens"] = .string(shot.lens)
+                            metadata["focalLength"] = .string(shot.focalLength)
+                            metadata["colorFilter"] = .string(shot.colorFilter)
+                            metadata["ndFilter"] = .string(shot.ndFilter)
+                            metadata["exposureSky"] = .string(shot.exposureSky)
+                            metadata["exposureFoliage"] = .string(shot.exposureFoliage)
+                            metadata["exposureHighlights"] = .string(shot.exposureHighlights)
+                            metadata["exposureMidGray"] = .string(shot.exposureMidGray)
+                            metadata["exposureShadows"] = .string(shot.exposureShadows)
+                            metadata["exposureSkinKey"] = .string(shot.exposureSkinKey)
+                            metadata["exposureSkinFill"] = .string(shot.exposureSkinFill)
+                            metadata["focusDistance"] = .double(shot.focusDistance)
+                            metadata["focusDepthOfField"] = .double(shot.focusDepthOfField)
+                            metadata["focusNearLimit"] = .double(shot.focusNearLimit)
+                            metadata["focusFarLimit"] = .double(shot.focusFarLimit)
+                            metadata["focusHyperfocalDistance"] = .double(shot.focusHyperfocalDistance)
+                            metadata["focusHyperfocalNearLimit"] = .double(shot.focusHyperfocalNearLimit)
+                            if let loc = shot.location {
+                                metadata["latitude"] = .double(loc.latitude)
+                                metadata["longitude"] = .double(loc.longitude)
+                                if let alt = loc.altitude { metadata["altitude"] = .double(alt) }
+                            }
+                            metadata["locationElevation"] = .double(shot.locationElevation ?? 0.0)
+                            metadata["locationColorTemperature"] = .double(Double(shot.locationColorTemperature ?? 0))
+                            metadata["locationTimestamp"] = .double(shot.locationTimestamp?.timeIntervalSince1970 ?? 0.0)
+                            metadata["deviceRoll"] = .double(shot.deviceRoll)
+                            metadata["deviceTilt"] = .double(shot.deviceTilt)
+                            metadata["deviceLens"] = .string(shot.deviceLens)
+
+                            let newImage = ImageData(metadata: metadata)
                             if newImage.updateFile(to: newUIImage) {
                                 shot.updateImage(to: newImage, context: modelContext)
                             }
@@ -592,6 +632,7 @@ struct ShotDetailView: View {
                 modelContext.insert(newShot)
                 try modelContext.save()
 
+                project.timestamp = Date()
                 project.shots.append(newShot)
                 try modelContext.save()
 

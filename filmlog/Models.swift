@@ -1103,8 +1103,6 @@ class Shot: Codable {
     var deviceRoll: Double
     var deviceTilt: Double
     var deviceCameraMode: String
-    var deviceAspectRatio: Double
-    var deviceFieldOfView: Double
     var deviceLens: String
     var isLocked: Bool
 
@@ -1119,6 +1117,7 @@ class Shot: Codable {
         if let newImage = newImage {
             newImage.incrementReference()
         }
+        self.timestamp = Date()
         self.image = newImage
     }
     
@@ -1127,6 +1126,7 @@ class Shot: Codable {
             if image.decrementReference() {
                 context.delete(image)
             }
+            self.timestamp = Date()
             self.image = nil
         }
     }
@@ -1150,6 +1150,7 @@ class Shot: Codable {
             if image.decrementReference() {
                 context.delete(image)
             }
+            self.timestamp = Date()
             self.lightMeterImage = nil
         }
     }
@@ -1186,8 +1187,6 @@ class Shot: Codable {
          deviceRoll: Double = 0.0,
          deviceTilt: Double = 0.0,
          deviceCameraMode: String = "",
-         deviceAspectRatio: Double = 0.0,
-         deviceFieldOfView: Double = 0.0,
          deviceLens: String = "",
          image: ImageData? = nil,
          lightMeterImage: ImageData? = nil,
@@ -1224,8 +1223,6 @@ class Shot: Codable {
         self.deviceRoll = deviceRoll
         self.deviceTilt = deviceTilt
         self.deviceCameraMode = deviceCameraMode
-        self.deviceAspectRatio = deviceAspectRatio
-        self.deviceFieldOfView = deviceFieldOfView
         self.deviceLens = deviceLens
         self.image = image
         self.lightMeterImage = lightMeterImage
@@ -1271,8 +1268,6 @@ class Shot: Codable {
         newShot.deviceRoll = self.deviceRoll
         newShot.deviceTilt = self.deviceTilt
         newShot.deviceCameraMode = self.deviceCameraMode
-        newShot.deviceAspectRatio = self.deviceAspectRatio
-        newShot.deviceFieldOfView = self.deviceFieldOfView
         newShot.deviceLens = self.deviceLens
         
         newShot.updateImage(to: self.image, context: context)
@@ -1287,7 +1282,7 @@ class Shot: Codable {
              aperture, shutter, exposureCompensation, lens, colorFilter, ndFilter, focalLength,
              focusDistance, focusDepthOfField, focusNearLimit, focusFarLimit, focusHyperfocalDistance, focusHyperfocalNearLimit,
              exposureSky, exposureFoliage, exposureHighlights, exposureMidGray, exposureShadows, exposureSkinKey, exposureSkinFill,
-             deviceRoll, deviceTilt, deviceCameraMode, deviceAspectRatio, deviceFieldOfView, deviceLens,
+             deviceRoll, deviceTilt, deviceCameraMode, deviceLens,
              image, lightMeterImage, isLocked
     }
 
@@ -1327,8 +1322,6 @@ class Shot: Codable {
         deviceRoll = try container.decode(Double.self, forKey: .deviceRoll)
         deviceTilt = try container.decode(Double.self, forKey: .deviceTilt)
         deviceCameraMode = try container.decode(String.self, forKey: .deviceCameraMode)
-        deviceAspectRatio = try container.decode(Double.self, forKey: .deviceAspectRatio)
-        deviceFieldOfView = try container.decode(Double.self, forKey: .deviceFieldOfView)
         deviceLens = try container.decode(String.self, forKey: .deviceLens)
         image = try container.decodeIfPresent(ImageData.self, forKey: .image)
         lightMeterImage = try container.decodeIfPresent(ImageData.self, forKey: .lightMeterImage)
@@ -1371,8 +1364,6 @@ class Shot: Codable {
         try container.encode(deviceRoll, forKey: .deviceRoll)
         try container.encode(deviceTilt, forKey: .deviceTilt)
         try container.encode(deviceCameraMode, forKey: .deviceCameraMode)
-        try container.encode(deviceAspectRatio, forKey: .deviceAspectRatio)
-        try container.encode(deviceFieldOfView, forKey: .deviceFieldOfView)
         try container.encode(deviceLens, forKey: .deviceLens)
         try container.encodeIfPresent(image, forKey: .image)
         try container.encodeIfPresent(lightMeterImage, forKey: .lightMeterImage)

@@ -425,6 +425,7 @@ struct ProjectDetailView: View {
                 for _ in 0..<count {
                     let newShot = Shot.createDefault(for: project, in: modelContext)
                     try modelContext.save()
+                    project.timestamp = Date()
                     project.shots.append(newShot)
                 }
                 
