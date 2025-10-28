@@ -193,25 +193,31 @@ struct ShotViewfinderView: View {
                         if metaDataMode && (activeControls == .metadata || activeControls == .none) {
                             let aperture = CameraUtils.aperture(for: shot.aperture)
                             let colorFilter = CameraUtils.colorFilter(for: shot.colorFilter)
-                            let ndFilter = CameraUtils.colorFilter(for: shot.ndFilter)
+                            let ndFilter = CameraUtils.ndFilter(for: shot.ndFilter)
                             let filmSize = CameraUtils.filmSize(for: shot.filmSize)
                             let filmStock = CameraUtils.filmStock(for: shot.filmStock)
                             let shutter = CameraUtils.shutter(for: shot.shutter)
                             let focalLength = CameraUtils.focalLength(for: shot.focalLength)
-                            
-                            let colorTempText: String = !colorFilter.isNone
-                                ? "\(Int(filmStock.colorTemperature + colorFilter.colorTemperatureShift))K (\(colorFilter.name))"
-                                : " WB: Auto"
 
                             let exposureCompensation = colorFilter.exposureCompensation + ndFilter.exposureCompensation
                             let exposureText: String = (cameraMode != .auto)
-                                ? ", E: \(Int(filmStock.speed)) \(shutter.name) \(aperture.name)\(exposureCompensation != 0 ? " (\(String(format: "%+.1f", exposureCompensation)))" : "")"
-                                : ", E: Auto"
+                                ? "\(aperture.name) \(shutter.name)" +
+                                  (exposureCompensation != 0
+                                    ? " (\(exposureCompensation >= 0 ? "+" : "")\(String(format: "%.1f", exposureCompensation)))"
+                                    : "")
+                                : "Auto"
+                            
+                            let colorText: String = !colorFilter.isNone
+                                ? "\(Int(filmStock.colorTemperature))k" +
+                                  (colorFilter.colorTemperatureShift != 0
+                                    ? " (\(colorFilter.colorTemperatureShift >= 0 ? "+" : "")\(colorFilter.colorTemperatureShift))"
+                                    : "")
+                                : "Auto"
                             
                             let text =
-                                "\(Int(filmSize.width)) mm x \(Int(filmSize.height)) mm, " +
-                                "\(String(format: "%.1f", filmSize.angleOfView(focalLength: focalLength.length).horizontal))°, " +
-                                "\(colorTempText)\(exposureText)"
+                                "\(Int(filmSize.width))x\(Int(filmSize.height))mm " +
+                                "(\(String(format: "%.1f", filmSize.angleOfView(focalLength: focalLength.length).horizontal))°) " +
+                                "· \(String(format: "%.0f", filmStock.speed)) · \(exposureText) · \(colorText)"
                             
                             TextView(
                                 text: text,

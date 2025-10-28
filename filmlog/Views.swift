@@ -440,7 +440,7 @@ struct LevelIndicatorView: View {
             
             ZStack {
                 VStack(spacing: 4) {
-                    Text("Roll: \(Int(normalized.roll))°, Tilt: \(Int(normalized.tilt))°")
+                    Text("Roll: \(Int(normalized.roll))° · Tilt: \(Int(normalized.tilt))°")
                         .font(.caption2)
                         .padding(4)
                         .background(Color.black.opacity(0.6))

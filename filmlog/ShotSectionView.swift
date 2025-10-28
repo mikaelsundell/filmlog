@@ -5,82 +5,77 @@
 import SwiftUI
 
 struct PhotoMetadataView: View {
-    var focalLength: String
-    var aspectRatio: String
-    var aperture: String
-    var shutter: String
-    var location: (latitude: Double, longitude: Double)?
-    var deviceRoll: Double?
-    var deviceTilt: Double?
+    let imageData: ImageData?
+    let metadata: [String: DataValue]
 
     init(imageData: ImageData?) {
-        func stringValue(_ key: String) -> String {
-            if case let .string(value)? = imageData?.metadata[key] { return value }
-            return ""
-        }
-        func doubleValue(_ key: String) -> Double? {
-            if case let .double(value)? = imageData?.metadata[key] { return value }
-            return nil
-        }
-
-        self.focalLength = stringValue("focalLength")
-        self.aspectRatio = stringValue("aspectRatio")
-        self.aperture = stringValue("aperture")
-        self.shutter = stringValue("shutter")
-
-        if let lat = doubleValue("latitude"),
-           let lon = doubleValue("longitude") {
-            self.location = (lat, lon)
-        } else {
-            self.location = nil
-        }
-
-        self.deviceRoll = doubleValue("deviceRoll")
-        self.deviceTilt = doubleValue("deviceTilt")
-    }
-
-    var hasMetadata: Bool {
-        !focalLength.isEmpty ||
-        !aspectRatio.isEmpty ||
-        !aperture.isEmpty ||
-        !shutter.isEmpty ||
-        location != nil ||
-        deviceRoll != nil ||
-        deviceTilt != nil
+        self.imageData = imageData
+        self.metadata = imageData?.metadata ?? [:]
     }
 
     var body: some View {
         Group {
-            if hasMetadata {
+            if !metadata.isEmpty {
+                let aperture = CameraUtils.aperture(for: stringValue("aperture"))
+                let colorFilter = CameraUtils.colorFilter(for: stringValue("colorFilter"))
+                let ndFilter = CameraUtils.ndFilter(for: stringValue("ndFilter"))
+                let filmSize = CameraUtils.filmSize(for: stringValue("filmSize"))
+                let filmStock = CameraUtils.filmStock(for: stringValue("filmStock"))
+                let shutter = CameraUtils.shutter(for: stringValue("shutter"))
+                let focalLength = CameraUtils.focalLength(for: stringValue("focalLength"))
+
+                let exposureCompensation = colorFilter.exposureCompensation + ndFilter.exposureCompensation
+                let exposureText: String =
+                    "\(aperture.name) \(shutter.name)" +
+                    (exposureCompensation != 0
+                        ? " (\(exposureCompensation >= 0 ? "+" : "")\(String(format: "%.1f", exposureCompensation)))"
+                        : "")
+                
+                let infoText =
+                    "\(Int(filmSize.width))x\(Int(filmSize.height))mm " +
+                    "(\(String(format: "%.1f", filmSize.angleOfView(focalLength: focalLength.length).horizontal))°) " +
+                    "· \(String(format: "%.0f", filmStock.speed)) · \(exposureText)"
+                
+                let colorText: String =
+                    "\(Int(filmStock.colorTemperature))K" +
+                    (colorFilter.colorTemperatureShift != 0
+                        ? " (\(colorFilter.colorTemperatureShift >= 0 ? "+" : "")\(colorFilter.colorTemperatureShift))"
+                        : "")
+
                 VStack(alignment: .leading, spacing: 6) {
-                    let items = [focalLength, aspectRatio, aperture, shutter].filter { !$0.isEmpty }
-                    if !items.isEmpty {
-                        HStack(spacing: 6) {
-                            Image(systemName: "camera.fill")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.secondary)
-
-                            ForEach(Array(items.enumerated()), id: \.offset) { index, value in
-                                if index > 0 {
-                                    Text("· \(value)")
-                                } else {
-                                    Text(value)
-                                }
-                            }
-
-                            Spacer()
-                        }
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    HStack {
+                        Text("Metadata – \(focalLength.name.isEmpty ? "—" : focalLength.name)\(stringValue("aspectRatio") == "-" || stringValue("aspectRatio").isEmpty ? "" : " (\(stringValue("aspectRatio")))")")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.secondary)
+                        Spacer()
                     }
 
-                    if let roll = deviceRoll, let tilt = deviceTilt {
+                    Divider()
+                        .frame(maxWidth: .infinity)
+                        .overlay(Color.white.opacity(0.1))
+
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(infoText)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .truncationMode(.tail)
+                        Spacer()
+                    }
+                    
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(colorText)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .truncationMode(.tail)
+                        Spacer()
+                    }
+                    
+                    if let roll = doubleValue("deviceRoll"),
+                       let tilt = doubleValue("deviceTilt") {
                         HStack(spacing: 6) {
-                            Image(systemName: "gyroscope")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.secondary)
                             Text(String(format: "Roll: %.1f°, Tilt: %.1f°", roll, tilt))
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
@@ -88,14 +83,17 @@ struct PhotoMetadataView: View {
                         }
                     }
 
-                    if let loc = location {
+                    if let lat = doubleValue("latitude"),
+                       let lon = doubleValue("longitude") {
+                        let location = (latitude: lat, longitude: lon)
+                        
                         HStack(spacing: 6) {
-                            Text(String(format: "Lat: %.4f, Lon: %.4f", loc.latitude, loc.longitude))
+                            Text(String(format: "Lat: %.4f, Lon: %.4f", location.latitude, location.longitude))
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                             Spacer()
                             Button {
-                                openInMaps(latitude: loc.latitude, longitude: loc.longitude)
+                                openInMaps(latitude: location.latitude, longitude: location.longitude)
                             } label: {
                                 Image(systemName: "map")
                                     .font(.system(size: 12, weight: .medium))
@@ -105,33 +103,47 @@ struct PhotoMetadataView: View {
                         }
                     }
                 }
-            } else {
-                Text("No metadata")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 10)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(
+                    .ultraThinMaterial,
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(Color.white.opacity(0.1))
+                )
+                .padding(.horizontal, 8)
+                .padding(.bottom, 4)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(
-            .ultraThinMaterial,
-            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(Color.white.opacity(0.1))
-        )
-        .padding(.horizontal, 8)
-        .padding(.bottom, 4)
     }
-
+    
     private func openInMaps(latitude: Double, longitude: Double) {
         if let url = URL(string: "http://maps.apple.com/?ll=\(latitude),\(longitude)") {
             UIApplication.shared.open(url)
         }
+    }
+
+    private func stringValue(_ key: String) -> String {
+        if case let .string(value) = metadata[key] {
+            return value
+        }
+        return ""
+    }
+
+    private func doubleValue(_ key: String) -> Double? {
+        if case let .double(value) = metadata[key] {
+            return value
+        }
+        return nil
+    }
+
+    private func intValue(_ key: String) -> Int {
+        if case let .double(value) = metadata[key] {
+            return Int(value)
+        }
+        return 0
     }
 }
 

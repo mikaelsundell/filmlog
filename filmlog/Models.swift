@@ -1013,6 +1013,10 @@ class Project: Codable {
     var orderedShots: [Shot] {
         shots.sorted(by: { $0.timestamp < $1.timestamp })
     }
+    
+    func timestampShots() -> Date? {
+        shots.map(\.timestamp).max()
+    }
 
     required init(name: String = "",
          note: String = "",

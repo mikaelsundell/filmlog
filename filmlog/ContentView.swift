@@ -34,7 +34,15 @@ struct ContentView: View {
                         Text("No projects.")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(Array(projects.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { localIndex, project in
+                        ForEach(Array(
+                            projects
+                                .sorted(by: {
+                                    let lhsDate = $0.timestampShots() ?? $0.timestamp
+                                    let rhsDate = $1.timestampShots() ?? $1.timestamp
+                                    return lhsDate > rhsDate
+                                })
+                                .enumerated()
+                        ), id: \.element.id) { localIndex, project in
                             projectRow(project: project, localIndex: localIndex)
                         }
                     }
@@ -46,7 +54,15 @@ struct ContentView: View {
                         Text("No projects archived.")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(Array(archivedProjects.sorted(by: { $0.timestamp < $1.timestamp }).enumerated()), id: \.element.id) { localIndex, project in
+                        ForEach(Array(
+                            archivedProjects
+                                .sorted(by: {
+                                    let lhsDate = $0.timestampShots() ?? $0.timestamp
+                                    let rhsDate = $1.timestampShots() ?? $1.timestamp
+                                    return lhsDate > rhsDate
+                                })
+                                .enumerated()
+                        ), id: \.element.id) { localIndex, project in
                             projectRow(project: project, localIndex: localIndex)
                         }
                     }
