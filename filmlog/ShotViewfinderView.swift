@@ -9,6 +9,8 @@ struct ShotViewfinderView: View {
     @Bindable var shot: Shot
     
     var onCapture: (UIImage) -> Void
+    @State private var captureOrientation: UIDeviceOrientation? = nil
+    @State private var captureLevel: OrientationUtils.Level? = nil
     @State private var capturedImage: UIImage? = nil
     @State private var isCaptured = false
     
@@ -17,7 +19,6 @@ struct ShotViewfinderView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var focusPoint: CGPoint? = nil
-    @State private var imageDataToExport: Data? = nil
     @State private var showExport = false
     
     @StateObject private var cameraModel = CameraModel()
@@ -569,6 +570,8 @@ struct ShotViewfinderView: View {
                             captureImage(image: image)
                             dismiss()
                         } else {
+                            captureOrientation = orientationObserver.orientation
+                            captureLevel = orientationObserver.level
                             cameraModel.capturePhoto { cgImage in
                                 if let cgImage = cgImage {
                                     let image = UIImage(cgImage: cgImage)
@@ -589,7 +592,7 @@ struct ShotViewfinderView: View {
                                     .frame(width: 36, height: 36)
 
                                 Image(systemName: "arrow.up")
-                                    .foregroundColor(Color.accentColor) // Blue tint
+                                    .foregroundColor(Color.accentColor)
                                     .font(.system(size: 24, weight: .bold))
                                     .rotationEffect(orientationObserver.orientation.toLandscape)
                             }
@@ -873,20 +876,22 @@ struct ShotViewfinderView: View {
             image,
             frameSize: projectedSize,
             containerSize: containerSize,
-            orientation: orientationObserver.orientation
+            orientation: captureOrientation ?? .portrait
         )
-        let normalized = OrientationUtils.normalizeLevel(from: orientationObserver.level)
-        shot.deviceRoll = normalized.roll
-        shot.deviceTilt = normalized.tilt
+        if let captureLevel {
+            let normalized = OrientationUtils.normalizeLevel(from: captureLevel)
+            shot.deviceRoll = normalized.roll
+            shot.deviceTilt = normalized.tilt
+        }
         shot.deviceLens = cameraModel.lensType.rawValue
         onCapture(croppedImage)
+        
     }
     
     private func cropImage(_ image: UIImage,
                            frameSize: CGSize,
                            containerSize: CGSize,
                            orientation: UIDeviceOrientation) -> UIImage {
-        
         guard let cgImage = image.cgImage else { return image }
         let size = containerSize
         let width = CGFloat(size.width)

@@ -76,7 +76,7 @@ struct PhotoMetadataView: View {
                     if let roll = doubleValue("deviceRoll"),
                        let tilt = doubleValue("deviceTilt") {
                         HStack(spacing: 6) {
-                            Text(String(format: "Roll: %.1f°, Tilt: %.1f°", roll, tilt))
+                            Text("Roll: \(Int(roll))° · Tilt: \(Int(tilt))°")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                             Spacer()
