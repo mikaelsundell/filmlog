@@ -107,10 +107,10 @@ struct PhotoMetadataView: View {
                 .padding(.vertical, 8)
                 .background(
                     .ultraThinMaterial,
-                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    in: RoundedRectangle(cornerRadius: 4, style: .continuous)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: 4)
                         .strokeBorder(Color.white.opacity(0.1))
                 )
                 .padding(.horizontal, 8)
@@ -160,21 +160,37 @@ struct ShotSectionView: View {
     var body: some View {
         VStack(spacing: 12) {
             ZStack {
-                Rectangle()
-                    .fill(Color.black.opacity(0.9))
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Color.black)
                     .overlay(
-                        Rectangle()
-                            .stroke(Color.accentColor.opacity(0.7), lineWidth: 1.5)
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
                     )
 
                 if let uiImage = shot.imageData?.thumbnail {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFit()
-                        .padding(6)
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
-                        .contentShape(Rectangle())
-                        .onTapGesture { showFullImage = true }
+                    GeometryReader { geometry in
+                        let fullSize = geometry.size
+                        let ratio = CameraUtils.aspectRatio(for: shot.aspectRatio)
+                        let aspectValue = CGFloat(ratio.numerator) / CGFloat(ratio.denominator)
+                        let aspectFrame = Projection.frameForAspectRatio(size: fullSize, aspectRatio: aspectValue)
+                        ZStack {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFit()
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                                .contentShape(Rectangle())
+                                .onTapGesture { showFullImage = true }
+
+                            MaskView(
+                                frameSize: fullSize,
+                                aspectSize: aspectFrame,
+                                inner: 0.4,
+                                outer: 0.995,
+                                geometry: geometry
+                            )
+                        }
+                    }
+                    .frame(height: 220)
                 } else {
                     Text("No image")
                         .foregroundColor(.secondary)
@@ -182,7 +198,6 @@ struct ShotSectionView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 220)
             .cornerRadius(0)
             .clipped()
 

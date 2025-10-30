@@ -63,44 +63,44 @@ struct ShotDetailView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Button {
-                    onBack?()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 24, weight: .regular))
-                        .frame(width: 46, height: 46)
+                HStack {
+                    Button {
+                        onBack?()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 24, weight: .regular))
+                            .frame(width: 46, height: 46)
+                    }
+                    .padding(.leading, -6)
+                    .buttonStyle(.borderless)
                 }
-                .padding(.leading, -6)
-                .buttonStyle(.borderless)
                 .frame(width: 80, alignment: .leading)
-                
-                Spacer()
-                
                 Text(shot.name)
-                    .font(.system(size: 18, weight: .semibold))
-                    .frame(maxWidth: .infinity)
+                    .font(.system(size: 16, weight: .semibold))
                     .lineLimit(1)
                     .truncationMode(.tail)
+                    .frame(maxWidth: .infinity)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 8)
 
-                Spacer()
-                
+                // Right section
                 HStack(spacing: 8) {
                     Button {
-                        if index > 0 { onSelect?(index - 1) }
+                        let previousIndex = (index - 1 + count) % count
+                        onSelect?(previousIndex)
                     } label: {
                         Image(systemName: "chevron.up")
                             .font(.system(size: 24, weight: .regular))
                     }
-                    .disabled(index == 0)
                     .buttonStyle(.borderless)
 
                     Button {
-                        if index < count - 1 { onSelect?(index + 1) }
+                        let nextIndex = (index + 1) % count
+                        onSelect?(nextIndex)
                     } label: {
                         Image(systemName: "chevron.down")
                             .font(.system(size: 24, weight: .regular))
                     }
-                    .disabled(index == count - 1)
                     .buttonStyle(.borderless)
                     
                     Menu {
@@ -118,11 +118,12 @@ struct ShotDetailView: View {
                             .font(.system(size: 22, weight: .regular))
                     }
                 }
-                .padding(.trailing, 16)
                 .frame(width: 80, alignment: .trailing)
+                .padding(.trailing, 16)
             }
             .background(Color.black)
             .shadow(radius: 2)
+
             
             Form {
                 Section(header: Text("Camera")) {
