@@ -14,6 +14,26 @@ struct ContentView: View {
     @State private var showDeleteAlert = false
     @State private var searchText: String = ""
 
+    enum SortOption: String, CaseIterable, Identifiable {
+        case name = "Name"
+        case created = "Created"
+        case lastModified = "Last modified"
+        var id: String { rawValue }
+    }
+    
+    @AppStorage("selectedSortOptionActive") private var selectedSortActiveRawValue: String = SortOption.lastModified.rawValue
+    @AppStorage("selectedSortOptionArchived") private var selectedSortArchivedRawValue: String = SortOption.lastModified.rawValue
+
+    private var selectedSortActive: SortOption {
+        get { SortOption(rawValue: selectedSortActiveRawValue) ?? .lastModified }
+        set { selectedSortActiveRawValue = newValue.rawValue }
+    }
+
+    private var selectedSortArchived: SortOption {
+        get { SortOption(rawValue: selectedSortArchivedRawValue) ?? .lastModified }
+        set { selectedSortArchivedRawValue = newValue.rawValue }
+    }
+
     var filteredProjects: [Project] {
         if searchText.isEmpty {
             return projects
@@ -28,41 +48,24 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             List(selection: $selectedProject) {
-                let projects = filteredProjects.filter { $0.isArchived == false }
-                Section(header: Text("Projects")) {
-                    if projects.isEmpty {
+                let activeProjects = filteredProjects.filter { !$0.isArchived }
+                Section(header: projectSectionHeader(title: "Projects", sortOption: $selectedSortActiveRawValue)) {
+                    if activeProjects.isEmpty {
                         Text("No projects.")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(Array(
-                            projects
-                                .sorted(by: {
-                                    let lhsDate = $0.timestampShots() ?? $0.timestamp
-                                    let rhsDate = $1.timestampShots() ?? $1.timestamp
-                                    return lhsDate > rhsDate
-                                })
-                                .enumerated()
-                        ), id: \.element.id) { localIndex, project in
+                        ForEach(Array(sortedProjects(activeProjects, option: selectedSortActive).enumerated()), id: \.element.id) { localIndex, project in
                             projectRow(project: project, localIndex: localIndex)
                         }
                     }
                 }
-
-                let archivedProjects = filteredProjects.filter { $0.isArchived == true  }
-                Section(header: Text("Archived projects")) {
+                let archivedProjects = filteredProjects.filter { $0.isArchived }
+                Section(header: projectSectionHeader(title: "Archived projects", sortOption: $selectedSortArchivedRawValue)) {
                     if archivedProjects.isEmpty {
                         Text("No projects archived.")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(Array(
-                            archivedProjects
-                                .sorted(by: {
-                                    let lhsDate = $0.timestampShots() ?? $0.timestamp
-                                    let rhsDate = $1.timestampShots() ?? $1.timestamp
-                                    return lhsDate > rhsDate
-                                })
-                                .enumerated()
-                        ), id: \.element.id) { localIndex, project in
+                        ForEach(Array(sortedProjects(archivedProjects, option: selectedSortArchived).enumerated()), id: \.element.id) { localIndex, project in
                             projectRow(project: project, localIndex: localIndex)
                         }
                     }
@@ -92,7 +95,68 @@ struct ContentView: View {
             .searchable(text: $searchText, prompt: "Search projects")
         }
     }
-    
+
+    private func sortedProjects(_ projects: [Project], option: SortOption) -> [Project] {
+        switch option {
+        case .name:
+            return projects.sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+
+        case .created:
+            return projects.sorted {
+                $0.created > $1.created
+            }
+
+        case .lastModified:
+            return projects.sorted {
+                $0.lastModified > $1.lastModified
+            }
+        }
+    }
+
+    private func icon(for option: SortOption) -> String {
+        switch option {
+        case .name: return "textformat"
+        case .created: return "calendar"
+        case .lastModified: return "clock"
+        }
+    }
+
+    @ViewBuilder
+    private func projectSectionHeader(title: String, sortOption: Binding<String>) -> some View {
+        HStack {
+            Menu {
+                Picker("Sort by", selection: sortOption) {
+                    ForEach(SortOption.allCases) { option in
+                        Label(option.rawValue, systemImage: icon(for: option))
+                            .tag(option.rawValue)
+                    }
+                }
+                .textCase(nil)
+            } label: {
+                HStack(spacing: 4) {
+                    Text(title)
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.6))
+                        .textCase(.uppercase)
+
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.accentColor)
+                        .offset(y: 1)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .menuStyle(.button)
+            .help("Sort projects")
+
+            Spacer()
+        }
+        .padding(.bottom, 2)
+    }
+
     private func projectRow(project: Project, localIndex: Int) -> some View {
         NavigationLink(destination: {
             ProjectDetailView(project: project, selectedProject: $selectedProject, index: localIndex)
@@ -103,7 +167,7 @@ struct ContentView: View {
     }
     
     private func projectLabel(project: Project, localIndex: Int) -> some View {
-        let modifiedText = "Modified: \(project.timestamp.formatted(date: .abbreviated, time: .shortened))"
+        let modifiedText = "Last modified: \(project.lastModified.formatted(date: .abbreviated, time: .shortened))"
         let thumbnails = latestThumbnails(from: project)
 
         return HStack(spacing: 8) {
@@ -151,13 +215,13 @@ struct ContentView: View {
         }
         .contentShape(Rectangle())
     }
-    
+
     private func latestThumbnails(from project: Project, limit: Int = 3) -> [UIImage] {
         var images: [UIImage] = []
-        for shot in project.shots.sorted(by: { $0.timestamp > $1.timestamp }) { // newest first
+        for shot in project.shots.sorted(by: { $0.timestamp > $1.timestamp }) {
             if let thumb = shot.imageData?.thumbnail {
                 images.append(thumb)
-                if images.count == limit { break } // stop early
+                if images.count == limit { break }
             }
         }
         return images

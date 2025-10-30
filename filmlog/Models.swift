@@ -781,6 +781,7 @@ enum DataValue: Codable {
 @Model
 class Category: Codable {
     var id = UUID()
+    var created = Date()
     var timestamp = Date()
     var name: String
     
@@ -789,12 +790,13 @@ class Category: Codable {
     }
     
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, name
+        case id, created, timestamp, name
     }
     
     required init(from decoder: Decoder) throws {
        let container = try decoder.container(keyedBy: CodingKeys.self)
        id = try container.decode(UUID.self, forKey: .id)
+       created = try container.decode(Date.self, forKey: .created)
        timestamp = try container.decode(Date.self, forKey: .timestamp)
        name = try container.decode(String.self, forKey: .name)
    }
@@ -802,6 +804,7 @@ class Category: Codable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
+        try container.encode(created, forKey: .created)
         try container.encode(timestamp, forKey: .timestamp)
         try container.encode(name, forKey: .name)
     }
@@ -810,6 +813,7 @@ class Category: Codable {
 @Model
 class ImageData: Codable {
     var id = UUID()
+    var created = Date()
     var timestamp = Date()
     var referenceCount: Int
     var name: String?
@@ -900,30 +904,30 @@ class ImageData: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, filePath, thumbnailPath, referenceCount, categories, name, note, creator, timestamp, metadata
+        case id, created, timestamp, referenceCount, categories, name, note, fcreator, metadata
     }
 
     required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
+        created = try container.decode(Date.self, forKey: .timestamp)
         timestamp = try container.decode(Date.self, forKey: .timestamp)
         referenceCount = try container.decodeIfPresent(Int.self, forKey: .referenceCount) ?? 1
         categories = try container.decodeIfPresent([Category].self, forKey: .categories) ?? []
         name = try container.decodeIfPresent(String.self, forKey: .name)
         note = try container.decodeIfPresent(String.self, forKey: .note)
-        creator = try container.decodeIfPresent(String.self, forKey: .creator)
         metadata = try container.decodeIfPresent([String: DataValue].self, forKey: .metadata) ?? [:]
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
+        try container.encode(created, forKey: .created)
         try container.encode(timestamp, forKey: .timestamp)
         try container.encode(referenceCount, forKey: .referenceCount)
         try container.encodeIfPresent(categories, forKey: .categories)
         try container.encodeIfPresent(name, forKey: .name)
         try container.encodeIfPresent(note, forKey: .note)
-        try container.encodeIfPresent(creator, forKey: .creator)
         try container.encode(metadata, forKey: .metadata)
     }
 }
@@ -996,6 +1000,7 @@ class Gallery: Codable {
 @Model
 class Project: Codable {
     var id = UUID()
+    var created = Date()
     var timestamp = Date()
     var name: String
     var note: String
@@ -1014,8 +1019,12 @@ class Project: Codable {
         shots.sorted(by: { $0.timestamp < $1.timestamp })
     }
     
-    func timestampShots() -> Date? {
-        shots.map(\.timestamp).max()
+    var lastModified: Date {
+        if let latestShotDate = shots.map(\.timestamp).max() {
+            return max(timestamp, latestShotDate)
+        } else {
+            return timestamp
+        }
     }
 
     required init(name: String = "",
@@ -1046,12 +1055,13 @@ class Project: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, name, note, camera, counter, pushPull, filmDate, filmSize, filmStock, image, isArchived, isLocked, shots
+        case id, created, timestamp, name, note, camera, counter, pushPull, filmDate, filmSize, filmStock, image, isArchived, isLocked, shots
     }
 
     required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
+        created = try container.decode(Date.self, forKey: .created)
         timestamp = try container.decode(Date.self, forKey: .timestamp)
         name = try container.decode(String.self, forKey: .name)
         note = try container.decode(String.self, forKey: .note)
@@ -1069,6 +1079,7 @@ class Project: Codable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
+        try container.encode(created, forKey: .created)
         try container.encode(timestamp, forKey: .timestamp)
         try container.encode(name, forKey: .name)
         try container.encode(note, forKey: .note)
@@ -1110,6 +1121,7 @@ extension Project {
 @Model
 class Shot: Codable {
     var id = UUID()
+    var created = Date()
     var timestamp = Date()
     var filmSize: String
     var filmStock: String
@@ -1145,6 +1157,10 @@ class Shot: Codable {
     var deviceCameraMode: String
     var deviceLens: String
     var isLocked: Bool
+    
+    var lastModified: Date {
+        return timestamp
+    }
 
     @Relationship private var image: ImageData?
     
@@ -1276,6 +1292,7 @@ class Shot: Codable {
 
     func copy(context: ModelContext) -> Shot {
         let newShot = Shot()
+        newShot.created = self.created
         newShot.filmSize = self.filmSize
         newShot.filmStock = self.filmStock
         newShot.aspectRatio = self.aspectRatio
@@ -1317,7 +1334,7 @@ class Shot: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, filmSize, filmStock, aspectRatio, name, note, 
+        case id, created, timestamp, filmSize, filmStock, aspectRatio, name, note,
              location, locationTimestamp, locationColorTemperature, locationElevation,
              aperture, shutter, exposureCompensation, lens, colorFilter, ndFilter, focalLength,
              focusDistance, focusDepthOfField, focusNearLimit, focusFarLimit, focusHyperfocalDistance, focusHyperfocalNearLimit,
@@ -1329,6 +1346,7 @@ class Shot: Codable {
     required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
+        created = try container.decode(Date.self, forKey: .created)
         timestamp = try container.decode(Date.self, forKey: .timestamp)
         filmSize = try container.decode(String.self, forKey: .filmSize)
         filmStock = try container.decode(String.self, forKey: .filmStock)
@@ -1371,6 +1389,7 @@ class Shot: Codable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
+        try container.encode(created, forKey: .created)
         try container.encode(timestamp, forKey: .timestamp)
         try container.encode(filmSize, forKey: .filmSize)
         try container.encode(filmStock, forKey: .filmStock)

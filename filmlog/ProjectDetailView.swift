@@ -27,6 +27,20 @@ struct ProjectDetailView: View {
     @State private var showDeleteAlert = false
     @State private var confirmMoveToShooting = false
     @State private var confirmMoveToArchived = false
+    
+    enum SortOption: String, CaseIterable, Identifiable {
+        case name = "Name"
+        case created = "Created"
+        case lastModified = "Last modified"
+        var id: String { rawValue }
+    }
+
+    @AppStorage("selectedShotSortOption") private var selectedShotSortRawValue: String = SortOption.lastModified.rawValue
+
+    private var selectedShotSortOption: SortOption {
+        get { SortOption(rawValue: selectedShotSortRawValue) ?? .lastModified }
+        set { selectedShotSortRawValue = newValue.rawValue }
+    }
 
     var body: some View {
         ZStack {
@@ -38,7 +52,7 @@ struct ProjectDetailView: View {
                                 Text("No shots")
                                     .foregroundStyle(.secondary)
                             } else {
-                                ForEach(Array(project.orderedShots.enumerated()), id: \.element.id) { _, shot in
+                                ForEach(Array(sortedShots(project.shots).enumerated()), id: \.element.id) { _, shot in
                                     Button {
                                         UIView.setAnimationsEnabled(false)
                                         withAnimation(.easeInOut(duration: 0.25)) {
@@ -56,7 +70,11 @@ struct ProjectDetailView: View {
 
                                                 let stock = CameraUtils.filmStock(for: shot.filmStock)
                                                 let stockInfo = stock.speed > 0 ? "\(Int(stock.speed)) ISO" : stock.name
-
+                                                
+                                                Text("Last modified: \(shot.lastModified.formatted(date: .abbreviated, time: .shortened))")
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.gray.opacity(0.8))
+                                                
                                                 Text("Film size: \(shot.filmSize), \(stockInfo)")
                                                     .font(.caption2)
                                                     .foregroundStyle(.gray.opacity(0.8))
@@ -99,23 +117,36 @@ struct ProjectDetailView: View {
                                 }
                             }
                         } header: {
-                            HStack(spacing: 6) {
-                                Text("SHOTS")
-                                    .font(.caption)
-                                    .foregroundColor(.white.opacity(0.6))
-                                    .textCase(.uppercase)
+                            HStack {
+                                Menu {
+                                    Picker("Sort by", selection: $selectedShotSortRawValue) {
+                                        ForEach(SortOption.allCases) { option in
+                                            Label(option.rawValue, systemImage: icon(for: option))
+                                                .tag(option.rawValue)
+                                        }
+                                    }
+                                    .textCase(nil)
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text("Shots")
+                                            .font(.caption)
+                                            .foregroundColor(.white.opacity(0.6))
+                                            .textCase(.uppercase)
 
-                                if project.isLocked {
-                                    Image(systemName: "lock.fill")
-                                        .font(.system(size: 10, weight: .semibold))
-                                        .foregroundColor(.white.opacity(0.5))
-                                        .padding(.leading, 2)
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundColor(.accentColor)
+                                            .offset(y: 1)
+                                    }
+                                    .contentShape(Rectangle())
                                 }
+                                .buttonStyle(.plain)
+                                .menuStyle(.button)
+                                .help("Sort shots")
 
                                 Spacer()
                             }
-                            .padding(.vertical, 4)
-                            .background(Color.black.opacity(0.9))
+                            .padding(.bottom, 2)
                         }
                         .listRowBackground(Color.black)
                         
@@ -416,6 +447,33 @@ struct ProjectDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This project contains \(project.shots.count) shot\(project.shots.count == 1 ? "" : "s"). Are you sure you want to delete it?")
+        }
+    }
+    
+    private func sortedShots(_ shots: [Shot]) -> [Shot] {
+        switch selectedShotSortOption {
+        case .name:
+            return shots.sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+
+        case .created:
+            return shots.sorted {
+                $0.timestamp > $1.timestamp // assuming timestamp is creation date
+            }
+
+        case .lastModified:
+            return shots.sorted {
+                $0.lastModified > $1.lastModified
+            }
+        }
+    }
+    
+    private func icon(for option: SortOption) -> String {
+        switch option {
+        case .name: return "textformat"
+        case .created: return "calendar"
+        case .lastModified: return "clock"
         }
     }
     

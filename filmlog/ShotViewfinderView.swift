@@ -13,13 +13,11 @@ struct ShotViewfinderView: View {
     @State private var captureLevel: OrientationUtils.Level? = nil
     @State private var capturedImage: UIImage? = nil
     @State private var isCaptured = false
-    
-    @AppStorage("isFullscreen") private var isFullscreen = false
-    
-    @Environment(\.dismiss) private var dismiss
-    
     @State private var focusPoint: CGPoint? = nil
     @State private var showExport = false
+    
+    @AppStorage("isFullscreen") private var isFullscreen = false
+    @Environment(\.dismiss) private var dismiss
     
     @StateObject private var cameraModel = CameraModel()
     
@@ -933,21 +931,7 @@ struct ShotViewfinderView: View {
         )
         return croppedUIImage
     }
-    
-    private func orientationDescription(_ orientation: UIImage.Orientation) -> String {
-        switch orientation {
-        case .up: return "up (default)"
-        case .down: return "down (180° rotated)"
-        case .left: return "left (90° CCW)"
-        case .right: return "right (90° CW)"
-        case .upMirrored: return "upMirrored"
-        case .downMirrored: return "downMirrored"
-        case .leftMirrored: return "leftMirrored"
-        case .rightMirrored: return "rightMirrored"
-        @unknown default: return "unknown"
-        }
-    }
-    
+
     private func imageOrientation(for deviceOrientation: UIDeviceOrientation) -> UIImage.Orientation {
         switch deviceOrientation {
         case .landscapeLeft:
