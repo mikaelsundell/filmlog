@@ -83,7 +83,6 @@ struct ShotDetailView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 8)
 
-                // Right section
                 HStack(spacing: 8) {
                     Button {
                         let previousIndex = (index - 1 + count) % count

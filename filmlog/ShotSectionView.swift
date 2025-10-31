@@ -160,15 +160,7 @@ struct ShotSectionView: View {
     var body: some View {
         VStack(spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(Color.black)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                    )
-
                 if let image = shot.imageData?.thumbnail {
-                    
                     GeometryReader { geometry in
                         let container = geometry.size
                         let imageSize = image.size
@@ -208,8 +200,10 @@ struct ShotSectionView: View {
                         .frame(height: 220)
                 }
             }
+
             .frame(maxWidth: .infinity)
-            .cornerRadius(0)
+            .cornerRadius(2)
+            .padding(.top, 4)
             .clipped()
 
             if let metadata = shot.imageData?.metadata, !metadata.isEmpty {
@@ -217,7 +211,7 @@ struct ShotSectionView: View {
             }
 
             if !isLocked {
-                HStack(spacing: 20) {
+                HStack(spacing: 12) {
                     Button {
                         showCamera = true
                     } label: {
@@ -257,7 +251,7 @@ struct ShotSectionView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 4)
+                .padding(.bottom, 8)
             }
         }
         .fullScreenCover(isPresented: $showCamera) {
