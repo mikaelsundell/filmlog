@@ -170,9 +170,13 @@ struct ShotSectionView: View {
                 if let uiImage = shot.imageData?.thumbnail {
                     GeometryReader { geometry in
                         let fullSize = geometry.size
-                        let ratio = CameraUtils.aspectRatio(for: shot.aspectRatio)
-                        let aspectValue = CGFloat(ratio.numerator) / CGFloat(ratio.denominator)
-                        let aspectFrame = Projection.frameForAspectRatio(size: fullSize, aspectRatio: aspectValue)
+                        let filmSize = CameraUtils.filmSize(for: shot.filmSize)
+                        let aspectRatio = CameraUtils.aspectRatio(for: shot.aspectRatio)
+                        let aspectFrame = Projection.frameForAspectRatio(
+                            size: fullSize,
+                            aspectRatio: aspectRatio.ratio > 0.0 ? aspectRatio.ratio : filmSize.aspectRatio
+                        )
+                        
                         ZStack {
                             Image(uiImage: uiImage)
                                 .resizable()
@@ -195,6 +199,7 @@ struct ShotSectionView: View {
                     Text("No image")
                         .foregroundColor(.secondary)
                         .padding(6)
+                        .frame(height: 220)
                 }
             }
             .frame(maxWidth: .infinity)

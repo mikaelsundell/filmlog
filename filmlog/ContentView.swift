@@ -192,7 +192,10 @@ struct ContentView: View {
                             .renderingMode(.template)
                             .foregroundStyle(.white.opacity(0.7))
                             .font(.system(size: 28, weight: .regular))
+                            .frame(width: 64, height: 64)
                     }
+                    .frame(width: 70, height: 64)
+                    .padding(.trailing, 6)
                 } else {
                     ZStack {
                         ForEach(Array(thumbnails.reversed().enumerated()), id: \.offset) { index, image in
