@@ -75,11 +75,12 @@ struct ShotViewfinderView: View {
             Color.clear
             GeometryReader { geometry in
                 ZStack {
+                    let container = geometry.size
                     let aspectRatio = CameraUtils.aspectRatio(for: shot.aspectRatio)
                     let filmSize = CameraUtils.filmSize(for: shot.filmSize)
                 
                     let projectedFrame = Projection.projectedFrame(
-                        size: geometry.size.switchOrientation(), // project for camera
+                        size: geometry.size.toLandscape(), // match camera
                         focalLength: CameraUtils.focalLength(for: shot.focalLength).length,
                         aspectRatio: filmSize.aspectRatio,
                         width: filmSize.width,
@@ -91,11 +92,11 @@ struct ShotViewfinderView: View {
                         aspectRatio: aspectRatio.ratio > 0.0 ? aspectRatio.ratio : filmSize.aspectRatio
                     )
                     
-                    let width = geometry.size.width
-                    let height = geometry.size.height
-                    let projectedSize = projectedFrame.switchOrientation()
+                    let width = container.width
+                    let height = container.height
+                    let projectedSize = projectedFrame.toPortrait()
                     
-                    let (fit): (CGFloat) = {
+                    let (scale): (CGFloat) = {
                         if isFullscreen {
                             let padding: CGFloat = 10
                             let iw = width - padding * 2
@@ -107,8 +108,8 @@ struct ShotViewfinderView: View {
                         }
                     }()
 
-                    let frameSize = projectedSize * fit
-                    let frameAspectRatio = projectedAspectRatio.switchOrientation() * fit
+                    let displaySize = projectedSize * scale
+                    let aspectFrame = projectedAspectRatio.toPortrait() * scale
                     
                     ZStack {
                         Canvas { context, size in
@@ -122,13 +123,13 @@ struct ShotViewfinderView: View {
                             
                             context.stroke(path, with: .color(.gray.opacity(0.4)), lineWidth: lineWidth)
                         }
-                        .frame(width: frameSize.width, height: frameSize.height)
+                        .frame(width: displaySize.width, height: displaySize.height)
                         .position(x: width / 2, y: height / 2)
                         .allowsHitTesting(false)
                         
                         if let image = capturedImage, isCaptured {
                             ZStack {
-                                let scale = (height * fit) / image.size.width; // is camera
+                                let scale = (height * scale) / image.size.width; // is camera
                                 ZStack {
                                     Image(uiImage: image)
                                         .scaleEffect(scale)
@@ -143,7 +144,7 @@ struct ShotViewfinderView: View {
                             
                         } else {
                             ZStack {
-                                let scale = (width * fit) / width;
+                                let scale = (width * scale) / width;
                                 ZStack {
                                     CameraMetalPreview(renderer: cameraModel.renderer) // is portait
                                         .scaleEffect(scale)
@@ -154,8 +155,8 @@ struct ShotViewfinderView: View {
                         }
                         
                         MaskView(
-                            frameSize: frameSize,
-                            aspectSize: frameAspectRatio,
+                            frameSize: displaySize,
+                            aspectSize: aspectFrame,
                             inner: 0.4,
                             outer: 0.995,
                             geometry: geometry
@@ -164,20 +165,18 @@ struct ShotViewfinderView: View {
                         if centerMode != .off && (activeControls == .overlay || activeControls == .none) {
                             CenterView(
                                 centerMode: centerMode,
-                                size: projectedAspectRatio * fit, // draw for camera
+                                size: aspectFrame,
                                 geometry: geometry
                             )
-                            .rotationEffect(.degrees(90)) // to potrait
                             .position(x: width / 2, y: height / 2)
                         }
                         
                         if symmetryMode != .off && (activeControls == .overlay || activeControls == .none) {
                             SymmetryView(
                                 symmetryMode: symmetryMode,
-                                size: projectedAspectRatio * fit, // draw for camera
+                                size: aspectFrame,
                                 geometry: geometry
                             )
-                            .rotationEffect(.degrees(90)) // to potrait
                             .position(x: width / 2, y: height / 2)
                         }
                         
@@ -230,7 +229,7 @@ struct ShotViewfinderView: View {
                     .animation(.easeInOut(duration: 0.3), value: isCaptured)
                     
                     if activeControls == .none {
-                        let scale = (width * fit) / width;
+                        let scale = (width * scale) / width;
                         Color.clear
                             .contentShape(Rectangle())
                             .gesture(

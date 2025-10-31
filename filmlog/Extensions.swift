@@ -19,6 +19,14 @@ extension CGSize {
     var isPortrait: Bool {
         height > width
     }
+    
+    func toPortrait() -> CGSize {
+        isLandscape ? switchOrientation() : self
+    }
+
+    func toLandscape() -> CGSize {
+        isPortrait ? switchOrientation() : self
+    }
 
     var aspectRatio: CGFloat {
         height == 0 ? 0 : width / height

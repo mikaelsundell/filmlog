@@ -167,18 +167,24 @@ struct ShotSectionView: View {
                             .stroke(Color.white.opacity(0.1), lineWidth: 1)
                     )
 
-                if let uiImage = shot.imageData?.thumbnail {
+                if let image = shot.imageData?.thumbnail {
+                    
                     GeometryReader { geometry in
-                        let fullSize = geometry.size
+                        let container = geometry.size
+                        let imageSize = image.size
+                        
+                        let scale = min(container.width / imageSize.width, container.height / imageSize.height)
+                        let displayedSize = imageSize * scale
+
                         let filmSize = CameraUtils.filmSize(for: shot.filmSize)
                         let aspectRatio = CameraUtils.aspectRatio(for: shot.aspectRatio)
                         let aspectFrame = Projection.frameForAspectRatio(
-                            size: fullSize,
+                            size: displayedSize.toLandscape(), // match camera
                             aspectRatio: aspectRatio.ratio > 0.0 ? aspectRatio.ratio : filmSize.aspectRatio
                         )
-                        
+
                         ZStack {
-                            Image(uiImage: uiImage)
+                            Image(uiImage: image)
                                 .resizable()
                                 .scaledToFit()
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
@@ -186,8 +192,8 @@ struct ShotSectionView: View {
                                 .onTapGesture { showFullImage = true }
 
                             MaskView(
-                                frameSize: fullSize,
-                                aspectSize: aspectFrame,
+                                frameSize: imageSize.isLandscape ? displayedSize : displayedSize.toPortrait(),
+                                aspectSize: imageSize.isLandscape ? aspectFrame : aspectFrame.toPortrait(),
                                 inner: 0.4,
                                 outer: 0.995,
                                 geometry: geometry
