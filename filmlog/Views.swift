@@ -514,7 +514,7 @@ struct MaskView: View {
                 )
 
             Rectangle()
-                .stroke(.white, lineWidth: 1)
+                .stroke(.gray, lineWidth: 1)
                 .frame(width: frameSize.width, height: frameSize.height)
                 .position(x: width / 2, y: height / 2)
 
