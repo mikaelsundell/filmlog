@@ -4,7 +4,7 @@
 
 import SwiftUI
 
-struct PhotoMetadataView: View {
+struct ImageMetadataView: View {
     let imageData: ImageData?
     let metadata: [String: DataValue]
 
@@ -207,7 +207,7 @@ struct ShotSectionView: View {
             .clipped()
 
             if let metadata = shot.imageData?.metadata, !metadata.isEmpty {
-                PhotoMetadataView(imageData: shot.imageData)
+                ImageMetadataView(imageData: shot.imageData)
             }
 
             if !isLocked {
@@ -254,7 +254,7 @@ struct ShotSectionView: View {
                 .padding(.bottom, 8)
             }
         }
-        .fullScreenCover(isPresented: $showCamera) {
+        .sheet(isPresented: $showCamera) {
             ShotViewfinderView(shot: shot) { image in
                 onImagePicked(image)
             }

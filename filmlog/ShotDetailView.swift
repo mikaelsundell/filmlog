@@ -125,362 +125,14 @@ struct ShotDetailView: View {
 
             
             Form {
-                Section(header: Text("Camera")) {
-                    ShotSectionView(
-                            shot: shot,
-                            isLocked: shot.isLocked
-                        ) { newUIImage in
-                            var metadata: [String: DataValue] = [:]
-                            metadata["name"] = .string(shot.name)
-                            metadata["timestamp"] = .double(shot.timestamp.timeIntervalSince1970)
-                            metadata["camera"] = .string(project.camera)
-                            metadata["note"] = .string(shot.note)
-                            metadata["filmStock"] = .string(shot.filmStock)
-                            metadata["filmSize"] = .string(shot.filmSize)
-                            metadata["aspectRatio"] = .string(shot.aspectRatio)
-                            metadata["aperture"] = .string(shot.aperture)
-                            metadata["shutter"] = .string(shot.shutter)
-                            metadata["exposureCompensation"] = .string(shot.exposureCompensation)
-                            metadata["lens"] = .string(shot.lens)
-                            metadata["focalLength"] = .string(shot.focalLength)
-                            metadata["colorFilter"] = .string(shot.colorFilter)
-                            metadata["ndFilter"] = .string(shot.ndFilter)
-                            metadata["exposureSky"] = .string(shot.exposureSky)
-                            metadata["exposureFoliage"] = .string(shot.exposureFoliage)
-                            metadata["exposureHighlights"] = .string(shot.exposureHighlights)
-                            metadata["exposureMidGray"] = .string(shot.exposureMidGray)
-                            metadata["exposureShadows"] = .string(shot.exposureShadows)
-                            metadata["exposureSkinKey"] = .string(shot.exposureSkinKey)
-                            metadata["exposureSkinFill"] = .string(shot.exposureSkinFill)
-                            metadata["focusDistance"] = .double(shot.focusDistance)
-                            metadata["focusDepthOfField"] = .double(shot.focusDepthOfField)
-                            metadata["focusNearLimit"] = .double(shot.focusNearLimit)
-                            metadata["focusFarLimit"] = .double(shot.focusFarLimit)
-                            metadata["focusHyperfocalDistance"] = .double(shot.focusHyperfocalDistance)
-                            metadata["focusHyperfocalNearLimit"] = .double(shot.focusHyperfocalNearLimit)
-                            if let loc = shot.location {
-                                metadata["latitude"] = .double(loc.latitude)
-                                metadata["longitude"] = .double(loc.longitude)
-                                if let alt = loc.altitude { metadata["altitude"] = .double(alt) }
-                            }
-                            metadata["locationElevation"] = .double(shot.locationElevation ?? 0.0)
-                            metadata["locationColorTemperature"] = .double(Double(shot.locationColorTemperature ?? 0))
-                            metadata["locationTimestamp"] = .double(shot.locationTimestamp?.timeIntervalSince1970 ?? 0.0)
-                            metadata["deviceRoll"] = .double(shot.deviceRoll)
-                            metadata["deviceTilt"] = .double(shot.deviceTilt)
-                            metadata["deviceLens"] = .string(shot.deviceLens)
-
-                            let newImage = ImageData(metadata: metadata)
-                            if newImage.updateFile(to: newUIImage) {
-                                shot.updateImage(to: newImage, context: modelContext)
-                            }
-                        }
-                    .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
-                }
-
-                Section(
-                    header: HStack {
-                        Text("Shot")
-                        if shot.isLocked {
-                            Image(systemName: "lock.fill")
-                                .foregroundColor(.secondary)
-                                .font(.caption)
-                                .padding(.leading, 4)
-                        }
-                    }
-                ) {
-                    HStack {
-                        TextField("Name", text: $shot.name)
-                            .focused($activeField, equals: .name)
-                            .submitLabel(.done)
-                            .disabled(shot.isLocked)
-                        if !shot.name.isEmpty && !shot.isLocked {
-                            Button {
-                                shot.name = ""
-                                DispatchQueue.main.async {
-                                    UIView.performWithoutAnimation {
-                                        activeField = .name
-                                    }
-                                }
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.trailing, 2)
-                            .transition(.opacity.combined(with: .scale))
-                        }
-                    }
-                    HStack {
-                        Text("Modified:")
-                        Text(shot.timestamp.formatted(date: .abbreviated, time: .shortened))
-                    }
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                }
-
-                Section(header: Text("Location")) {
-                    if requestingLocation {
-                        Text("Waiting for location...")
-                            .foregroundColor(.secondary)
-                    } else if let loc = shot.location {
-                        HStack {
-                            Text("Lat: \(loc.latitude), Lon: \(loc.longitude)")
-                            Spacer()
-                            Button(action: {
-                                openInMaps(latitude: loc.latitude, longitude: loc.longitude)
-                            }) {
-                                Image(systemName: "map")
-                                    .foregroundColor(.blue)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    } else {
-                        Text("No location set")
-                            .foregroundColor(.secondary)
-                    }
-
-                    Button(action: {
-                        requestingLocation = true
-                        locationManager.requestLocation()
-                    }) {
-                        Label("Request location", systemImage: "location.fill")
-                    }
-                    .disabled(shot.isLocked || requestingLocation)
-
-                    HStack {
-                        Text("Elevation")
-                        Spacer()
-                        if requestingLocation || shot.locationElevation == 0 {
-                            Text("-")
-                                .foregroundColor(.secondary)
-                        } else {
-                            HStack(spacing: 0) {
-                                TextField("", value: $shot.locationElevation, formatter: elevationFormatter)
-                                    .keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing)
-                                    .focused($activeField, equals: .locationElevation)
-                                    .disabled(true)
-                                
-                                HStack(spacing: 2) {
-                                    Text("°")
-                                    Image(systemName: "function")
-                                        .foregroundColor(.secondary)
-                                        .help("This value is automatically calculated and cannot be edited")
-                                }
-                            }
-                        }
-                    }
-                    
-                    HStack {
-                        Text("Color temperature")
-                        Spacer()
-                        if requestingLocation || shot.locationElevation == 0 {
-                            Text("-")
-                                .foregroundColor(.secondary)
-                        } else {
-                            HStack(spacing: 0) {
-                                TextField("", value: $shot.locationColorTemperature, formatter: colorTemperatureFormatter)
-                                    .keyboardType(.numberPad)
-                                    .multilineTextAlignment(.trailing)
-                                    .focused($activeField, equals: .locationColorTemperature)
-                                    .disabled(shot.isLocked)
-                                Text("K")
-                            }
-                        }
-                    }
-                }
-                
-                Section(header: Text("Camera")) {
-                    Picker("Aperture", selection: $shot.aperture) {
-                        ForEach(CameraUtils.apertures, id: \.name) { aperture in
-                            Text(aperture.name).tag(aperture.name)
-                        }
-                    }
-                    .disabled(shot.isLocked)
-                    
-                    Picker("Shutter", selection: $shot.shutter) {
-                        ForEach(CameraUtils.shutters, id: \.name) { shutter in
-                            Text(shutter.name).tag(shutter.name)
-                        }
-                    }
-                    .disabled(shot.isLocked)
-                    
-                    Picker("Compensation", selection: $shot.exposureCompensation) {
-                        ForEach(["-3", "-2", "-1", "0", "+1", "+2", "+3"], id: \.self) { value in
-                            Text("EV\(value)").tag(value)
-                        }
-                    }
-                    .disabled(shot.isLocked)
-                    
-                    Picker("Film size", selection: $shot.filmSize) {
-                        ForEach(CameraUtils.groupedFilmSizes.keys.sorted(), id: \.self) { category in
-                            Section(header: Text(category)) {
-                                ForEach(CameraUtils.groupedFilmSizes[category] ?? [], id: \.name) { size in
-                                    Text(size.name).tag(size.name)
-                                }
-                            }
-                        }
-                    }
-                    .disabled(shot.isLocked)
-                    
-                    Picker("Film stock", selection: $shot.filmStock) {
-                        ForEach(CameraUtils.groupedFilmStocks.keys.sorted(), id: \.self) { category in
-                            Section(header: Text(category)) {
-                                ForEach(CameraUtils.groupedFilmStocks[category] ?? [], id: \.name) { stock in
-                                    Text(stock.name).tag(stock.name)
-                                }
-                            }
-                        }
-                    }
-                    .disabled(shot.isLocked)
-                }
-                
-                Section(header: Text("Lens")) {
-                    Picker("Lens", selection: $shot.lens) {
-                        ForEach(CameraUtils.groupedLenses.keys.sorted(), id: \.self) { category in
-                            Section(header: Text(category)) {
-                                ForEach(CameraUtils.groupedLenses[category] ?? [], id: \.name) { lens in
-                                    Text(lens.name).tag(lens.name)
-                                }
-                            }
-                        }
-                    }
-                    .disabled(project.isLocked)
-                    
-                    Picker("Lens color filter", selection: $shot.colorFilter) {
-                        ForEach(CameraUtils.colorFilters, id: \.name) { filter in
-                            Text(filter.name).tag(filter.name)
-                        }
-                    }
-                    .disabled(shot.isLocked)
-                    
-                    Picker("Lens ND filter", selection: $shot.ndFilter) {
-                        ForEach(CameraUtils.ndFilters, id: \.name) { filter in
-                            Text(filter.name).tag(filter.name)
-                        }
-                    }
-                    .disabled(shot.isLocked)
-                    
-                    Picker("Focal length", selection: $shot.focalLength) {
-                        ForEach(CameraUtils.focalLengths, id: \.name) { focal in
-                            Text(focal.name).tag(focal.name)
-                        }
-                    }
-                    .disabled(shot.isLocked)
-                }
-                
-                Section(header: Text("Focus")) {
-                    HStack {
-                        Text("Focus distance")
-                        Spacer()
-                        HStack(spacing: 2) {
-                            TextField("", value: $shot.focusDistance, formatter: focusDistanceFormatter)
-                                .keyboardType(.decimalPad)
-                                .multilineTextAlignment(.trailing)
-                                .focused($activeField, equals: .focusDistance)
-                                .disabled(shot.isLocked)
-                                .toolbar {
-                                    ToolbarItemGroup(placement: .keyboard) {
-                                        Spacer()
-                                        Button("Done") {
-                                            activeField = nil
-                                        }
-                                    }
-                                }
-                            Text("mm").frame(width: 32, alignment: .trailing)
-                        }
-                        Text("\(shot.focusDistance / 1000, specifier: "%.1f") m")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .frame(width: 50, alignment: .trailing)
-                    }
-
-                    focusRow(label: "Depth of field", value: shot.focusDepthOfField)
-                    focusRow(label: "Near", value: shot.focusNearLimit)
-                    focusRow(label: "Far", value: shot.focusFarLimit)
-
-                    HStack {
-                        Image(systemName: "function")
-                            .foregroundColor(.secondary)
-                            .help("This value is automatically calculated and cannot be edited")
-
-                        Button {
-                            shot.focusDistance = shot.focusHyperfocalDistance
-                        } label: {
-                            Image(systemName: "scope")
-                                .foregroundColor(.blue)
-                                .help("Set focus distance to hyperfocal value")
-                        }
-                        .buttonStyle(.borderless)
-
-                        Text("Hyperfocal")
-                        Spacer()
-
-                        HStack(spacing: 2) {
-                            Text(shot.focusHyperfocalDistance > 1_000_000
-                                 ? "∞"
-                                 : (focusDistanceFormatter.string(from: NSNumber(value: shot.focusHyperfocalDistance)) ?? "0"))
-                            Text("mm").frame(width: 32, alignment: .trailing)
-                        }
-                        
-                        Text(shot.focusHyperfocalDistance > 1_000_000
-                             ? "∞"
-                             : String(format: "%.1f m", shot.focusHyperfocalDistance / 1000))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .frame(width: 50, alignment: .trailing)
-                    }
-
-                    focusRow(label: "Near", value: shot.focusHyperfocalNearLimit)
-                }
-                
-                Section(header: Text("Lightmeter")) {
-                    PhotoPickerView(
-                        image: shot.lightMeterImageData?.thumbnail,
-                        label: "Add photo",
-                        isLocked: shot.isLocked
-                    ) { newUIImage in
-                        let newImage = ImageData()
-                        if newImage.updateFile(to: newUIImage) {
-                            shot.updateLightMeterImage(to: newImage, context: modelContext)
-                        }
-                    }
-                    evPicker(title: "Sky", selection: $shot.exposureSky)
-                    evPicker(title: "Foliage", selection: $shot.exposureFoliage)
-                    evPicker(title: "Highlights", selection: $shot.exposureHighlights)
-                    evPicker(title: "Mid gray", selection: $shot.exposureMidGray)
-                    evPicker(title: "Shadows", selection: $shot.exposureShadows)
-                    evPicker(title: "Skin key", selection: $shot.exposureSkinKey)
-                    evPicker(title: "Skin fill", selection: $shot.exposureSkinFill)
-                }
-                
-                Section(
-                    header: HStack {
-                        Text("Note")
-                        if shot.isLocked {
-                            Image(systemName: "lock.fill")
-                                .foregroundColor(.secondary)
-                                .font(.caption)
-                                .padding(.leading, 4)
-                        }
-                    }
-                ) {
-                    TextEditor(text: $shot.note)
-                        .frame(height: 64)
-                        .focused($activeField, equals: .note)
-                        .disabled(shot.isLocked)
-                        .padding(.horizontal, -4)
-                        .scrollContentBackground(.hidden)
-                        .background(Color(uiColor: .secondarySystemGroupedBackground))
-                        .cornerRadius(6)
-                        .toolbar {
-                            ToolbarItemGroup(placement: .keyboard) {
-                                Spacer()
-                                Button("Done") { activeField = nil }
-                            }
-                        }
-                }
+                imageSection
+                shotSection
+                locationSection
+                cameraSection
+                lensSection
+                focusSection
+                lightmeterSection
+                noteSection
             }
             .onAppear {
                 locationManager.currentLocation = nil
@@ -580,6 +232,379 @@ struct ShotDetailView: View {
             }
         }
         .navigationBarBackButtonHidden(false)
+    }
+    
+    private var imageSection: some View {
+        Section(header: Text("Image")) {
+            ShotSectionView(
+                    shot: shot,
+                    isLocked: shot.isLocked
+                ) { newUIImage in
+                    var metadata: [String: DataValue] = [:]
+                    metadata["name"] = .string(shot.name)
+                    metadata["timestamp"] = .double(shot.timestamp.timeIntervalSince1970)
+                    metadata["camera"] = .string(project.camera)
+                    metadata["note"] = .string(shot.note)
+                    metadata["filmStock"] = .string(shot.filmStock)
+                    metadata["filmSize"] = .string(shot.filmSize)
+                    metadata["aspectRatio"] = .string(shot.aspectRatio)
+                    metadata["aperture"] = .string(shot.aperture)
+                    metadata["shutter"] = .string(shot.shutter)
+                    metadata["exposureCompensation"] = .string(shot.exposureCompensation)
+                    metadata["lens"] = .string(shot.lens)
+                    metadata["focalLength"] = .string(shot.focalLength)
+                    metadata["colorFilter"] = .string(shot.colorFilter)
+                    metadata["ndFilter"] = .string(shot.ndFilter)
+                    metadata["exposureSky"] = .string(shot.exposureSky)
+                    metadata["exposureFoliage"] = .string(shot.exposureFoliage)
+                    metadata["exposureHighlights"] = .string(shot.exposureHighlights)
+                    metadata["exposureMidGray"] = .string(shot.exposureMidGray)
+                    metadata["exposureShadows"] = .string(shot.exposureShadows)
+                    metadata["exposureSkinKey"] = .string(shot.exposureSkinKey)
+                    metadata["exposureSkinFill"] = .string(shot.exposureSkinFill)
+                    metadata["focusDistance"] = .double(shot.focusDistance)
+                    metadata["focusDepthOfField"] = .double(shot.focusDepthOfField)
+                    metadata["focusNearLimit"] = .double(shot.focusNearLimit)
+                    metadata["focusFarLimit"] = .double(shot.focusFarLimit)
+                    metadata["focusHyperfocalDistance"] = .double(shot.focusHyperfocalDistance)
+                    metadata["focusHyperfocalNearLimit"] = .double(shot.focusHyperfocalNearLimit)
+                    if let loc = shot.location {
+                        metadata["latitude"] = .double(loc.latitude)
+                        metadata["longitude"] = .double(loc.longitude)
+                        if let alt = loc.altitude { metadata["altitude"] = .double(alt) }
+                    }
+                    metadata["locationElevation"] = .double(shot.locationElevation ?? 0.0)
+                    metadata["locationColorTemperature"] = .double(Double(shot.locationColorTemperature ?? 0))
+                    metadata["locationTimestamp"] = .double(shot.locationTimestamp?.timeIntervalSince1970 ?? 0.0)
+                    metadata["deviceRoll"] = .double(shot.deviceRoll)
+                    metadata["deviceTilt"] = .double(shot.deviceTilt)
+                    metadata["deviceLens"] = .string(shot.deviceLens)
+
+                    let newImage = ImageData(metadata: metadata)
+                    if newImage.updateFile(to: newUIImage) {
+                        shot.updateImage(to: newImage, context: modelContext)
+                    }
+                }
+            .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+        }
+    }
+    
+    private var shotSection: some View {
+        Section(
+            header: HStack {
+                Text("Shot")
+                if shot.isLocked {
+                    Image(systemName: "lock.fill")
+                        .foregroundColor(.secondary)
+                        .font(.caption)
+                        .padding(.leading, 4)
+                }
+            }
+        ) {
+            HStack {
+                TextField("Name", text: $shot.name)
+                    .focused($activeField, equals: .name)
+                    .submitLabel(.done)
+                    .disabled(shot.isLocked)
+                if !shot.name.isEmpty && !shot.isLocked {
+                    Button {
+                        shot.name = ""
+                        DispatchQueue.main.async {
+                            UIView.performWithoutAnimation {
+                                activeField = .name
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.trailing, 2)
+                    .transition(.opacity.combined(with: .scale))
+                }
+            }
+            HStack {
+                Text("Modified:")
+                Text(shot.timestamp.formatted(date: .abbreviated, time: .shortened))
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+        }
+    }
+    
+    private var locationSection: some View {
+        Section(header: Text("Location")) {
+            if requestingLocation {
+                Text("Waiting for location...")
+                    .foregroundColor(.secondary)
+            } else if let loc = shot.location {
+                HStack {
+                    Text("Lat: \(loc.latitude), Lon: \(loc.longitude)")
+                    Spacer()
+                    Button(action: {
+                        openInMaps(latitude: loc.latitude, longitude: loc.longitude)
+                    }) {
+                        Image(systemName: "map")
+                            .foregroundColor(.blue)
+                    }
+                    .buttonStyle(.plain)
+                }
+            } else {
+                Text("No location set")
+                    .foregroundColor(.secondary)
+            }
+            
+            Button(action: {
+                requestingLocation = true
+                locationManager.requestLocation()
+            }) {
+                Label("Request location", systemImage: "location.fill")
+            }
+            .disabled(shot.isLocked || requestingLocation)
+            
+            HStack {
+                Text("Elevation")
+                Spacer()
+                if requestingLocation || shot.locationElevation == 0 {
+                    Text("-")
+                        .foregroundColor(.secondary)
+                } else {
+                    HStack(spacing: 0) {
+                        TextField("", value: $shot.locationElevation, formatter: elevationFormatter)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .focused($activeField, equals: .locationElevation)
+                            .disabled(true)
+                        
+                        HStack(spacing: 2) {
+                            Text("°")
+                            Image(systemName: "function")
+                                .foregroundColor(.secondary)
+                                .help("This value is automatically calculated and cannot be edited")
+                        }
+                    }
+                }
+            }
+            
+            HStack {
+                Text("Color temperature")
+                Spacer()
+                if requestingLocation || shot.locationElevation == 0 {
+                    Text("-")
+                        .foregroundColor(.secondary)
+                } else {
+                    HStack(spacing: 0) {
+                        TextField("", value: $shot.locationColorTemperature, formatter: colorTemperatureFormatter)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .focused($activeField, equals: .locationColorTemperature)
+                            .disabled(shot.isLocked)
+                        Text("K")
+                    }
+                }
+            }
+        }
+    }
+    
+    private var cameraSection: some View {
+        Section(header: Text("Camera")) {
+            Picker("Aperture", selection: $shot.aperture) {
+                ForEach(CameraUtils.apertures, id: \.name) { aperture in
+                    Text(aperture.name).tag(aperture.name)
+                }
+            }
+            .disabled(shot.isLocked)
+            
+            Picker("Shutter", selection: $shot.shutter) {
+                ForEach(CameraUtils.shutters, id: \.name) { shutter in
+                    Text(shutter.name).tag(shutter.name)
+                }
+            }
+            .disabled(shot.isLocked)
+            
+            Picker("Compensation", selection: $shot.exposureCompensation) {
+                ForEach(["-3", "-2", "-1", "0", "+1", "+2", "+3"], id: \.self) { value in
+                    Text("EV\(value)").tag(value)
+                }
+            }
+            .disabled(shot.isLocked)
+            
+            Picker("Film size", selection: $shot.filmSize) {
+                ForEach(CameraUtils.groupedFilmSizes.keys.sorted(), id: \.self) { category in
+                    Section(header: Text(category)) {
+                        ForEach(CameraUtils.groupedFilmSizes[category] ?? [], id: \.name) { size in
+                            Text(size.name).tag(size.name)
+                        }
+                    }
+                }
+            }
+            .disabled(shot.isLocked)
+            
+            Picker("Film stock", selection: $shot.filmStock) {
+                ForEach(CameraUtils.groupedFilmStocks.keys.sorted(), id: \.self) { category in
+                    Section(header: Text(category)) {
+                        ForEach(CameraUtils.groupedFilmStocks[category] ?? [], id: \.name) { stock in
+                            Text(stock.name).tag(stock.name)
+                        }
+                    }
+                }
+            }
+            .disabled(shot.isLocked)
+        }
+    }
+    
+    private var lensSection: some View {
+        Section(header: Text("Lens")) {
+            Picker("Lens", selection: $shot.lens) {
+                ForEach(CameraUtils.groupedLenses.keys.sorted(), id: \.self) { category in
+                    Section(header: Text(category)) {
+                        ForEach(CameraUtils.groupedLenses[category] ?? [], id: \.name) { lens in
+                            Text(lens.name).tag(lens.name)
+                        }
+                    }
+                }
+            }
+            .disabled(project.isLocked)
+            
+            Picker("Lens color filter", selection: $shot.colorFilter) {
+                ForEach(CameraUtils.colorFilters, id: \.name) { filter in
+                    Text(filter.name).tag(filter.name)
+                }
+            }
+            .disabled(shot.isLocked)
+            
+            Picker("Lens ND filter", selection: $shot.ndFilter) {
+                ForEach(CameraUtils.ndFilters, id: \.name) { filter in
+                    Text(filter.name).tag(filter.name)
+                }
+            }
+            .disabled(shot.isLocked)
+            
+            Picker("Focal length", selection: $shot.focalLength) {
+                ForEach(CameraUtils.focalLengths, id: \.name) { focal in
+                    Text(focal.name).tag(focal.name)
+                }
+            }
+            .disabled(shot.isLocked)
+        }
+    }
+    
+    private var focusSection: some View {
+        Section(header: Text("Focus")) {
+            HStack {
+                Text("Focus distance")
+                Spacer()
+                HStack(spacing: 2) {
+                    TextField("", value: $shot.focusDistance, formatter: focusDistanceFormatter)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .focused($activeField, equals: .focusDistance)
+                        .disabled(shot.isLocked)
+                        .toolbar {
+                            ToolbarItemGroup(placement: .keyboard) {
+                                Spacer()
+                                Button("Done") {
+                                    activeField = nil
+                                }
+                            }
+                        }
+                    Text("mm").frame(width: 32, alignment: .trailing)
+                }
+                Text("\(shot.focusDistance / 1000, specifier: "%.1f") m")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(width: 50, alignment: .trailing)
+            }
+
+            focusRow(label: "Depth of field", value: shot.focusDepthOfField)
+            focusRow(label: "Near", value: shot.focusNearLimit)
+            focusRow(label: "Far", value: shot.focusFarLimit)
+
+            HStack {
+                Image(systemName: "function")
+                    .foregroundColor(.secondary)
+                    .help("This value is automatically calculated and cannot be edited")
+
+                Button {
+                    shot.focusDistance = shot.focusHyperfocalDistance
+                } label: {
+                    Image(systemName: "scope")
+                        .foregroundColor(.blue)
+                        .help("Set focus distance to hyperfocal value")
+                }
+                .buttonStyle(.borderless)
+
+                Text("Hyperfocal")
+                Spacer()
+
+                HStack(spacing: 2) {
+                    Text(shot.focusHyperfocalDistance > 1_000_000
+                         ? "∞"
+                         : (focusDistanceFormatter.string(from: NSNumber(value: shot.focusHyperfocalDistance)) ?? "0"))
+                    Text("mm").frame(width: 32, alignment: .trailing)
+                }
+                
+                Text(shot.focusHyperfocalDistance > 1_000_000
+                     ? "∞"
+                     : String(format: "%.1f m", shot.focusHyperfocalDistance / 1000))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(width: 50, alignment: .trailing)
+            }
+
+            focusRow(label: "Near", value: shot.focusHyperfocalNearLimit)
+        }
+    }
+    
+    private var lightmeterSection: some View {
+        Section(header: Text("Lightmeter")) {
+            PhotoPickerView(
+                image: shot.lightMeterImageData?.thumbnail,
+                label: "Add photo",
+                isLocked: shot.isLocked
+            ) { newUIImage in
+                let newImage = ImageData()
+                if newImage.updateFile(to: newUIImage) {
+                    shot.updateLightMeterImage(to: newImage, context: modelContext)
+                }
+            }
+            evPicker(title: "Sky", selection: $shot.exposureSky)
+            evPicker(title: "Foliage", selection: $shot.exposureFoliage)
+            evPicker(title: "Highlights", selection: $shot.exposureHighlights)
+            evPicker(title: "Mid gray", selection: $shot.exposureMidGray)
+            evPicker(title: "Shadows", selection: $shot.exposureShadows)
+            evPicker(title: "Skin key", selection: $shot.exposureSkinKey)
+            evPicker(title: "Skin fill", selection: $shot.exposureSkinFill)
+        }
+    }
+    
+    private var noteSection: some View {
+        Section(
+            header: HStack {
+                Text("Note")
+                if shot.isLocked {
+                    Image(systemName: "lock.fill")
+                        .foregroundColor(.secondary)
+                        .font(.caption)
+                        .padding(.leading, 4)
+                }
+            }
+        ) {
+            TextEditor(text: $shot.note)
+                .frame(height: 64)
+                .focused($activeField, equals: .note)
+                .disabled(shot.isLocked)
+                .padding(.horizontal, -4)
+                .scrollContentBackground(.hidden)
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
+                .cornerRadius(6)
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("Done") { activeField = nil }
+                    }
+                }
+        }
     }
     
     @ViewBuilder
