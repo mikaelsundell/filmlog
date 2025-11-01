@@ -227,6 +227,11 @@ struct ContentView: View {
                 if images.count == limit { break }
             }
         }
+        if images.count < limit {
+            let missing = limit - images.count
+            let blackCard = UIImage.solidColor(.black, size: CGSize(width: 50, height: 50))
+            images.append(contentsOf: Array(repeating: blackCard, count: missing))
+        }
         return images
     }
     
@@ -254,3 +259,6 @@ struct ContentView: View {
         }
     }
 }
+
+
+

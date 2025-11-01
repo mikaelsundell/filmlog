@@ -80,7 +80,7 @@ struct ShotViewfinderView: View {
                     let filmSize = CameraUtils.filmSize(for: shot.filmSize)
                 
                     let projectedFrame = Projection.projectedFrame(
-                        size: geometry.size.toLandscape(), // match camera
+                        size: container.toLandscape(), // match camera
                         focalLength: CameraUtils.focalLength(for: shot.focalLength).length,
                         aspectRatio: filmSize.aspectRatio,
                         width: filmSize.width,
@@ -112,20 +112,28 @@ struct ShotViewfinderView: View {
                     let aspectFrame = projectedAspectRatio.toPortrait() * scale
                     
                     ZStack {
-                        Canvas { context, size in
-                            let spacing: CGFloat = 20
-                            let lineWidth: CGFloat = 6
-                            var path = Path()
-                            for x in stride(from: -size.height, to: size.width, by: spacing) {
-                                path.move(to: CGPoint(x: x, y: 0))
-                                path.addLine(to: CGPoint(x: x + size.height, y: size.height))
+                        if isCaptured {
+                            Rectangle()
+                                .fill(Color.black)
+                                .frame(width: displaySize.width, height: displaySize.height)
+                                .position(x: width / 2, y: height / 2)
+                                .allowsHitTesting(false)
+                        } else {
+                            Canvas { context, size in
+                                let spacing: CGFloat = 20
+                                let lineWidth: CGFloat = 6
+                                var path = Path()
+                                for x in stride(from: -size.height, to: size.width, by: spacing) {
+                                    path.move(to: CGPoint(x: x, y: 0))
+                                    path.addLine(to: CGPoint(x: x + size.height, y: size.height))
+                                }
+                                context.stroke(path, with: .color(.gray.opacity(0.4)), lineWidth: lineWidth)
                             }
-                            
-                            context.stroke(path, with: .color(.gray.opacity(0.4)), lineWidth: lineWidth)
+                            .frame(width: displaySize.width, height: displaySize.height)
+                            .position(x: width / 2, y: height / 2)
+                            .allowsHitTesting(false)
                         }
-                        .frame(width: displaySize.width, height: displaySize.height)
-                        .position(x: width / 2, y: height / 2)
-                        .allowsHitTesting(false)
+
                         
                         if let image = capturedImage, isCaptured {
                             ZStack {
@@ -146,9 +154,28 @@ struct ShotViewfinderView: View {
                             ZStack {
                                 let scale = (width * scale) / width;
                                 ZStack {
-                                    CameraMetalPreview(renderer: cameraModel.renderer) // is portait
-                                        .scaleEffect(scale)
+                                    // compute the relative scale between the device’s display aspect ratio
+                                    // and the camera’s full photo aspect ratio. The rectangle represents
+                                    // the photo capture area (typically 4:3) and is scaled accordingly so
+                                    // that it visually matches the sensor framing behind the live preview.
+                                    
+                                    let displayRatio = 1.0 / container.landscapeRatio
+                                    let photoRatio = 1.0 / cameraModel.aspectRatio
+                                    let scaleRatio = photoRatio / displayRatio
+                                    
+                                    Rectangle()
+                                        .fill(Color.gray.opacity(0.25))
+                                        .cornerRadius(6)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                                        )
+                                        .scaleEffect(x: scaleRatio)
+                                        .animation(.easeOut(duration: 0.3), value: scaleRatio)
+                                    
+                                    CameraMetalPreview(renderer: cameraModel.renderer)
                                 }
+                                .scaleEffect(scale)
                             }
                             .position(x: width / 2, y: height / 2)
                             .ignoresSafeArea()
@@ -860,29 +887,64 @@ struct ShotViewfinderView: View {
     }
     
     private func captureImage(image: UIImage) {
+        var image = image
         let containerSize = image.size
         let filmSize = CameraUtils.filmSize(for: shot.filmSize)
-        let projectedSize = Projection.projectedFrame(
+        var projectedSize = Projection.projectedFrame(
             size: containerSize,
             focalLength: CameraUtils.focalLength(for: shot.focalLength).length,
             aspectRatio: filmSize.aspectRatio,
             width: filmSize.width,
             fieldOfView: cameraModel.fieldOfView
         )
+        
+        // if the projected frame is larger than the captured image,
+        // scale it down to fit within the container while preserving aspect ratio.
+        // The image is then rescaled and composited onto a black canvas to ensure
+        // the full projection remains visible without cropping
+
+        if projectedSize.exceeds(containerSize) {
+            let scaleFactor = projectedSize.scaleToFit(in: containerSize)
+            let scaledSize = projectedSize * scaleFactor
+            projectedSize = scaledSize
+            if let composed = composeImage(image, scale: scaleFactor, canvasSize: containerSize) {
+                image = composed
+            }
+        }
+
         let croppedImage = cropImage(
             image,
             frameSize: projectedSize,
             containerSize: containerSize,
             orientation: captureOrientation ?? .portrait
         )
+
         if let captureLevel {
             let normalized = OrientationUtils.normalizeLevel(from: captureLevel)
             shot.deviceRoll = normalized.roll
             shot.deviceTilt = normalized.tilt
         }
+
         shot.deviceLens = cameraModel.lensType.rawValue
         onCapture(croppedImage)
-        
+    }
+
+    private func composeImage(_ image: UIImage, scale: CGFloat, canvasSize: CGSize) -> UIImage? {
+        let scaledWidth = image.size.width * scale
+        let scaledHeight = image.size.height * scale
+
+        let originX = (canvasSize.width - scaledWidth) / 2
+        let originY = (canvasSize.height - scaledHeight) / 2
+        let drawRect = CGRect(x: originX, y: originY, width: scaledWidth, height: scaledHeight)
+
+        UIGraphicsBeginImageContextWithOptions(canvasSize, false, image.scale)
+        UIColor.black.setFill()
+        UIRectFill(CGRect(origin: .zero, size: canvasSize))
+        image.draw(in: drawRect)
+        let composedImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+
+        return composedImage
     }
     
     private func cropImage(_ image: UIImage,

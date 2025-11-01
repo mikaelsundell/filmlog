@@ -55,9 +55,9 @@ class CameraModel: NSObject, ObservableObject {
     }
     private var didCapturePhoto = false
     
-    @Published var fieldOfView: CGFloat = 70 // for init
-    @Published var aspectRatio: CGFloat = 16.0 / 9.0
+    @Published var fieldOfView: CGFloat = 50 // for init
     @Published var lensType: LensType = .wide
+    @Published var aspectRatio: CGFloat = 4.0 / 3.0
     
     @Published var isConfigured: Bool = false
     
@@ -391,32 +391,39 @@ class CameraModel: NSObject, ObservableObject {
                     if duration.isValid && duration.seconds > 0 {
                         previewFps = 1.0 / duration.seconds
                     }
+
                     var bestFormat: AVCaptureDevice.Format?
                     var maxPixels = 0
+                    var bestDims: CMVideoDimensions?
 
                     for format in device.formats {
                         let desc = format.formatDescription
                         let dims = CMVideoFormatDescriptionGetDimensions(desc)
                         let mediaSubType = CMFormatDescriptionGetMediaSubType(desc)
-
                         guard mediaSubType == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange else { continue }
-
                         guard let range = format.videoSupportedFrameRateRanges.first else { continue }
+
                         let maxRate = range.maxFrameRate
-                        
                         if maxRate >= previewFps {
                             let pixels = Int(dims.width) * Int(dims.height)
                             if pixels > maxPixels {
-                                maxPixels = pixels
                                 bestFormat = format
+                                bestDims = dims
+                                maxPixels = pixels
                             }
                         }
                     }
-                    if let best = bestFormat {
+
+                    if let best = bestFormat, let dims = bestDims {
                         do {
                             try device.lockForConfiguration()
                             device.activeFormat = best
                             device.unlockForConfiguration()
+                            let ar = CGFloat(dims.width) / CGFloat(dims.height)
+                            DispatchQueue.main.async {
+                                self.aspectRatio = ar
+                            }
+
                         } catch {
                             print("failed to set best photo format: \(error.localizedDescription)")
                         }
@@ -431,6 +438,7 @@ class CameraModel: NSObject, ObservableObject {
             }
         }
     }
+
 
     private func configureCamera(for lens: LensType, completion: ((Result<Void, CameraError>) -> Void)? = nil) {
         sessionQueue.async {
@@ -476,7 +484,7 @@ class CameraModel: NSObject, ObservableObject {
             if !self.session.isRunning {
                 self.session.startRunning()
             }
-
+            
             self.updateDeviceInfo(device)
 
             DispatchQueue.main.async {
@@ -512,18 +520,8 @@ class CameraModel: NSObject, ObservableObject {
 
     private func updateDeviceInfo(_ device: AVCaptureDevice) {
         let fov = CGFloat(device.activeFormat.videoFieldOfView)
-        let format = device.activeFormat
-        let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
-        let width = CGFloat(dimensions.width)
-        let height = CGFloat(dimensions.height)
-
-        guard height != 0 else { return }
-        let aspectRatio = width / height
-        
-
         DispatchQueue.main.async {
             self.fieldOfView = fov
-            self.aspectRatio = aspectRatio
             self.isConfigured = true;
         }
     }

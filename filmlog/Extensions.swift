@@ -31,6 +31,30 @@ extension CGSize {
     var aspectRatio: CGFloat {
         height == 0 ? 0 : width / height
     }
+    
+    var portraitRatio: CGFloat {
+        let portraitSize = toPortrait()
+        return portraitSize.height == 0 ? 0 : portraitSize.width / portraitSize.height
+    }
+    
+    var landscapeRatio: CGFloat {
+       let landscapeSize = toLandscape()
+       return landscapeSize.height == 0 ? 0 : landscapeSize.width / landscapeSize.height
+    }
+    
+    func exceeds(_ other: CGSize) -> Bool {
+        width > other.width || height > other.height
+    }
+
+    func fits(in other: CGSize) -> Bool {
+        width <= other.width && height <= other.height
+    }
+    
+    func scaleToFit(in other: CGSize) -> CGFloat {
+        let scaleW = other.width / width
+        let scaleH = other.height / height
+        return min(scaleW, scaleH)
+    }
 
     static func * (lhs: CGSize, rhs: CGFloat) -> CGSize {
         CGSize(width: lhs.width * rhs, height: lhs.height * rhs)
@@ -72,5 +96,13 @@ extension UIImage {
         return renderer.image { _ in
             self.draw(in: CGRect(origin: .zero, size: newSize))
         }
+    }
+    static func solidColor(_ color: UIColor, size: CGSize) -> UIImage {
+        UIGraphicsBeginImageContextWithOptions(size, false, 0)
+        color.setFill()
+        UIRectFill(CGRect(origin: .zero, size: size))
+        let image = UIGraphicsGetImageFromCurrentImageContext() ?? UIImage()
+        UIGraphicsEndImageContext()
+        return image
     }
 }

@@ -575,7 +575,7 @@ struct SymmetryView: View {
             lines.move(to: CGPoint(x: 0, y: height - cross.height))
             lines.addLine(to: CGPoint(x: width, y: height - cross.height))
             
-            let opacity = symmetryMode == .full ? 0.8 : 0.5
+            let opacity = symmetryMode == .full ? 0.8 : 0.4
             let lineWidth: CGFloat = symmetryMode == .full ? 2 : 1
             
             context.stroke(lines, with: .color(.white.opacity(opacity)), lineWidth: lineWidth)
