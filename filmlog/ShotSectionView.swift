@@ -160,6 +160,7 @@ struct ShotSectionView: View {
     var body: some View {
         VStack(spacing: 12) {
             ZStack {
+                Color.black
                 if let image = shot.imageData?.thumbnail {
                     GeometryReader { geometry in
                         let container = geometry.size
@@ -192,16 +193,15 @@ struct ShotSectionView: View {
                             )
                         }
                     }
-                    .frame(height: 220)
+                    .id(shot.id)
                 } else {
                     Text("No image")
                         .foregroundColor(.secondary)
                         .padding(6)
-                        .frame(height: 220)
+                        
                 }
             }
-
-            .frame(maxWidth: .infinity)
+            .frame(height: 220)
             .cornerRadius(2)
             .padding(.top, 4)
             .clipped()

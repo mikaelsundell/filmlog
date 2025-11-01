@@ -197,8 +197,10 @@ struct ShotDetailView: View {
                         if !shot.name.isEmpty && !shot.isLocked {
                             Button {
                                 shot.name = ""
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                    activeField = .name
+                                DispatchQueue.main.async {
+                                    UIView.performWithoutAnimation {
+                                        activeField = .name
+                                    }
                                 }
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
@@ -521,7 +523,6 @@ struct ShotDetailView: View {
             }
             
             if activeField == nil {
-                
                 HStack {
                     Button {
                         showDeleteAlert = true
