@@ -151,11 +151,12 @@ struct ShotSectionView: View {
     @Bindable var shot: Shot
     var isLocked: Bool = false
     var onImagePicked: (UIImage) -> Void
-    var onDelete: (() -> Void)? = nil
 
     @State private var showCamera = false
     @State private var showFullImage = false
     @State private var showDeleteAlert = false
+    
+    @Environment(\.modelContext) private var modelContext
     
     var body: some View {
         VStack(spacing: 12) {
@@ -241,9 +242,10 @@ struct ShotSectionView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(shot.imageData == nil)
-                    .alert("Delete this shot?", isPresented: $showDeleteAlert) {
+                    .alert("Delete this image?", isPresented: $showDeleteAlert) {
                         Button("Delete", role: .destructive) {
-                            onDelete?()
+                            shot.deleteImage(context: modelContext)
+                            try? modelContext.save()
                         }
                         Button("Cancel", role: .cancel) {}
                     } message: {
@@ -254,7 +256,7 @@ struct ShotSectionView: View {
                 .padding(.bottom, 8)
             }
         }
-        .sheet(isPresented: $showCamera) {
+        .fullScreenCover(isPresented: $showCamera) {
             ShotViewfinderView(shot: shot) { image in
                 onImagePicked(image)
             }
