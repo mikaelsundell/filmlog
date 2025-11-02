@@ -10,7 +10,7 @@ struct AppDataStats {
     var projects: Int
     var shots: Int
     var galleries: Int
-    var categories: Int
+    var tags: Int
     var images: Int
     var totalSize: Int
 }
@@ -58,9 +58,9 @@ struct SettingsView: View {
                             Text("\(stats.galleries)")
                         }
                         HStack {
-                            Text("Categories")
+                            Text("Tags")
                             Spacer()
-                            Text("\(stats.categories)")
+                            Text("\(stats.tags)")
                         }
                         HStack {
                             Text("Total Images")
@@ -207,7 +207,7 @@ struct SettingsView: View {
     private func calculateAppDataStats() {
         var shotCount = 0
         var galleryCount = 0
-        var categoryCount = 0
+        var tagCount = 0
         var totalImageSize = 0
 
         var uniqueImageIDs = Set<UUID>()
@@ -233,14 +233,14 @@ struct SettingsView: View {
             for image in gallery.orderedImages {
                 addImageIfUnique(image)
             }
-            categoryCount += gallery.categories.count
+            tagCount += gallery.tags.count
         }
 
         appDataStats = AppDataStats(
             projects: projects.count,
             shots: shotCount,
             galleries: galleryCount,
-            categories: categoryCount,
+            tags: tagCount,
             images: uniqueImageIDs.count,
             totalSize: totalImageSize
         )
@@ -644,7 +644,7 @@ struct BackupData: Codable {
     var projects: [ProjectExport]
     var shots: [ShotExport]
     var galleries: [GalleryExport]
-    var categories: [CategoryExport]
+    var tags: [TagExport]
 }
 
 struct ImageDataExport: Codable {
@@ -654,7 +654,7 @@ struct ImageDataExport: Codable {
     var name: String?
     var note: String?
     var creator: String?
-    var category: UUID?
+    var tag: UUID?
 }
 
 struct ProjectExport: Codable {
@@ -720,11 +720,11 @@ struct ShotExport: Codable {
 struct GalleryExport: Codable {
     var id: UUID
     var timestamp: Date
-    var categories: [UUID]
+    var tags: [UUID]
     var images: [UUID]
 }
 
-struct CategoryExport: Codable {
+struct TagExport: Codable {
     var id: UUID
     var name: String
 }

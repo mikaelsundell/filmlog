@@ -168,7 +168,7 @@ struct ShotViewfinderView: View {
                                         .cornerRadius(6)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 6)
-                                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                                                .stroke(Color.white.opacity(0.35), lineWidth: 1)
                                         )
                                         .scaleEffect(x: scaleRatio)
                                         .animation(.easeOut(duration: 0.3), value: scaleRatio)
@@ -184,6 +184,7 @@ struct ShotViewfinderView: View {
                         MaskView(
                             frameSize: displaySize,
                             aspectSize: aspectFrame,
+                            radius: 6,
                             inner: 0.4,
                             outer: 0.995,
                             geometry: geometry
@@ -267,8 +268,9 @@ struct ShotViewfinderView: View {
                                             x: tapPoint.x / scale,
                                             y: tapPoint.y / scale
                                         )
-                                        let top = CGRect(x: 0, y: 0, width: geometry.size.width, height: 140)
-                                        let bottom = CGRect(x: 0,y: geometry.size.height - 140, width: geometry.size.width, height: 140)
+                                        let offset = 100.0
+                                        let top = CGRect(x: 0, y: 0, width: geometry.size.width, height: offset)
+                                        let bottom = CGRect(x: 0,y: geometry.size.height - offset, width: geometry.size.width, height: offset)
                                         if !top.contains(tapPoint) && !bottom.contains(tapPoint) {
                                             cameraModel.focus(
                                                 at: adjustedPoint,
@@ -293,6 +295,9 @@ struct ShotViewfinderView: View {
                                 .animation(.easeOut(duration: 0.3), value: focusPoint)
                         }
                     }
+                    
+                    
+                    
                 }
                 .ignoresSafeArea()
             }
@@ -527,12 +532,13 @@ struct ShotViewfinderView: View {
                             DragGesture(minimumDistance: 0)
                                 .onEnded { gesture in
                                     let tapPoint = gesture.location
-                                    let top = CGRect(x: 0, y: 0, width: geometry.size.width, height: 140)
+                                    let offset = 60.0
+                                    let top = CGRect(x: 0, y: 0, width: geometry.size.width, height: offset)
                                     let bottom = CGRect(
                                         x: 0,
-                                        y: geometry.size.height - 140,
+                                        y: geometry.size.height - offset,
                                         width: geometry.size.width,
-                                        height: 140
+                                        height: offset
                                     )
                                     if !top.contains(tapPoint) && !bottom.contains(tapPoint) {
                                         activeControls = .none
@@ -561,13 +567,17 @@ struct ShotViewfinderView: View {
                         }) {
                             ZStack {
                                 Circle()
-                                    .fill(Color.black)
+                                    .stroke(Color.white, lineWidth: 2)
                                     .frame(width: 42, height: 42)
+                                
+                                Circle()
+                                    .fill(Color.black)
+                                    .frame(width: 38, height: 38)
                                     .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
                                 
                                 Image(systemName: isCaptured ? "chevron.down" : "xmark")
                                     .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(Color.accentColor) // Blue accent
+                                    .foregroundColor(Color.white)
                                     .offset(y: isCaptured ? 2 : 0)
                                     .animation(.easeInOut(duration: 0.2), value: isCaptured)
                             }
@@ -609,25 +619,25 @@ struct ShotViewfinderView: View {
                             ZStack {
                                 Circle()
                                     .stroke(Color.white, lineWidth: 2)
-                                    .frame(width: 48, height: 48)
+                                    .frame(width: 42, height: 42)
                                 
                                 Circle()
                                     .fill(Color.black)
-                                    .frame(width: 36, height: 36)
+                                    .frame(width: 38, height: 38)
 
                                 Image(systemName: "arrow.up")
                                     .foregroundColor(Color.accentColor)
-                                    .font(.system(size: 24, weight: .bold))
+                                    .font(.system(size: 18, weight: .bold))
                                     .rotationEffect(orientationObserver.orientation.toLandscape)
                             }
                         } else {
                             ZStack {
                                 Circle()
                                     .stroke(Color.white, lineWidth: 2)
-                                    .frame(width: 48, height: 48)
+                                    .frame(width: 42, height: 42)
                                 Circle()
                                     .fill(Color.red)
-                                    .frame(width: 36, height: 36)
+                                    .frame(width: 32, height: 32)
                             }
                         }
                     }
@@ -706,7 +716,7 @@ struct ShotViewfinderView: View {
                 .frame(width: 55)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 4)
-                .background(Color.black.opacity(0.4))
+                //.background(Color.black.opacity(0.4))
                 .cornerRadius(4)
                 .rotationEffect(orientationObserver.orientation.toLandscape)
             
@@ -747,7 +757,7 @@ struct ShotViewfinderView: View {
                 .frame(width: 55)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 4)
-                .background(Color.black.opacity(0.4))
+                //.background(Color.black.opacity(0.4))
                 .cornerRadius(4)
                 .rotationEffect(orientationObserver.orientation.toLandscape)
             
@@ -773,9 +783,9 @@ struct ShotViewfinderView: View {
                 toggleLens()
             }) {
                 Text(lensLabel(for: cameraModel.lensType))
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.system(size: 12, weight: .regular))
                     .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 28, height: 28)
                     .background(Color.black.opacity(0.4))
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.toLandscape)
@@ -785,9 +795,9 @@ struct ShotViewfinderView: View {
                 activeControls = (activeControls == .overlay) ? .none : .overlay
             }) {
                 Image(systemName: "viewfinder.circle")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.system(size: 12, weight: .regular))
                     .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 28, height: 28)
                     .background(activeControls == .overlay ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.toLandscape)
@@ -797,9 +807,9 @@ struct ShotViewfinderView: View {
                 activeControls = (activeControls == .metadata) ? .none : .metadata
             }) {
                 Image(systemName: "textformat")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.system(size: 12, weight: .regular))
                     .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 28, height: 28)
                     .background(activeControls == .metadata ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.toLandscape)
@@ -809,9 +819,9 @@ struct ShotViewfinderView: View {
                 activeControls = (activeControls == .look) ? .none : .look
             }) {
                 Image(systemName: "paintpalette")
-                .font(.system(size: 14, weight: .regular))
+                .font(.system(size: 12, weight: .regular))
                 .foregroundColor(.white)
-                .frame(width: 32, height: 32)
+                .frame(width: 28, height: 28)
                 .background(activeControls == .look ? Color.blue.opacity(0.4) : Color.clear)
                 .clipShape(Circle())
                 .rotationEffect(orientationObserver.orientation.toLandscape)
@@ -831,9 +841,9 @@ struct ShotViewfinderView: View {
                 }
             }) {
                 Text(cameraLabel(for: cameraMode))
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.system(size: 12, weight: .regular))
                     .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 28, height: 28)
                     .background(cameraMode == .manual ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.toLandscape)
@@ -843,9 +853,9 @@ struct ShotViewfinderView: View {
                 activeControls = (activeControls == .filter) ? .none : .filter
             }) {
                 Image(systemName: "camera.filters")
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.system(size: 12, weight: .regular))
                     .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 28, height: 28)
                     .background(activeControls == .filter ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.toLandscape)
@@ -857,9 +867,9 @@ struct ShotViewfinderView: View {
                 activeControls = (activeControls == .exposure) ? .none : .exposure
             }) {
                 Image(systemName: "camera.aperture")
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.system(size: 12, weight: .regular))
                     .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 28, height: 28)
                     .background(activeControls == .exposure ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.toLandscape)
@@ -875,9 +885,9 @@ struct ShotViewfinderView: View {
                 Image(systemName: isFullscreen
                       ? "arrow.down.right.and.arrow.up.left"
                       : "arrow.up.left.and.arrow.down.right")
-                .font(.system(size: 16, weight: .regular))
+                .font(.system(size: 12, weight: .regular))
                 .foregroundColor(.white)
-                .frame(width: 32, height: 32)
+                .frame(width: 28, height: 28)
                 .background(Color.black.opacity(0.4))
                 .clipShape(Circle())
                 .rotationEffect(orientationObserver.orientation.toLandscape)

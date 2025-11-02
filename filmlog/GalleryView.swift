@@ -33,34 +33,46 @@ struct GalleryView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Query private var galleries: [Gallery]
     @State private var searchText: String = ""
-    @State private var selectedCategory: Category? = nil
+    @State private var selectedTag: Tag? = nil
     @State private var showImagePicker = false
     @State private var selectedItem: PhotosPickerItem? = nil
     
-    @State private var showCategoryEditSheet = false
-    @State private var selectedCategoryForEdit: Category? = nil
-    @State private var showEditOptions = false
+    @State private var showTagManager = false
+    
+    @State private var showTagEditSheet = false
+    @State private var selectedTagForEdit: Tag? = nil
     @State private var showRenameDialog = false
     @State private var renameText = ""
 
-    @State private var showDeleteCategoryAlert = false
-    @State private var categoryToDelete: Category? = nil
+    @State private var showDeleteTagAlert = false
+    @State private var tagToDelete: Tag? = nil
     
     @State private var selectedImageForEdit: ImageData? = nil
     @State private var newName = ""
     @State private var newNote = ""
-    @State private var newCategories: [Category] = []
-    @State private var newSelectedCategories: Set<Category> = []
+    @State private var newTags: [Tag] = []
+    @State private var newSelectedTags: Set<Tag> = []
     @FocusState private var selectedImageFocused: Bool
     
     @State private var showDeleteImageAlert = false
     @State private var imageToDelete: ImageData? = nil
     
     @State private var selectedItems: [PhotosPickerItem] = []
+    
+    enum SortOption: String, CaseIterable, Identifiable {
+        case name = "Name"
+        case created = "Created"
+        case lastModified = "Last modified"
+        var id: String { rawValue }
+    }
+    
+    @AppStorage("selectedImageSortOption") private var selectedImageSortRawValue: String = SortOption.lastModified.rawValue
+    private var selectedImageSort: SortOption {
+        get { SortOption(rawValue: selectedImageSortRawValue) ?? .lastModified }
+        set { selectedImageSortRawValue = newValue.rawValue }
+    }
 
     var body: some View {
-        
-        /*
         NavigationStack {
             VStack(spacing: 0) {
                 HStack {
@@ -75,99 +87,79 @@ struct GalleryView: View {
                 .background(Color(.systemGray6))
                 .cornerRadius(10)
                 .padding()
-                
+
+                HStack {
+                    Menu {
+                        Picker("Sort by", selection: $selectedImageSortRawValue) {
+                            ForEach(SortOption.allCases) { option in
+                                Label(option.rawValue, systemImage: icon(for: option))
+                                    .tag(option.rawValue)
+                            }
+                        }
+                        .textCase(nil)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("Images")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.6))
+                                .textCase(.uppercase)
+
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.accentColor)
+                                .offset(y: 1)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .menuStyle(.button)
+                    .help("Sort images")
+
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 2)
+
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("Categories")
-                            .font(.headline)
-                        Spacer()
-                        Button(action: addCategory) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.title2)
-                                .foregroundColor(.blue)
-                        }
-                    }
-                    .padding(.horizontal)
-                    
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(currentGallery.orderedCategories) { category in
-                                Text(category.name)
-                                    .font(.caption)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(selectedCategory == category ? Color.blue : Color.blue.opacity(0.1))
-                                    .foregroundColor(selectedCategory == category ? .white : .blue)
-                                    .cornerRadius(12)
-                                    .onTapGesture {
-                                        selectedCategory = selectedCategory == category ? nil : category
-                                    }
-                                    .contextMenu {
-                                        Button {
-                                            selectedCategoryForEdit = category
-                                            renameText = category.name
-                                            showCategoryEditSheet = true
-                                        } label: {
-                                            Label("Rename", systemImage: "pencil")
+                    ScrollView {
+                        if filteredImages.isEmpty {
+                            Text("No images found")
+                                .foregroundColor(.gray)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(.top, 40)
+                        } else {
+                            let gridWidth = UIScreen.main.bounds.width / 3 - 8
+                            let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
+                            
+                            LazyVGrid(columns: columns, spacing: 6) {
+                                ForEach(sortedImages(filteredImages, option: selectedImageSort), id: \.id) { image in
+                                    ImageView(imageData: image, size: gridWidth)
+                                        .contentShape(Rectangle())
+                                        .contextMenu {
+                                            Button {
+                                                selectedImageForEdit = image
+                                                newName = image.name ?? ""
+                                                newNote = image.note ?? ""
+                                                newTags = image.tags
+                                            } label: {
+                                                Label("Edit image", systemImage: "pencil")
+                                            }
+                                            
+                                            Button(role: .destructive) {
+                                                imageToDelete = image
+                                                showDeleteImageAlert = true
+                                            } label: {
+                                                Label("Delete", systemImage: "trash")
+                                            }
                                         }
-
-                                        Button(role: .destructive) {
-                                            categoryToDelete = category
-                                            showDeleteCategoryAlert = true
-                                        } label: {
-                                            Label("Delete", systemImage: "trash")
-                                        }
-                                    }
+                                        .id(image.id)
+                                }
                             }
+                            .padding(.horizontal, 8)
                         }
-                        .padding(.horizontal)
                     }
-                    
-                    HStack {
-                        Text("Images")
-                            .font(.headline)
-                    }
-                    .padding(.horizontal)
+                    .padding(.top)
                 }
-
-                ScrollView {
-                    if filteredImages.isEmpty {
-                        Text("No images found")
-                            .foregroundColor(.gray)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.top, 40)
-                    } else {
-                        let gridWidth = UIScreen.main.bounds.width / 3 - 8
-                        let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
-                        
-                        LazyVGrid(columns: columns, spacing: 6) {
-                            ForEach(filteredImages, id: \.id) { image in
-                                ImageView(imageData: image, size: gridWidth)
-                                    .contentShape(Rectangle())
-                                    .contextMenu {
-                                        Button {
-                                            selectedImageForEdit = image
-                                            newName = image.name ?? ""
-                                            newNote = image.note ?? ""
-                                            newCategories = image.categories
-                                        } label: {
-                                            Label("Edit image", systemImage: "pencil")
-                                        }
-
-                                        Button(role: .destructive) {
-                                            imageToDelete = image
-                                            showDeleteImageAlert = true
-                                        } label: {
-                                            Label("Delete", systemImage: "trash")
-                                        }
-                                    }
-                                    .id(image.id)
-                            }
-                        }
-                        .padding(.horizontal, 8)
-                    }
-                }
-                .padding(.top)
             }
             .navigationTitle("Gallery")
             .onAppear {
@@ -206,13 +198,13 @@ struct GalleryView: View {
                     }
                 }
             }
-            .alert("Delete Category?", isPresented: $showDeleteCategoryAlert, presenting: categoryToDelete) { category in
+            .alert("Delete tag?", isPresented: $showDeleteTagAlert, presenting: tagToDelete) { tag in
                 Button("Delete", role: .destructive) {
-                    deleteCategory(category)
+                    deleteTag(tag)
                 }
                 Button("Cancel", role: .cancel) { }
-            } message: { category in
-                Text("Are you sure you want to delete the category \(category.name)?")
+            } message: { tag in
+                Text("Are you sure you want to delete the tag \(tag.name)?")
             }
             .alert("Delete Image?", isPresented: $showDeleteImageAlert, presenting: imageToDelete) { image in
                 Button("Delete", role: .destructive) {
@@ -222,26 +214,26 @@ struct GalleryView: View {
             } message: { image in
                 Text("Are you sure you want to delete \(image.name ?? "this image")?")
             }
-            .sheet(isPresented: $showCategoryEditSheet) {
-                if let category = selectedCategoryForEdit {
+            .sheet(isPresented: $showTagEditSheet) {
+                if let tag = selectedTagForEdit {
                     NavigationView {
                         Form {
-                            Section(header: Text("Rename category")) {
-                                TextField("Category name", text: $renameText)
+                            Section(header: Text("Rename tag")) {
+                                TextField("Tag name", text: $renameText)
                             }
                         }
-                        .navigationTitle("Edit category")
+                        .navigationTitle("Edit tag")
                         .toolbar {
                             ToolbarItem(placement: .confirmationAction) {
                                 Button("Save") {
-                                    category.name = renameText
+                                    tag.name = renameText
                                     try? modelContext.save()
-                                    showCategoryEditSheet = false
+                                    showTagEditSheet = false
                                 }
                             }
                             ToolbarItem(placement: .cancellationAction) {
                                 Button("Cancel") {
-                                    showCategoryEditSheet = false
+                                    showTagEditSheet = false
                                 }
                             }
                         }
@@ -261,20 +253,20 @@ struct GalleryView: View {
                                 .offset(x: -4)
                         }
                         
-                        Section(header: Text("Categories")) {
-                            NavigationLink("Select categories") {
-                                CategoryPickerView(
-                                    selectedCategories: $newSelectedCategories,
-                                    allCategories: currentGallery.orderedCategories
+                        Section(header: Text("Tags")) {
+                            NavigationLink("Select tags") {
+                                TagPickerView(
+                                    selectedTags: $newSelectedTags,
+                                    allTags: currentGallery.orderedTags
                                 )
-                                .navigationTitle("Select Categories")
+                                .navigationTitle("Select Tags")
                             }
 
-                            if !newSelectedCategories.isEmpty {
+                            if !newSelectedTags.isEmpty {
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack {
-                                        ForEach(Array(newSelectedCategories)) { category in
-                                            Text(category.name)
+                                        ForEach(Array(newSelectedTags)) { tag in
+                                            Text(tag.name)
                                                 .padding(8)
                                                 .background(Color.accentColor.opacity(0.2))
                                                 .cornerRadius(8)
@@ -294,7 +286,7 @@ struct GalleryView: View {
                             Button("Save") {
                                 image.name = newName
                                 image.note = newNote
-                                image.categories = Array(newSelectedCategories)
+                                image.tags = Array(newSelectedTags)
                                 try? modelContext.save()
                                 selectedImageForEdit = nil
                             }
@@ -317,9 +309,37 @@ struct GalleryView: View {
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button(action: { showImagePicker = true }) {
-                        Label("Add Images", systemImage: "plus")
+                        Label("Add image", systemImage: "plus")
                     }
+
+                    Button {
+                        showTagManager = true
+                    } label: {
+                        Image(systemName: "tag")
+                    }
+
+                    Menu {
+                        NavigationLink(destination: SettingsView()) {
+                            Label("Settings", systemImage: "gear")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .help("Settings")
                 }
+            }
+            .sheet(isPresented: $showTagManager) {
+                TagView(
+                    gallery: currentGallery,
+                    selectedTag: $selectedTag,
+                    modelContext: modelContext,
+                    showTagEditSheet: $showTagEditSheet,
+                    selectedTagForEdit: $selectedTagForEdit,
+                    showDeleteTagAlert: $showDeleteTagAlert,
+                    tagToDelete: $tagToDelete,
+                    addTagAction: addTag
+                )
+                .presentationDetents([.medium, .large])
             }
             .photosPicker(
                 isPresented: $showImagePicker,
@@ -327,38 +347,35 @@ struct GalleryView: View {
                 maxSelectionCount: 10,
                 matching: .images
             )
-            .onChange(of: selectedItems) { oldItems, newItems in
-                for item in newItems {
-                    Task {
-                        if let data = try? await item.loadTransferable(type: Data.self),
-                           let uiImage = UIImage(data: data) {
-                            do {
-                                let newImage = ImageData()
-                                if newImage.updateFile(to: uiImage) {
-                                    modelContext.insert(newImage)
-                                    try modelContext.save()
-
-                                    withAnimation {
-                                        currentGallery.addImage(newImage)
-                                    }
-                                    try modelContext.save()
-                                } else {
-                                    print("failed to save image file for new image")
-                                }
-                            } catch {
-                                print("failed to insert image: \(error)")
-                            }
-                        } else {
-                            print("could not load image from PhotosPicker")
-                        }
-                    }
-                }
-                selectedItems.removeAll()
-            }
-        }*/
-         
+        }
     }
     
+    private func sortedImages(_ images: [ImageData], option: SortOption) -> [ImageData] {
+        switch option {
+        case .name:
+            return images.sorted {
+                ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
+            }
+        case .created:
+            return images.sorted {
+                $0.created > $1.created
+            }
+
+        case .lastModified:
+            return images.sorted {
+                $0.lastModified > $1.lastModified
+            }
+        }
+    }
+
+    private func icon(for option: SortOption) -> String {
+        switch option {
+        case .name: return "textformat"
+        case .created: return "calendar"
+        case .lastModified: return "clock"
+        }
+    }
+
     private var currentGallery: Gallery {
         if let gallery = galleries.first {
             return gallery
@@ -372,8 +389,8 @@ struct GalleryView: View {
 
     private var filteredImages: [ImageData] {
         var imgs = currentGallery.orderedImages
-        if let category = selectedCategory {
-            imgs = imgs.filter { $0.categories.contains(category) }
+        if let tag = selectedTag {
+            imgs = imgs.filter { $0.tags.contains(tag) }
         }
         if !searchText.isEmpty {
             imgs = imgs.filter {
@@ -384,37 +401,33 @@ struct GalleryView: View {
         return imgs
     }
 
-    private func addCategory() {
+    private func addTag() {
         do {
-            let newCategory = Category(name: "Category \(currentGallery.categories.count + 1)")
-            modelContext.insert(newCategory)
+            let newTag = Tag(name: "Tag \(currentGallery.tags.count + 1)")
+            modelContext.insert(newTag)
             try modelContext.save()
 
-            currentGallery.categories.append(newCategory)
+            currentGallery.tags.append(newTag)
             try modelContext.save()
-
         } catch {
-            print("failed to add category: \(error)")
+            print("failed to add tag: \(error)")
         }
     }
 
-    private func deleteCategory(_ category: Category) {
+    private func deleteTag(_ tag: Tag) {
         do {
             for image in currentGallery.orderedImages {
-                if let index = image.categories.firstIndex(where: { $0.id == category.id }) {
-                    image.categories.remove(at: index)
+                if let index = image.tags.firstIndex(where: { $0.id == tag.id }) {
+                    image.tags.remove(at: index)
                 }
             }
-
-            if let index = currentGallery.categories.firstIndex(where: { $0.id == category.id }) {
-                currentGallery.categories.remove(at: index)
+            if let index = currentGallery.tags.firstIndex(where: { $0.id == tag.id }) {
+                currentGallery.tags.remove(at: index)
             }
-
-            modelContext.delete(category)
+            modelContext.delete(tag)
             try modelContext.save()
-
         } catch {
-            print("failed to delete category: \(error)")
+            print("failed to delete tag: \(error)")
         }
     }
     
@@ -422,7 +435,6 @@ struct GalleryView: View {
         do {
             currentGallery.deleteImage(image, context: modelContext)
             try modelContext.save()
-
         } catch {
             print("failed to delete image: \(error)")
         }
@@ -472,16 +484,14 @@ struct GalleryView: View {
                     let newImage = ImageData(name: name, note: note, creator: creator)
                     newImage.timestamp = timestamp ?? Date()
 
-                    if let selectedCategory {
-                        newImage.categories.append(selectedCategory)
+                    if let selectedTag {
+                        newImage.tags.append(selectedTag)
                     }
 
                     if newImage.updateFile(to: image) {
                         modelContext.insert(newImage)
                         try modelContext.save()
-
                         currentGallery.addImage(newImage)
-
                         try? fileManager.removeItem(at: imageFile)
                         if fileManager.fileExists(atPath: jsonFile.path) {
                             try? fileManager.removeItem(at: jsonFile)
@@ -494,9 +504,179 @@ struct GalleryView: View {
                 }
             }
             try modelContext.save()
-            
         } catch {
             print("error reading shared images: \(error)")
+        }
+    }
+}
+
+struct TagView: View {
+    let gallery: Gallery
+    @Binding var selectedTag: Tag?
+    var modelContext: ModelContext
+
+    @Binding var showTagEditSheet: Bool
+    @Binding var selectedTagForEdit: Tag?
+    @Binding var showDeleteTagAlert: Bool
+    @Binding var tagToDelete: Tag?
+
+    var addTagAction: () -> Void
+
+    @State private var tagFilterText: String = ""
+    @Environment(\.dismiss) private var dismissSheet
+
+    @State private var isEditingTag = false
+    @State private var renameText: String = ""
+    @FocusState private var renameFieldFocused: Bool
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 12) {
+                if isEditingTag, let tag = selectedTagForEdit {
+                    VStack(spacing: 16) {
+                        HStack {
+                            TextField("Tag name", text: $renameText)
+                                .focused($renameFieldFocused)
+                                .textFieldStyle(.roundedBorder)
+                                .submitLabel(.done)
+
+                            if !renameText.isEmpty {
+                                Button {
+                                    renameText = ""
+                                    DispatchQueue.main.async {
+                                        UIView.performWithoutAnimation {
+                                            renameFieldFocused = true
+                                        }
+                                    }
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.trailing, 2)
+                                .transition(.opacity.combined(with: .scale))
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 12)
+
+                        Spacer()
+                    }
+                    .navigationTitle("Edit Tag")
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    isEditingTag = false
+                                    selectedTagForEdit = nil
+                                }
+                            } label: {
+                                Label("Tags", systemImage: "chevron.left")
+                                    .labelStyle(.titleAndIcon)
+                            }
+                        }
+
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Save") {
+                                let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if !trimmed.isEmpty {
+                                    tag.name = trimmed
+                                    try? modelContext.save()
+                                }
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    isEditingTag = false
+                                    selectedTagForEdit = nil
+                                }
+                            }
+                            .disabled(renameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                    }
+                    .onAppear {
+                        renameText = tag.name
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            renameFieldFocused = true
+                        }
+                    }
+
+                } else {
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.gray)
+                        TextField("Filter tags...", text: $tagFilterText)
+                            .textFieldStyle(.plain)
+                            .autocorrectionDisabled()
+
+                        Button(action: addTagAction) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(.accentColor)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+
+                    let filteredTags = gallery.orderedTags.filter {
+                        tagFilterText.isEmpty || $0.name.localizedCaseInsensitiveContains(tagFilterText)
+                    }
+
+                    ScrollView {
+                        FlowLayout(spacing: 8, lineSpacing: 8) {
+                            ForEach(filteredTags) { tag in
+                                Text(tag.name)
+                                    .font(.caption)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(selectedTag == tag ? Color.blue : Color.blue.opacity(0.1))
+                                    .foregroundColor(selectedTag == tag ? .white : .blue)
+                                    .cornerRadius(12)
+                                    .transition(.asymmetric(insertion: .opacity, removal: .scale.combined(with: .opacity)))
+                                    .onTapGesture {
+                                        selectedTag = selectedTag == tag ? nil : tag
+                                    }
+                                    .contextMenu {
+                                        Button {
+                                            selectedTagForEdit = tag
+                                            renameText = tag.name
+                                            withAnimation(.easeInOut(duration: 0.25)) {
+                                                isEditingTag = true
+                                            }
+                                        } label: {
+                                            Label("Rename", systemImage: "pencil")
+                                        }
+
+                                        Button(role: .destructive) {
+                                            withAnimation(.easeInOut(duration: 0.25)) {
+                                                deleteTag(tag)
+                                            }
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+            }
+            .navigationTitle(isEditingTag ? "Edit Tags" : "Tags")
+            .animation(.easeInOut(duration: 0.25), value: isEditingTag)
+        }
+    }
+
+    private func deleteTag(_ tag: Tag) {
+        do {
+            for image in gallery.orderedImages {
+                image.tags.removeAll(where: { $0.id == tag.id })
+            }
+            gallery.tags.removeAll(where: { $0.id == tag.id })
+
+            modelContext.delete(tag)
+            try modelContext.save()
+        } catch {
+            print("failed to delete tag: \(error)")
         }
     }
 }

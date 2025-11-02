@@ -779,18 +779,19 @@ enum DataValue: Codable {
 }
 
 @Model
-class Category: Codable {
+class Tag: Codable {
     var id = UUID()
     var created = Date()
     var timestamp = Date()
     var name: String
+    var color: String?
     
     required init(name: String) {
         self.name = name
     }
     
     enum CodingKeys: String, CodingKey {
-        case id, created, timestamp, name
+        case id, created, timestamp, name, color
     }
     
     required init(from decoder: Decoder) throws {
@@ -799,6 +800,7 @@ class Category: Codable {
        created = try container.decode(Date.self, forKey: .created)
        timestamp = try container.decode(Date.self, forKey: .timestamp)
        name = try container.decode(String.self, forKey: .name)
+       color = try container.decode(String.self, forKey: .color)
    }
     
     func encode(to encoder: Encoder) throws {
@@ -807,6 +809,7 @@ class Category: Codable {
         try container.encode(created, forKey: .created)
         try container.encode(timestamp, forKey: .timestamp)
         try container.encode(name, forKey: .name)
+        try container.encode(color, forKey: .color)
     }
 }
 
@@ -820,6 +823,10 @@ class ImageData: Codable {
     var note: String?
     var creator: String?
     var metadata: [String: DataValue] = [:]
+    
+    var lastModified: Date {
+        return timestamp
+    }
 
     var original: UIImage? {
         ImageUtils.FileStorage.shared.loadImage(id: id, type: .original)
@@ -829,10 +836,10 @@ class ImageData: Codable {
         ImageUtils.FileStorage.shared.loadImage(id: id, type: .thumbnail)
     }
     
-    @Relationship var categories: [Category] = []
+    @Relationship var tags: [Tag] = []
     
-    var orderedCategories: [Category] {
-        categories.sorted(by: { $0.timestamp < $1.timestamp })
+    var orderedCategories: [Tag] {
+        tags.sorted(by: { $0.timestamp < $1.timestamp })
     }
 
     func updateFile(to newImage: UIImage?) -> Bool {
@@ -867,14 +874,14 @@ class ImageData: Codable {
     }
     
     required init(
-        categories: [Category] = [],
+        tags: [Tag] = [],
         name: String? = nil,
         note: String? = nil,
         creator: String? = nil,
         metadata: [String: DataValue] = [:]
     ) {
         self.referenceCount = 1
-        self.categories = categories
+        self.tags = tags
         self.name = name
         self.note = note
         self.creator = creator
@@ -904,7 +911,7 @@ class ImageData: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, created, timestamp, referenceCount, categories, name, note, fcreator, metadata
+        case id, created, timestamp, referenceCount, tags, name, note, fcreator, metadata
     }
 
     required init(from decoder: Decoder) throws {
@@ -913,7 +920,7 @@ class ImageData: Codable {
         created = try container.decode(Date.self, forKey: .timestamp)
         timestamp = try container.decode(Date.self, forKey: .timestamp)
         referenceCount = try container.decodeIfPresent(Int.self, forKey: .referenceCount) ?? 1
-        categories = try container.decodeIfPresent([Category].self, forKey: .categories) ?? []
+        tags = try container.decodeIfPresent([Tag].self, forKey: .tags) ?? []
         name = try container.decodeIfPresent(String.self, forKey: .name)
         note = try container.decodeIfPresent(String.self, forKey: .note)
         metadata = try container.decodeIfPresent([String: DataValue].self, forKey: .metadata) ?? [:]
@@ -925,7 +932,7 @@ class ImageData: Codable {
         try container.encode(created, forKey: .created)
         try container.encode(timestamp, forKey: .timestamp)
         try container.encode(referenceCount, forKey: .referenceCount)
-        try container.encodeIfPresent(categories, forKey: .categories)
+        try container.encodeIfPresent(tags, forKey: .tags)
         try container.encodeIfPresent(name, forKey: .name)
         try container.encodeIfPresent(note, forKey: .note)
         try container.encode(metadata, forKey: .metadata)
@@ -937,10 +944,10 @@ class Gallery: Codable {
     var id = UUID()
     var timestamp = Date()
     
-    @Relationship var categories: [Category] = []
+    @Relationship var tags: [Tag] = []
     
-    var orderedCategories: [Category] {
-        categories.sorted(by: { $0.timestamp < $1.timestamp })
+    var orderedTags: [Tag] {
+        tags.sorted(by: { $0.timestamp < $1.timestamp })
     }
 
     var orderedImages: [ImageData] {
@@ -965,9 +972,9 @@ class Gallery: Codable {
         }
     }
     
-    required init(images: [ImageData] = [], categories: [Category] = []) {
+    required init(images: [ImageData] = [], tags: [Tag] = []) {
         self.images = images
-        self.categories = categories
+        self.tags = tags
     }
     
     required init(from decoder: Decoder) throws {
@@ -975,7 +982,7 @@ class Gallery: Codable {
         id = try container.decode(UUID.self, forKey: .id)
         timestamp = try container.decode(Date.self, forKey: .timestamp)
         images = try container.decodeIfPresent([ImageData].self, forKey: .images) ?? []
-        categories = try container.decodeIfPresent([Category].self, forKey: .categories) ?? []
+        tags = try container.decodeIfPresent([Tag].self, forKey: .tags) ?? []
     }
     
     func cleanup(context: ModelContext) {
@@ -985,7 +992,7 @@ class Gallery: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, images, categories
+        case id, timestamp, images, tags
     }
 
     func encode(to encoder: Encoder) throws {
@@ -993,7 +1000,7 @@ class Gallery: Codable {
         try container.encode(id, forKey: .id)
         try container.encode(timestamp, forKey: .timestamp)
         try container.encode(images, forKey: .images)
-        try container.encode(categories, forKey: .categories)
+        try container.encode(tags, forKey: .tags)
     }
 }
 

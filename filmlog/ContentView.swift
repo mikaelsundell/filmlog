@@ -89,7 +89,7 @@ struct ContentView: View {
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
-                    .help("More actions")
+                    .help("Settings")
                 }
             }
             .searchable(text: $searchText, prompt: "Search projects")

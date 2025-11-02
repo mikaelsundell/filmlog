@@ -50,6 +50,7 @@ struct ShotImageView: View {
                             MaskView(
                                 frameSize: frameSize,
                                 aspectSize: frameSize,
+                                radius: 6.0,
                                 inner: 0.4,
                                 outer: 0.95,
                                 geometry: geometry
@@ -129,13 +130,7 @@ struct ShotImageView: View {
             .padding(.vertical, 6)
         }
         .onAppear {
-            
             if let image = shot.imageData?.original {
-                print("📸 Debug Image Info:")
-                print(" - Size: \(image.size.width)x\(image.size.height)")
-                print(" - Scale: \(image.scale)")
-                print(" - Orientation: \(image.imageOrientation.rawValue)")
-                
                 switch image.imageOrientation {
                 case .up: print("   -> Orientation: up (default, no rotation)")
                 case .down: print("   -> Orientation: down (180° rotated)")

@@ -188,6 +188,7 @@ struct ShotSectionView: View {
                             MaskView(
                                 frameSize: imageSize.isLandscape ? displayedSize : displayedSize.toPortrait(),
                                 aspectSize: imageSize.isLandscape ? aspectFrame : aspectFrame.toPortrait(),
+                                radius: 2,
                                 inner: 0.4,
                                 outer: 0.995,
                                 geometry: geometry

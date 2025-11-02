@@ -67,32 +67,32 @@ struct Projection {
     }
 }
 
-struct CategoryPickerView: View {
-    @Binding var selectedCategories: Set<Category>
-    let allCategories: [Category]
+struct TagPickerView: View {
+    @Binding var selectedTags: Set<Tag>
+    let allTags: [Tag]
 
     var body: some View {
-        List(allCategories) { category in
-            CategoryRow(category: category, isSelected: selectedCategories.contains(category)) {
-                if selectedCategories.contains(category) {
-                    selectedCategories.remove(category)
+        List(allTags) { tag in
+            TagRow(tag: tag, isSelected: selectedTags.contains(tag)) {
+                if selectedTags.contains(tag) {
+                    selectedTags.remove(tag)
                 } else {
-                    selectedCategories.insert(category)
+                    selectedTags.insert(tag)
                 }
             }
         }
     }
 }
 
-struct CategoryRow: View {
-    let category: Category
+struct TagRow: View {
+    let tag: Tag
     let isSelected: Bool
     let toggleSelection: () -> Void
 
     var body: some View {
         Button(action: toggleSelection) {
             HStack {
-                Text(category.name)
+                Text(tag.name)
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark")
@@ -384,6 +384,64 @@ struct ExportFileView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
 }
 
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+    var lineSpacing: CGFloat = 8
+    var alignment: HorizontalAlignment = .leading
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+        var currentLineWidth: CGFloat = 0
+        var currentLineHeight: CGFloat = 0
+        let maxWidth = proposal.width ?? .infinity
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if currentLineWidth + size.width + spacing > maxWidth {
+                // move to next line
+                height += currentLineHeight + lineSpacing
+                currentLineWidth = 0
+                currentLineHeight = 0
+            }
+            currentLineWidth += size.width + spacing
+            currentLineHeight = max(currentLineHeight, size.height)
+        }
+        height += currentLineHeight
+        width = maxWidth // 👈 use full width to prevent centering
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var currentLineHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += currentLineHeight + lineSpacing
+                currentLineHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            currentLineHeight = max(currentLineHeight, size.height)
+        }
+    }
+}
+
+extension View {
+    func asArray() -> [AnyView] { [AnyView(self)] }
+}
+
+extension TupleView {
+    func asArray() -> [AnyView] {
+        Mirror(reflecting: self).children.compactMap { $0.value as? AnyView }
+    }
+}
+
+
 struct LevelIndicatorView: View {
     var level: OrientationUtils.Level
     let orientation: UIDeviceOrientation
@@ -469,6 +527,7 @@ struct LevelIndicatorView: View {
 struct MaskView: View {
     let frameSize: CGSize
     let aspectSize: CGSize
+    let radius: CGFloat
     let inner: CGFloat
     let outer: CGFloat
     let geometry: GeometryProxy
@@ -513,7 +572,7 @@ struct MaskView: View {
                     .fill(style: FillStyle(eoFill: true))
                 )
 
-            Rectangle()
+            RoundedRectangle(cornerRadius: radius)
                 .stroke(.gray, lineWidth: 1)
                 .frame(width: frameSize.width, height: frameSize.height)
                 .position(x: width / 2, y: height / 2)

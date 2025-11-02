@@ -255,11 +255,8 @@ class CameraMetalRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             completion(nil)
             return
         }
-
         let width = CVPixelBufferGetWidthOfPlane(pixelBuffer, 0)
         let height = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0)
-        let aspect = Double(width) / Double(height)
-        
         var yTexRef: CVMetalTexture?
         var cTexRef: CVMetalTexture?
 
