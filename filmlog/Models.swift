@@ -4,6 +4,7 @@
 
 import Foundation
 import SwiftData
+import SwiftUI
 import UIKit
 
 struct LocationUtils {
@@ -784,14 +785,17 @@ class Tag: Codable {
     var created = Date()
     var timestamp = Date()
     var name: String
+    var note: String
     var color: String?
     
-    required init(name: String) {
+    required init(name: String,
+                  note: String = "") {
         self.name = name
+        self.note = note
     }
     
     enum CodingKeys: String, CodingKey {
-        case id, created, timestamp, name, color
+        case id, created, timestamp, name, note, color
     }
     
     required init(from decoder: Decoder) throws {
@@ -800,6 +804,7 @@ class Tag: Codable {
        created = try container.decode(Date.self, forKey: .created)
        timestamp = try container.decode(Date.self, forKey: .timestamp)
        name = try container.decode(String.self, forKey: .name)
+       note = try container.decode(String.self, forKey: .name)
        color = try container.decode(String.self, forKey: .color)
    }
     
@@ -809,7 +814,22 @@ class Tag: Codable {
         try container.encode(created, forKey: .created)
         try container.encode(timestamp, forKey: .timestamp)
         try container.encode(name, forKey: .name)
+        try container.encode(note, forKey: .note)
         try container.encode(color, forKey: .color)
+    }
+}
+
+extension Tag {
+    var defaultColor: Color {
+        if let hex = color, let resolved = Color(hex: hex) {
+            return resolved
+        } else {
+            return Color.gray
+        }
+    }
+
+    var isDefaultColor: Bool {
+        (color == nil) || (color?.lowercased() == "#808080") || (defaultColor == .gray)
     }
 }
 
@@ -947,7 +967,7 @@ class Gallery: Codable {
     @Relationship var tags: [Tag] = []
     
     var orderedTags: [Tag] {
-        tags.sorted(by: { $0.timestamp < $1.timestamp })
+        tags.sorted(by: { $0.created < $1.created })
     }
 
     var orderedImages: [ImageData] {
