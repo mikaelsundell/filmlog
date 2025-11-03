@@ -45,6 +45,8 @@
 		1FEDFF2A2E1EA54400E64567 /* FullscreenImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */; };
 		3A06CBD32EB7FFC100984DCA /* TagDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A06CBD22EB7FFBD00984DCA /* TagDetailView.swift */; };
 		3A43C4F52EAAB5B7001E7080 /* ProjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A43C4F42EAAB5B7001E7080 /* ProjectDetailView.swift */; };
+		3A99F59C2EB94B7600BAEBE7 /* TagView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A99F59B2EB94B7300BAEBE7 /* TagView.swift */; };
+		3A99F59E2EB9552600BAEBE7 /* ImageDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A99F59D2EB9552100BAEBE7 /* ImageDetailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -131,6 +133,8 @@
 		1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullscreenImageView.swift; sourceTree = "<group>"; };
 		3A06CBD22EB7FFBD00984DCA /* TagDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagDetailView.swift; sourceTree = "<group>"; };
 		3A43C4F42EAAB5B7001E7080 /* ProjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDetailView.swift; sourceTree = "<group>"; };
+		3A99F59B2EB94B7300BAEBE7 /* TagView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagView.swift; sourceTree = "<group>"; };
+		3A99F59D2EB9552100BAEBE7 /* ImageDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageDetailView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -216,6 +220,7 @@
 				1F0E65D12E85583700C7FD85 /* Extensions.swift */,
 				1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */,
 				1F9DC7E52E3AB90B00D95B79 /* GalleryView.swift */,
+				3A99F59D2EB9552100BAEBE7 /* ImageDetailView.swift */,
 				1F9B3E982E1AE48C005F95A0 /* Item.swift */,
 				1F64D2E32E1B1362009EA1A8 /* Models.swift */,
 				3A43C4F42EAAB5B7001E7080 /* ProjectDetailView.swift */,
@@ -224,6 +229,7 @@
 				1F70B3722E30124B0021DB93 /* ShotSectionView.swift */,
 				1F0E65CF2E84866800C7FD85 /* ShotImageView.swift */,
 				1F70B3732E30124B0021DB93 /* ShotViewfinderView.swift */,
+				3A99F59B2EB94B7300BAEBE7 /* TagView.swift */,
 				3A06CBD22EB7FFBD00984DCA /* TagDetailView.swift */,
 				1F2A9A242E41543F00C304FA /* Views.swift */,
 				1F2A9A362E42216600C304FA /* LutExposure.cube */,
@@ -449,6 +455,7 @@
 				3A43C4F52EAAB5B7001E7080 /* ProjectDetailView.swift in Sources */,
 				1F9B3E992E1AE48C005F95A0 /* Item.swift in Sources */,
 				1F9B3E952E1AE48C005F95A0 /* filmlogApp.swift in Sources */,
+				3A99F59C2EB94B7600BAEBE7 /* TagView.swift in Sources */,
 				1F62CE0F2E21608C002DBAA3 /* CameraModel.swift in Sources */,
 				1F9DC7E62E3AB90B00D95B79 /* GalleryView.swift in Sources */,
 				1FEDFF2A2E1EA54400E64567 /* FullscreenImageView.swift in Sources */,
@@ -457,6 +464,7 @@
 				1F0E65D22E85583700C7FD85 /* Extensions.swift in Sources */,
 				1F70B3762E30124B0021DB93 /* ShotSectionView.swift in Sources */,
 				1F64D2E42E1B1362009EA1A8 /* Models.swift in Sources */,
+				3A99F59E2EB9552600BAEBE7 /* ImageDetailView.swift in Sources */,
 				1F2A9A252E41543F00C304FA /* Views.swift in Sources */,
 				1F70B3752E30124B0021DB93 /* ShotDetailView.swift in Sources */,
 				3A06CBD32EB7FFC100984DCA /* TagDetailView.swift in Sources */,
