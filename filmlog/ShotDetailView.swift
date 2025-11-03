@@ -44,12 +44,9 @@ struct ShotDetailView: View {
     var project: Project
     var index: Int
     var count: Int
-    var onAdd: ((Int) -> Void)?
     var onDelete: (() -> Void)?
     var onSelect: ((Int) -> Void)?
     var onBack: (() -> Void)?
-    
-    @Environment(\.modelContext) private var modelContext
 
     enum ActiveField {
         case name, note, locationElevation, locationColorTemperature, focusDistance
@@ -59,6 +56,8 @@ struct ShotDetailView: View {
     @State private var showDialog = false
     @State private var requestingLocation = false
     @StateObject private var locationManager = LocationManager()
+    
+    @Environment(\.modelContext) private var modelContext
     
     var body: some View {
         VStack(spacing: 0) {
@@ -122,7 +121,6 @@ struct ShotDetailView: View {
             }
             .background(Color.black)
             .shadow(radius: 2)
-
             
             Form {
                 imageSection
@@ -454,8 +452,8 @@ struct ShotDetailView: View {
     }
     
     private var lensSection: some View {
-        Section(header: Text("Lens")) {
-            Picker("Lens", selection: $shot.lens) {
+        Section(header: Text("Lens series")) {
+            Picker("Lens series", selection: $shot.lens) {
                 ForEach(CameraUtils.groupedLenses.keys.sorted(), id: \.self) { category in
                     Section(header: Text(category)) {
                         ForEach(CameraUtils.groupedLenses[category] ?? [], id: \.name) { lens in
@@ -558,16 +556,6 @@ struct ShotDetailView: View {
     
     private var lightmeterSection: some View {
         Section(header: Text("Lightmeter")) {
-            PhotoPickerView(
-                image: shot.lightMeterImageData?.thumbnail,
-                label: "Add photo",
-                isLocked: shot.isLocked
-            ) { newUIImage in
-                let newImage = ImageData()
-                if newImage.updateFile(to: newUIImage) {
-                    shot.updateLightMeterImage(to: newImage, context: modelContext)
-                }
-            }
             evPicker(title: "Sky", selection: $shot.exposureSky)
             evPicker(title: "Foliage", selection: $shot.exposureFoliage)
             evPicker(title: "Highlights", selection: $shot.exposureHighlights)

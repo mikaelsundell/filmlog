@@ -29,33 +29,15 @@ struct ImageView: View {
 }
 
 struct GalleryView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.scenePhase) private var scenePhase
     @Query private var galleries: [Gallery]
     @State private var searchText: String = ""
     @State private var selectedTag: Tag? = nil
-    @State private var showImagePicker = false
     @State private var selectedItem: PhotosPickerItem? = nil
-    
-    @State private var showTagManager = false
-    
-    @State private var showTagEditSheet = false
-    @State private var selectedTagForEdit: Tag? = nil
-    @State private var showRenameDialog = false
-    @State private var renameText = ""
+    @State private var selectedImage: ImageData? = nil
 
-    @State private var showDeleteTagAlert = false
-    @State private var tagToDelete: Tag? = nil
-    
-    @State private var selectedImageForEdit: ImageData? = nil
-    @State private var newName = ""
-    @State private var newNote = ""
-    @State private var newTags: [Tag] = []
-    @State private var newSelectedTags: Set<Tag> = []
-    @FocusState private var selectedImageFocused: Bool
-    
-    @State private var showDeleteImageAlert = false
-    @State private var imageToDelete: ImageData? = nil
+    @State private var showTagSheet = false
+    @State private var showSlideShow = false
+    @State private var showImagePicker = false
     
     @State private var selectedItems: [PhotosPickerItem] = []
     
@@ -71,6 +53,9 @@ struct GalleryView: View {
         get { SortOption(rawValue: selectedImageSortRawValue) ?? .lastModified }
         set { selectedImageSortRawValue = newValue.rawValue }
     }
+    
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationStack {
@@ -116,10 +101,26 @@ struct GalleryView: View {
                     .help("Sort images")
 
                     Spacer()
+                    
+                    Button {
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("Select")
+                                .font(.caption)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .foregroundColor(.white.opacity(0.6))
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Select images")
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 2)
 
+                let images = sortedImages(filteredImages, option: selectedImageSort)
                 VStack(alignment: .leading, spacing: 12) {
                     ScrollView {
                         if filteredImages.isEmpty {
@@ -132,27 +133,9 @@ struct GalleryView: View {
                             let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
                             
                             LazyVGrid(columns: columns, spacing: 6) {
-                                ForEach(sortedImages(filteredImages, option: selectedImageSort), id: \.id) { image in
+                                ForEach(images, id: \.id) { image in
                                     ImageView(imageData: image, size: gridWidth)
                                         .contentShape(Rectangle())
-                                        .contextMenu {
-                                            Button {
-                                                selectedImageForEdit = image
-                                                newName = image.name ?? ""
-                                                newNote = image.note ?? ""
-                                                newTags = image.tags
-                                            } label: {
-                                                Label("Edit image", systemImage: "pencil")
-                                            }
-                                            
-                                            Button(role: .destructive) {
-                                                imageToDelete = image
-                                                showDeleteImageAlert = true
-                                            } label: {
-                                                Label("Delete", systemImage: "trash")
-                                            }
-                                        }
-                                        .id(image.id)
                                 }
                             }
                             .padding(.horizontal, 8)
@@ -160,6 +143,54 @@ struct GalleryView: View {
                     }
                     .padding(.top)
                 }
+                
+                HStack {
+                    Button {
+                        //showDeleteAlert = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 18, weight: .semibold))
+                            .frame(width: 40, height: 40)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.blue)
+                    .help("Delete project")
+                    
+                    Spacer()
+                    
+                    HStack(spacing: 6) {
+                        Image(systemName: "photo.stack")
+                            .font(.system(size: 14, weight: .medium))
+                        Text("\(images.count) image\(images.count == 1 ? "" : "s")")
+                                .font(.subheadline)
+                                .fontWeight(.regular)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 8)
+                    .foregroundColor(.blue)
+                    .shadow(radius: 1)
+                    
+                    Spacer()
+                    
+                    Button {
+                        showTagSheet = true
+                    } label: {
+                        Image(systemName: "tag")
+                            .font(.system(size: 18, weight: .semibold))
+                            .frame(width: 40, height: 40)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.blue)
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
+                .background(Color.black)
+                .ignoresSafeArea(edges: .bottom)
+  
             }
             .navigationTitle("Gallery")
             .onAppear {
@@ -198,125 +229,18 @@ struct GalleryView: View {
                     }
                 }
             }
-            .alert("Delete tag?", isPresented: $showDeleteTagAlert, presenting: tagToDelete) { tag in
-                Button("Delete", role: .destructive) {
-                    deleteTag(tag)
-                }
-                Button("Cancel", role: .cancel) { }
-            } message: { tag in
-                Text("Are you sure you want to delete the tag \(tag.name)?")
-            }
-            .alert("Delete Image?", isPresented: $showDeleteImageAlert, presenting: imageToDelete) { image in
-                Button("Delete", role: .destructive) {
-                    deleteImage(image)
-                }
-                Button("Cancel", role: .cancel) { }
-            } message: { image in
-                Text("Are you sure you want to delete \(image.name ?? "this image")?")
-            }
-            .sheet(isPresented: $showTagEditSheet) {
-                if let tag = selectedTagForEdit {
-                    NavigationView {
-                        Form {
-                            Section(header: Text("Rename tag")) {
-                                TextField("Tag name", text: $renameText)
-                            }
-                        }
-                        .navigationTitle("Edit tag")
-                        .toolbar {
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button("Save") {
-                                    tag.name = renameText
-                                    try? modelContext.save()
-                                    showTagEditSheet = false
-                                }
-                            }
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button("Cancel") {
-                                    showTagEditSheet = false
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .sheet(item: $selectedImageForEdit) { image in
-                NavigationView {
-                    Form {
-                        Section(header: Text("Image")) {
-                            TextField("Name", text: $newName)
-                                .focused($selectedImageFocused)
-                            
-                            TextEditor(text: $newNote)
-                                .frame(height: 100)
-                                .focused($selectedImageFocused)
-                                .offset(x: -4)
-                        }
-                        
-                        Section(header: Text("Tags")) {
-                            NavigationLink("Select tags") {
-                                TagPickerView(
-                                    selectedTags: $newSelectedTags,
-                                    allTags: currentGallery.orderedTags
-                                )
-                                .navigationTitle("Select Tags")
-                            }
-
-                            if !newSelectedTags.isEmpty {
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack {
-                                        ForEach(Array(newSelectedTags)) { tag in
-                                            Text(tag.name)
-                                                .padding(8)
-                                                .background(Color.accentColor.opacity(0.2))
-                                                .cornerRadius(8)
-                                        }
-                                    }
-                                }
-                                .padding(.top, 4)
-                            }
-                        }
-                    }
-                    .onAppear {
-                        selectedImageFocused = true
-                    }
-                    .navigationTitle("Edit image")
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Save") {
-                                image.name = newName
-                                image.note = newNote
-                                image.tags = Array(newSelectedTags)
-                                try? modelContext.save()
-                                selectedImageForEdit = nil
-                            }
-                        }
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Cancel") {
-                                selectedImageForEdit = nil
-                            }
-                        }
-                        ToolbarItemGroup(placement: .keyboard) {
-                            Spacer()
-                            Button("Done") {
-                                selectedImageFocused = false
-                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                            }
-                        }
-                    }
-                }
-            }
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button(action: { showImagePicker = true }) {
                         Label("Add image", systemImage: "plus")
                     }
 
-                    Button {
-                        showTagManager = true
-                    } label: {
-                        Image(systemName: "tag")
+                    Button(action: {
+                        showSlideShow = true
+                    }) {
+                        Image(systemName: "display")
                     }
+                    .help("Play slideshow of images")
 
                     Menu {
                         NavigationLink(destination: SettingsView()) {
@@ -328,16 +252,10 @@ struct GalleryView: View {
                     .help("Settings")
                 }
             }
-            .sheet(isPresented: $showTagManager) {
+            .sheet(isPresented: $showTagSheet) {
                 TagView(
                     gallery: currentGallery,
-                    selectedTag: $selectedTag,
-                    modelContext: modelContext,
-                    showTagEditSheet: $showTagEditSheet,
-                    selectedTagForEdit: $selectedTagForEdit,
-                    showDeleteTagAlert: $showDeleteTagAlert,
-                    tagToDelete: $tagToDelete,
-                    addTagAction: addTag
+                    selectedTag: $selectedTag
                 )
                 .presentationDetents([.medium, .large])
             }
@@ -399,36 +317,6 @@ struct GalleryView: View {
             }
         }
         return imgs
-    }
-
-    private func addTag() {
-        do {
-            let newTag = Tag(name: "Tag \(currentGallery.tags.count + 1)")
-            modelContext.insert(newTag)
-            try modelContext.save()
-
-            currentGallery.tags.append(newTag)
-            try modelContext.save()
-        } catch {
-            print("failed to add tag: \(error)")
-        }
-    }
-
-    private func deleteTag(_ tag: Tag) {
-        do {
-            for image in currentGallery.orderedImages {
-                if let index = image.tags.firstIndex(where: { $0.id == tag.id }) {
-                    image.tags.remove(at: index)
-                }
-            }
-            if let index = currentGallery.tags.firstIndex(where: { $0.id == tag.id }) {
-                currentGallery.tags.remove(at: index)
-            }
-            modelContext.delete(tag)
-            try modelContext.save()
-        } catch {
-            print("failed to delete tag: \(error)")
-        }
     }
     
     private func deleteImage(_ image: ImageData) {
@@ -513,235 +401,126 @@ struct GalleryView: View {
 struct TagView: View {
     let gallery: Gallery
     @Binding var selectedTag: Tag?
-    var modelContext: ModelContext
 
-    @Binding var showTagEditSheet: Bool
-    @Binding var selectedTagForEdit: Tag?
-    @Binding var showDeleteTagAlert: Bool
-    @Binding var tagToDelete: Tag?
-
+    @State private var filterText: String = ""
+    @State private var activeTag: Tag? = nil
     @State private var selectedTags: Set<Tag> = []
     
-    var addTagAction: () -> Void
-
-    @State private var tagFilterText: String = ""
-    @Environment(\.dismiss) private var dismissSheet
-
-    @State private var isEditingTag = false
-    @State private var renameText: String = ""
     enum ActiveField {
         case name, note
     }
     @FocusState private var activeField: ActiveField?
-
+    
+    @Environment(\.modelContext) private var modelContext
+    
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 4) {
-                if isEditingTag, let tag = selectedTagForEdit {
-                    VStack(spacing: 0) {
-                        Form {
-                            Section(header:
-                                HStack {
-                                    Text("Tag")
-                                        .font(.caption)
-                                        .foregroundColor(.white.opacity(0.6))
-                                        .textCase(.uppercase)
-                                    Spacer()
-                                }
-                            ) {
-                                HStack {
-                                    TextField("Name", text: $renameText)
-                                        .focused($activeField, equals: .name)
-                                        .submitLabel(.done)
-                                        .textInputAutocapitalization(.words)
+        ZStack {
+            if activeTag == nil {
+                
+                VStack(spacing: 0) {
+                    Form {
+                        Section {
+                            HStack {
+                                Image(systemName: "magnifyingglass")
+                                    .foregroundColor(.gray)
+                                TextField("Filter tags...", text: $filterText)
+                                    .textFieldStyle(.plain)
+                                    .autocorrectionDisabled()
+                                /*Button(action: addTagAction) {
+                                    Image(systemName: "plus.circle")
+                                        .font(.title2)
+                                        .foregroundColor(.accentColor)
+                                }*/
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                    .scrollContentBackground(.hidden)
+                    .background(Color(red: 0.05, green: 0.05, blue: 0.05))
+                    .frame(maxHeight: 100)
 
-                                    if !renameText.isEmpty {
-                                        Button {
-                                            renameText = ""
-                                            DispatchQueue.main.async {
-                                                UIView.performWithoutAnimation {
-                                                    activeField = .name
+                    let filteredTags = gallery.orderedTags.filter {
+                        filterText.isEmpty || $0.name.localizedCaseInsensitiveContains(filterText)
+                    }
+
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if filteredTags.isEmpty {
+                                Text("No tags available")
+                                    .font(.footnote)
+                                    .foregroundColor(.secondary)
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 16)
+                            } else {
+                                FlowLayout(spacing: 8, lineSpacing: 10) {
+                                    ForEach(filteredTags) { tag in
+                                        let isSelected = selectedTags.contains(tag)
+                                        
+                                        Text(tag.name)
+                                            .font(.caption)
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 7)
+                                            .background(isSelected ? tag.defaultColor : Color.clear)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(
+                                                        tag.defaultColor.opacity(tag.isDefaultColor ? 0.4 : 1.0),
+                                                        lineWidth: 1.2
+                                                    )
+                                            )
+                                            .foregroundColor(isSelected ? .white : .gray)
+                                            .cornerRadius(12)
+                                            .transition(.asymmetric(
+                                                insertion: .opacity,
+                                                removal: .scale.combined(with: .opacity)
+                                            ))
+                                            .onTapGesture {
+                                                toggleTagSelection(tag)
+                                            }
+                                            .contextMenu {
+                                                Button {
+                                                    activeTag = tag
+                                                } label: {
+                                                    Label("Edit", systemImage: "pencil")
+                                                }
+
+                                                Button(role: .destructive) {
+                                                    withAnimation(.easeInOut(duration: 0.25)) {
+                                                        deleteTag(tag)
+                                                    }
+                                                } label: {
+                                                    Label("Delete", systemImage: "trash")
                                                 }
                                             }
-                                        } label: {
-                                            Image(systemName: "xmark.circle.fill")
-                                                .foregroundColor(.secondary)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .padding(.trailing, 2)
-                                        .transition(.opacity.combined(with: .scale))
                                     }
                                 }
-                                
-                                HStack {
-                                    Text("Modified:")
-                                    Text(tag.timestamp.formatted(date: .abbreviated, time: .shortened))
-                                }
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                            }
-                            
-                            Section(header:
-                                HStack {
-                                    Text("Color")
-                                        .font(.caption)
-                                        .foregroundColor(.white.opacity(0.6))
-                                        .textCase(.uppercase)
-                                    Spacer()
-                                }
-                            ) {
-                                HStack {
-                                    ColorPicker("Tag color", selection: Binding(
-                                        get: {
-                                            Color(hex: tag.color ?? "#007AFF") ?? .blue
-                                        },
-                                        set: { newColor in
-                                            tag.color = newColor.toHex()
-                                            tag.timestamp = Date()
-                                            try? modelContext.save()
-                                        }
-                                    ))
-                                    .labelsHidden()
-
-                                    Circle()
-                                        .fill(Color(hex: tag.color ?? "#007AFF") ?? .blue)
-                                        .frame(width: 24, height: 24)
-                                        .overlay(Circle().stroke(.white.opacity(0.2), lineWidth: 1))
-                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
                             }
                         }
-                        .scrollContentBackground(.hidden)
-                        .background(Color(red: 0.05, green: 0.05, blue: 0.05))
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
-                        .toolbar {
-                            ToolbarItem(placement: .navigationBarLeading) {
-                                Button {
-                                    withAnimation(.easeInOut(duration: 0.25)) {
-                                        isEditingTag = false
-                                        selectedTagForEdit = nil
-                                    }
-                                } label: {
-                                    Label("Tags", systemImage: "chevron.left")
-                                        .labelStyle(.titleAndIcon)
-                                }
-                            }
-
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button("Save") {
-                                    let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
-                                    if !trimmed.isEmpty {
-                                        tag.name = trimmed
-                                        try? modelContext.save()
-                                    }
-                                    withAnimation(.easeInOut(duration: 0.25)) {
-                                        isEditingTag = false
-                                        selectedTagForEdit = nil
-                                    }
-                                }
-                                .disabled(renameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            }
-                        }
-                        .navigationTitle("Edit Tag")
-                        .onAppear {
-                            renameText = tag.name
-                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                else {
-                    VStack(spacing: 0) {
-                        Form {
-                            Section {
-                                HStack {
-                                    Image(systemName: "magnifyingglass")
-                                        .foregroundColor(.gray)
-                                    TextField("Filter tags...", text: $tagFilterText)
-                                        .textFieldStyle(.plain)
-                                        .autocorrectionDisabled()
-                                    Button(action: addTagAction) {
-                                        Image(systemName: "plus.circle")
-                                            .font(.title2)
-                                            .foregroundColor(.accentColor)
-                                    }
-                                }
-                                .padding(.vertical, 4)
-                            }
-                        }
-                        .scrollContentBackground(.hidden)
-                        .background(Color(red: 0.05, green: 0.05, blue: 0.05))
-                        .frame(maxHeight: 60)
-
-                        let filteredTags = gallery.orderedTags.filter {
-                            tagFilterText.isEmpty || $0.name.localizedCaseInsensitiveContains(tagFilterText)
-                        }
-
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 8) {
-                                if filteredTags.isEmpty {
-                                    Text("No tags available")
-                                        .font(.footnote)
-                                        .foregroundColor(.secondary)
-                                        .padding(.vertical, 8)
-                                        .padding(.horizontal, 16)
-                                } else {
-                                    FlowLayout(spacing: 8, lineSpacing: 10) {
-                                        ForEach(filteredTags) { tag in
-                                            let isSelected = selectedTags.contains(tag)
-                                            
-                                            Text(tag.name)
-                                                .font(.caption)
-                                                .padding(.horizontal, 14)
-                                                .padding(.vertical, 7)
-                                                .background(isSelected ? tag.defaultColor : Color.clear)
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 12)
-                                                        .stroke(
-                                                            tag.defaultColor.opacity(tag.isDefaultColor ? 0.4 : 1.0),
-                                                            lineWidth: 1.2
-                                                        )
-                                                )
-                                                .foregroundColor(isSelected ? .white : .gray)
-                                                .cornerRadius(12)
-                                                .transition(.asymmetric(
-                                                    insertion: .opacity,
-                                                    removal: .scale.combined(with: .opacity)
-                                                ))
-                                                .onTapGesture {
-                                                    toggleTagSelection(tag)
-                                                }
-                                                .contextMenu {
-                                                    Button {
-                                                        selectedTagForEdit = tag
-                                                        renameText = tag.name
-                                                        withAnimation(.easeInOut(duration: 0.25)) {
-                                                            isEditingTag = true
-                                                        }
-                                                    } label: {
-                                                        Label("Edit", systemImage: "pencil")
-                                                    }
-
-                                                    Button(role: .destructive) {
-                                                        withAnimation(.easeInOut(duration: 0.25)) {
-                                                            deleteTag(tag)
-                                                        }
-                                                    } label: {
-                                                        Label("Delete", systemImage: "trash")
-                                                    }
-                                                }
-                                        }
-                                    }
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                    .background(Color(red: 0.05, green: 0.05, blue: 0.05))
-
-                }
+                .background(Color(red: 0.05, green: 0.05, blue: 0.05))
             }
-            .navigationTitle(isEditingTag ? "Edit Tags" : "Tags")
-            .animation(.easeInOut(duration: 0.25), value: isEditingTag)
+            
+            if let tag = activeTag,
+               let index = gallery.orderedTags.firstIndex(where: { $0.id == tag.id }) {
+                TagDetailView(
+                    tag: tag,
+                    index: index,
+                    count: gallery.orderedTags.count,
+                    onSelect: { newIndex in
+                        guard newIndex >= 0 && newIndex < gallery.orderedTags.count else { return }
+                        activeTag = gallery.orderedTags[newIndex]
+                    },
+                    onBack: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            activeTag = nil
+                        }
+                    }
+                )
+            }
         }
     }
 
@@ -751,7 +530,6 @@ struct TagView: View {
                 image.tags.removeAll(where: { $0.id == tag.id })
             }
             gallery.tags.removeAll(where: { $0.id == tag.id })
-
             modelContext.delete(tag)
             try modelContext.save()
         } catch {

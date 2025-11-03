@@ -16,7 +16,7 @@ struct ShotViewfinderView: View {
     @State private var focusPoint: CGPoint? = nil
     @State private var showExport = false
     
-    @AppStorage("isFullscreen") private var isFullscreen = false
+    @AppStorage("isFullscreen") private var isFullscreen = true
     @Environment(\.dismiss) private var dismiss
     
     @StateObject private var cameraModel = CameraModel()

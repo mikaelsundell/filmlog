@@ -19,9 +19,6 @@ struct ProjectDetailView: View {
     @Binding var selectedProject: Project?
     var index: Int
 
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
-    
     enum ActiveField {
         case name, note
     }
@@ -44,6 +41,9 @@ struct ProjectDetailView: View {
         get { SortOption(rawValue: selectedShotSortRawValue) ?? .lastModified }
         set { selectedShotSortRawValue = newValue.rawValue }
     }
+    
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ZStack {
@@ -185,7 +185,6 @@ struct ProjectDetailView: View {
                     project: project,
                     index: index,
                     count: project.orderedShots.count,
-                    onAdd: { count in addShot(count: count) },
                     onDelete: {
                         project.shots.removeAll { $0.id == shot.id }
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -207,7 +206,7 @@ struct ProjectDetailView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: activeShot)
-        .navigationTitle("\(project.name.isEmpty ? "project" : project.name)")
+        .navigationTitle("\(project.name.isEmpty ? "" : project.name)")
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 if activeShot == nil {

@@ -1213,30 +1213,6 @@ class Shot: Codable {
             self.image = nil
         }
     }
-    
-    @Relationship private var lightMeterImage: ImageData?
-    
-    public var lightMeterImageData: ImageData? {
-        return lightMeterImage
-    }
-    
-    func updateLightMeterImage(to newImage: ImageData?, context: ModelContext) {
-        deleteLightMeterImage(context: context)
-        if let newImage = newImage {
-            newImage.incrementReference()
-        }
-        self.lightMeterImage = newImage
-    }
-    
-    func deleteLightMeterImage(context: ModelContext) {
-        if let image = self.lightMeterImage {
-            if image.decrementReference() {
-                context.delete(image)
-            }
-            self.timestamp = Date()
-            self.lightMeterImage = nil
-        }
-    }
 
     required init(filmSize: String = "135 (35mm)",
          filmStock: String = "100",
@@ -1272,7 +1248,6 @@ class Shot: Codable {
          deviceCameraMode: String = "",
          deviceLens: String = "",
          image: ImageData? = nil,
-         lightMeterImage: ImageData? = nil,
          isLocked: Bool = false) {
         self.filmSize = filmSize
         self.filmStock = filmStock
@@ -1308,13 +1283,11 @@ class Shot: Codable {
         self.deviceCameraMode = deviceCameraMode
         self.deviceLens = deviceLens
         self.image = image
-        self.lightMeterImage = lightMeterImage
         self.isLocked = isLocked
     }
     
     func cleanup(context: ModelContext) {
         deleteImage(context: context)
-        deleteLightMeterImage(context: context)
     }
 
     func copy(context: ModelContext) -> Shot {
@@ -1353,9 +1326,8 @@ class Shot: Codable {
         newShot.deviceTilt = self.deviceTilt
         newShot.deviceCameraMode = self.deviceCameraMode
         newShot.deviceLens = self.deviceLens
-        
+
         newShot.updateImage(to: self.image, context: context)
-        newShot.updateLightMeterImage(to: self.lightMeterImage, context: context)
 
         return newShot
     }
@@ -1367,7 +1339,7 @@ class Shot: Codable {
              focusDistance, focusDepthOfField, focusNearLimit, focusFarLimit, focusHyperfocalDistance, focusHyperfocalNearLimit,
              exposureSky, exposureFoliage, exposureHighlights, exposureMidGray, exposureShadows, exposureSkinKey, exposureSkinFill,
              deviceRoll, deviceTilt, deviceCameraMode, deviceLens,
-             image, lightMeterImage, isLocked
+             image, isLocked
     }
 
     required init(from decoder: Decoder) throws {
@@ -1409,7 +1381,6 @@ class Shot: Codable {
         deviceCameraMode = try container.decode(String.self, forKey: .deviceCameraMode)
         deviceLens = try container.decode(String.self, forKey: .deviceLens)
         image = try container.decodeIfPresent(ImageData.self, forKey: .image)
-        lightMeterImage = try container.decodeIfPresent(ImageData.self, forKey: .lightMeterImage)
         isLocked = try container.decode(Bool.self, forKey: .isLocked)
     }
 
@@ -1452,7 +1423,6 @@ class Shot: Codable {
         try container.encode(deviceCameraMode, forKey: .deviceCameraMode)
         try container.encode(deviceLens, forKey: .deviceLens)
         try container.encodeIfPresent(image, forKey: .image)
-        try container.encodeIfPresent(lightMeterImage, forKey: .lightMeterImage)
         try container.encode(isLocked, forKey: .isLocked)
     }
 }

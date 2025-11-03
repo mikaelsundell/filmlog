@@ -224,7 +224,6 @@ struct SettingsView: View {
             for shot in project.shots {
                 shotCount += 1
                 addImageIfUnique(shot.imageData)
-                addImageIfUnique(shot.lightMeterImageData)
             }
         }
 

@@ -43,6 +43,7 @@
 		1F9DC7EC2E3BC70400D95B79 /* CameraMetalProgram.metal in Sources */ = {isa = PBXBuildFile; fileRef = 1F9DC7EB2E3BC70400D95B79 /* CameraMetalProgram.metal */; };
 		1FD3D14F2E2102F100A1C9EF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FD3D14E2E2102F100A1C9EF /* SettingsView.swift */; };
 		1FEDFF2A2E1EA54400E64567 /* FullscreenImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */; };
+		3A06CBD32EB7FFC100984DCA /* TagDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A06CBD22EB7FFBD00984DCA /* TagDetailView.swift */; };
 		3A43C4F52EAAB5B7001E7080 /* ProjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A43C4F42EAAB5B7001E7080 /* ProjectDetailView.swift */; };
 /* End PBXBuildFile section */
 
@@ -128,6 +129,7 @@
 		1FD3D14E2E2102F100A1C9EF /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		1FD3D1502E2108A100A1C9EF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullscreenImageView.swift; sourceTree = "<group>"; };
+		3A06CBD22EB7FFBD00984DCA /* TagDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagDetailView.swift; sourceTree = "<group>"; };
 		3A43C4F42EAAB5B7001E7080 /* ProjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDetailView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -222,6 +224,7 @@
 				1F70B3722E30124B0021DB93 /* ShotSectionView.swift */,
 				1F0E65CF2E84866800C7FD85 /* ShotImageView.swift */,
 				1F70B3732E30124B0021DB93 /* ShotViewfinderView.swift */,
+				3A06CBD22EB7FFBD00984DCA /* TagDetailView.swift */,
 				1F2A9A242E41543F00C304FA /* Views.swift */,
 				1F2A9A362E42216600C304FA /* LutExposure.cube */,
 				1F2A9A402E422EF300C304FA /* LutFujiNeutral.cube */,
@@ -456,6 +459,7 @@
 				1F64D2E42E1B1362009EA1A8 /* Models.swift in Sources */,
 				1F2A9A252E41543F00C304FA /* Views.swift in Sources */,
 				1F70B3752E30124B0021DB93 /* ShotDetailView.swift in Sources */,
+				3A06CBD32EB7FFC100984DCA /* TagDetailView.swift in Sources */,
 				1F9DC7EC2E3BC70400D95B79 /* CameraMetalProgram.metal in Sources */,
 				1F0E65D02E84866800C7FD85 /* ShotImageView.swift in Sources */,
 				1F9DC7EA2E3BC42900D95B79 /* CameraMetalRenderer.swift in Sources */,
