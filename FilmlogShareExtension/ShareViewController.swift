@@ -33,8 +33,20 @@ class ShareViewController: UIViewController {
         let titleLabel = UILabel()
         titleLabel.text = "Add to Filmlog Gallery"
         titleLabel.textColor = .white
-        titleLabel.font = UIFont.boldSystemFont(ofSize: 22)
+        titleLabel.font = UIFont.boldSystemFont(ofSize: 18)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        let nameLabel = UILabel()
+        nameLabel.text = "Name".uppercased()
+        nameLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+        nameLabel.textColor = UIColor.white.withAlphaComponent(0.6)
+        nameLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        let noteLabel = UILabel()
+        noteLabel.text = "Note".uppercased()
+        noteLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+        noteLabel.textColor = UIColor.white.withAlphaComponent(0.6)
+        noteLabel.translatesAutoresizingMaskIntoConstraints = false
         
         imageStackContainer.translatesAutoresizingMaskIntoConstraints = false
         imageStackContainer.backgroundColor = UIColor.clear
@@ -48,17 +60,14 @@ class ShareViewController: UIViewController {
         countBadge.isHidden = true
         countBadge.translatesAutoresizingMaskIntoConstraints = false
 
-        countBadge.setContentHuggingPriority(.required, for: .horizontal)
-        countBadge.setContentCompressionResistancePriority(.required, for: .horizontal)
-        
         let toolbar = UIToolbar()
         toolbar.sizeToFit()
         toolbar.barStyle = .default
         toolbar.tintColor = .systemBlue
-
-        let flexSpace = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
-        let doneButton = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(dismissKeyboard))
-        toolbar.items = [flexSpace, doneButton]
+        toolbar.items = [
+            UIBarButtonItem.flexibleSpace(),
+            UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(dismissKeyboard))
+        ]
         
         nameField.placeholder = "Name"
         nameField.attributedPlaceholder = NSAttributedString(
@@ -81,7 +90,7 @@ class ShareViewController: UIViewController {
         noteField.textContainerInset = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
         noteField.translatesAutoresizingMaskIntoConstraints = false
         
-        addButton.setTitle("Add images", for: .normal)
+        addButton.setTitle("Add image", for: .normal)
         addButton.setTitleColor(.white, for: .normal)
         addButton.titleLabel?.font = UIFont.boldSystemFont(ofSize: 18)
         addButton.backgroundColor = UIColor.systemBlue
@@ -92,10 +101,12 @@ class ShareViewController: UIViewController {
         view.addSubview(cancelButton)
         view.addSubview(titleLabel)
         view.addSubview(imageStackContainer)
+        view.addSubview(countBadge)
+        view.addSubview(nameLabel)
         view.addSubview(nameField)
+        view.addSubview(noteLabel)
         view.addSubview(noteField)
         view.addSubview(addButton)
-        view.addSubview(countBadge)
         
         NSLayoutConstraint.activate([
             cancelButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
@@ -104,22 +115,28 @@ class ShareViewController: UIViewController {
             titleLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
             titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             
-            imageStackContainer.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 32),
             imageStackContainer.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             imageStackContainer.widthAnchor.constraint(equalToConstant: 240),
-            imageStackContainer.heightAnchor.constraint(equalToConstant: 260),
+            imageStackContainer.heightAnchor.constraint(equalToConstant: 240),
+            imageStackContainer.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 28),
             
             countBadge.topAnchor.constraint(equalTo: imageStackContainer.topAnchor, constant: -8),
             countBadge.trailingAnchor.constraint(equalTo: imageStackContainer.trailingAnchor, constant: 8),
             countBadge.heightAnchor.constraint(equalToConstant: 24),
             countBadge.widthAnchor.constraint(greaterThanOrEqualToConstant: 32),
             
-            nameField.topAnchor.constraint(equalTo: imageStackContainer.bottomAnchor, constant: 24),
+            nameLabel.topAnchor.constraint(equalTo: imageStackContainer.bottomAnchor, constant: 24),
+            nameLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            
+            nameField.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 6),
             nameField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             nameField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             nameField.heightAnchor.constraint(equalToConstant: 44),
             
-            noteField.topAnchor.constraint(equalTo: nameField.bottomAnchor, constant: 12),
+            noteLabel.topAnchor.constraint(equalTo: nameField.bottomAnchor, constant: 16),
+            noteLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            
+            noteField.topAnchor.constraint(equalTo: noteLabel.bottomAnchor, constant: 6),
             noteField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             noteField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             noteField.heightAnchor.constraint(equalToConstant: 200),
@@ -135,17 +152,23 @@ class ShareViewController: UIViewController {
         guard let extensionItem = extensionContext?.inputItems.first as? NSExtensionItem,
               let attachments = extensionItem.attachments else { return }
         
+        var loadedCount = 0
+        
         for attachment in attachments {
             if attachment.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
                 attachment.loadItem(forTypeIdentifier: UTType.image.identifier, options: nil) { [weak self] (item, error) in
                     if let image = item as? UIImage {
                         DispatchQueue.main.async {
                             self?.addImagePreview(image)
+                            loadedCount += 1
                         }
                     } else if let url = item as? URL, let image = UIImage(contentsOfFile: url.path) {
                         DispatchQueue.main.async {
                             self?.addImagePreview(image)
+                            loadedCount += 1
                         }
+                    } else if let error = error {
+                        print("failed to load image: \(error.localizedDescription)")
                     }
                 }
             }
@@ -157,22 +180,41 @@ class ShareViewController: UIViewController {
         imageStackContainer.subviews.forEach { $0.removeFromSuperview() }
 
         let count = min(selectedImages.count, 3)
-        let imageSize: CGFloat = 220
-        let offset: CGFloat = 12
+        let imageSize: CGFloat = 180
+        let offset: CGFloat = 10
         let totalWidth = imageSize + CGFloat(count - 1) * offset
 
         for (index, img) in selectedImages.prefix(3).enumerated() {
             let imageView = UIImageView(image: img)
             imageView.contentMode = .scaleAspectFill
             imageView.clipsToBounds = true
-            imageView.layer.cornerRadius = 12
-
-            let x = (imageStackContainer.bounds.width - totalWidth) / 2 + CGFloat(index) * offset
-            let y = (imageStackContainer.bounds.height - imageSize) / 2 + CGFloat(index) * offset
-            imageView.frame = CGRect(x: x, y: y, width: imageSize, height: imageSize)
-
-            imageView.layer.borderColor = UIColor.white.withAlphaComponent(0.2).cgColor
+            imageView.layer.cornerRadius = 10
+            imageView.layer.borderColor = UIColor.white.withAlphaComponent(0.15).cgColor
             imageView.layer.borderWidth = 1
+            imageView.layer.shadowColor = UIColor.black.cgColor
+            imageView.layer.shadowOpacity = 0.25
+            imageView.layer.shadowRadius = 4
+            imageView.layer.shadowOffset = CGSize(width: 1, height: 1)
+            
+            // Default (no rotation or offset)
+            var rotationDegrees: CGFloat = 0
+            var offsetXY: CGPoint = .zero
+
+            // Apply random layout *only if more than one image*
+            if selectedImages.count > 1 {
+                switch index {
+                case 0: rotationDegrees = -5; offsetXY = CGPoint(x: -8, y: 4)
+                case 1: rotationDegrees = 3;  offsetXY = CGPoint(x: -2, y: -3)
+                case 2: rotationDegrees = 1;  offsetXY = CGPoint(x: 4, y: 3)
+                default: break
+                }
+            }
+
+            let x = (imageStackContainer.bounds.width - totalWidth) / 2 + CGFloat(index) * offset + offsetXY.x
+            let y = (imageStackContainer.bounds.height - imageSize) / 2 + CGFloat(index) * offset + offsetXY.y
+            imageView.frame = CGRect(x: x, y: y, width: imageSize, height: imageSize)
+            imageView.transform = CGAffineTransform(rotationAngle: rotationDegrees * (.pi / 180))
+            
             imageStackContainer.addSubview(imageView)
         }
 
@@ -182,10 +224,12 @@ class ShareViewController: UIViewController {
         } else {
             countBadge.isHidden = true
         }
+
+        addButton.setTitle(selectedImages.count == 1 ? "Add image" : "Add images", for: .normal)
     }
     
     @objc private func addToGallery() {
-        for image in selectedImages {
+        for (index, image) in selectedImages.enumerated() {
             saveImageToAppGroup(image, name: nameField.text, note: noteField.text)
         }
         
@@ -201,41 +245,46 @@ class ShareViewController: UIViewController {
     }
     
     private func saveImageToAppGroup(_ image: UIImage, name: String?, note: String?) {
-        guard let data = image.jpegData(compressionQuality: 0.9) else { return }
-        
+        guard let data = image.jpegData(compressionQuality: 0.9) else {
+            print("could not encode image JPEG data")
+            return
+        }
+
         let fileManager = FileManager.default
-        if let containerURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.mikaelsundell.filmlog") {
-            let timestamp = Int(Date().timeIntervalSince1970)
-            let baseName = "shared_\(timestamp)"
-            
-            let imageFileName = "\(baseName).jpg"
-            let imageFileURL = containerURL.appendingPathComponent(imageFileName)
-            
-            let metadataFileName = "\(baseName).json"
-            let metadataFileURL = containerURL.appendingPathComponent(metadataFileName)
-            
-            do {
-                try data.write(to: imageFileURL)
-                var metadata: [String: Any] = [
-                    "fileName": imageFileName,
-                    "timestamp": timestamp,
-                    "creator": Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "Unknown"
-                ]
-    
-                if let name = name, !name.isEmpty {
-                    metadata["name"] = name
-                }
-                
-                if let note = note, !note.isEmpty {
-                    metadata["note"] = note
-                }
-                
-                let jsonData = try JSONSerialization.data(withJSONObject: metadata, options: [.prettyPrinted])
-                try jsonData.write(to: metadataFileURL)
-                
-            } catch {
-                print("failed to save image or metadata: \(error)")
+        guard let containerURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.mikaelsundell.filmlog") else {
+            print("could not access shared container")
+            return
+        }
+        let uuid = UUID().uuidString
+        let baseName = "shared_\(uuid)"
+
+        let imageFileName = "\(baseName).jpg"
+        let imageFileURL = containerURL.appendingPathComponent(imageFileName)
+        let metadataFileName = "\(baseName).json"
+        let metadataFileURL = containerURL.appendingPathComponent(metadataFileName)
+
+        do {
+            try data.write(to: imageFileURL)
+
+            var metadata: [String: Any] = [
+                "fileName": imageFileName,
+                "uuid": uuid,
+                "timestamp": ISO8601DateFormatter().string(from: Date()),
+                "creator": Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "Unknown"
+            ]
+
+            if let name = name, !name.isEmpty {
+                metadata["name"] = name
             }
+            if let note = note, !note.isEmpty {
+                metadata["note"] = note
+            }
+
+            let jsonData = try JSONSerialization.data(withJSONObject: metadata, options: [.prettyPrinted])
+            try jsonData.write(to: metadataFileURL)
+        } catch {
+            print("failed to save image or metadata: \(error)")
         }
     }
+
 }

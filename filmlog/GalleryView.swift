@@ -30,8 +30,8 @@ struct ImageView: View {
 
 struct GalleryView: View {
     @Query private var galleries: [Gallery]
-    @State private var searchText: String = ""
-    @State private var selectedTag: Tag? = nil
+    @State private var filterText: String = ""
+    @State private var filterTags: [Tag] = []
     @State private var selectedItem: PhotosPickerItem? = nil
     @State private var selectedImage: ImageData? = nil
     
@@ -69,7 +69,7 @@ struct GalleryView: View {
                     HStack {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(.gray)
-                        TextField("Search images...", text: $searchText)
+                        TextField("Search images...", text: $filterText)
                             .textFieldStyle(.plain)
                             .autocorrectionDisabled()
                     }
@@ -251,16 +251,19 @@ struct GalleryView: View {
                 
             }
             
+            let images = sortedImages(filteredImages, option: selectedImageSort)
             if let image = activeImage,
-               let index = currentGallery.orderedImages.firstIndex(where: { $0.id == image.id }) {
+               let index = images.firstIndex(where: { $0.id == image.id }) {
                 ImageDetailView(
-                    image: currentGallery.orderedImages[index],
+                    image: images[index],
                     gallery: currentGallery,
-                    index: index,
-                    count: currentGallery.orderedImages.count,
-                    onSelect: { newIndex in
-                        guard newIndex >= 0 && newIndex < currentGallery.orderedImages.count else { return }
-                        activeImage = currentGallery.orderedImages[newIndex]
+                    onPrevious: {
+                        let previousIndex = (index - 1 + images.count) % images.count
+                        activeImage = images[previousIndex]
+                    },
+                    onNext: {
+                        let nextIndex = (index + 1) % images.count
+                        activeImage = images[nextIndex]
                     },
                     onBack: {
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -281,32 +284,35 @@ struct GalleryView: View {
                 importSharedImages()
             }
         }
-        .onChange(of: selectedItem) { _, newItem in
-            guard let newItem else { return }
-            
+        .onChange(of: selectedItems) { _, newItems in
+            guard !newItems.isEmpty else { return }
+
             Task {
-                if let data = try? await newItem.loadTransferable(type: Data.self),
-                   let uiImage = UIImage(data: data) {
-                    do {
-                        let newImage = ImageData()
-                        if newImage.updateFile(to: uiImage) {
-                            modelContext.insert(newImage)
-                            try modelContext.save()
+                for newItem in newItems {
+                    if let data = try? await newItem.loadTransferable(type: Data.self),
+                       let uiImage = UIImage(data: data) {
+                        do {
+                            let newImage = ImageData()
+                            if newImage.updateFile(to: uiImage) {
+                                modelContext.insert(newImage)
+                                try modelContext.save()
 
-                            withAnimation {
-                                currentGallery.addImage(newImage)
+                                withAnimation {
+                                    currentGallery.addImage(newImage)
+                                }
+
+                                try modelContext.save()
+                            } else {
+                                print("failed to save image file for new image")
                             }
-
-                            try modelContext.save()
-                        } else {
-                            print("failed to save image file for new image")
+                        } catch {
+                            print("failed to insert image: \(error)")
                         }
-                    } catch {
-                        print("failed to insert image: \(error)")
+                    } else {
+                        print("ould not load image from PhotosPicker item")
                     }
-                } else {
-                    print("could not load image from PhotosPicker")
                 }
+                selectedItems.removeAll()
             }
         }
         .toolbar {
@@ -335,7 +341,7 @@ struct GalleryView: View {
         .sheet(isPresented: $showTagSheet) {
             TagView(
                 gallery: currentGallery,
-                selectedTag: $selectedTag
+                filterTags: $filterTags
             )
             .presentationDetents([.medium, .large])
         }
@@ -381,13 +387,13 @@ struct GalleryView: View {
 
     private var filteredImages: [ImageData] {
         var imgs = currentGallery.orderedImages
-        if let tag = selectedTag {
-            imgs = imgs.filter { $0.tags.contains(tag) }
+        if !filterTags.isEmpty {
+            imgs = imgs.filter { !$0.tags.filter { filterTags.contains($0) }.isEmpty }
         }
-        if !searchText.isEmpty {
+        if !filterText.isEmpty {
             imgs = imgs.filter {
-                ($0.note?.localizedCaseInsensitiveContains(searchText) == true) ||
-                ($0.name?.localizedCaseInsensitiveContains(searchText) == true)
+                ($0.note?.localizedCaseInsensitiveContains(filterText) == true) ||
+                ($0.name?.localizedCaseInsensitiveContains(filterText) == true)
             }
         }
         return imgs
@@ -405,6 +411,7 @@ struct GalleryView: View {
     private func importSharedImages() {
         let fileManager = FileManager.default
         guard let containerURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.mikaelsundell.filmlog") else {
+            print("could not access shared app group container.")
             return
         }
 
@@ -415,12 +422,16 @@ struct GalleryView: View {
                 let ext = $0.pathExtension.lowercased()
                 return fileName.hasPrefix("shared_") && ["jpg", "jpeg", "png"].contains(ext)
             }
-            if imageFiles.isEmpty { return }
+
+            if imageFiles.isEmpty {
+                print("no shared images found in: \(containerURL.path)")
+                return
+            }
             
+            var importedCount = 0
             for imageFile in imageFiles {
                 let baseName = imageFile.deletingPathExtension().lastPathComponent
                 let jsonFile = containerURL.appendingPathComponent("\(baseName).json")
-
                 if let data = try? Data(contentsOf: imageFile),
                    let image = UIImage(data: data) {
 
@@ -435,37 +446,47 @@ struct GalleryView: View {
                         name = jsonObject["name"] as? String
                         note = jsonObject["note"] as? String
                         creator = jsonObject["creator"] as? String
-                        if let timestampString = jsonObject["timestamp"] as? String {
-                            let formatter = ISO8601DateFormatter()
-                            timestamp = formatter.date(from: timestampString)
+
+                        if let timestampValue = jsonObject["timestamp"] {
+                            if let timestampString = timestampValue as? String {
+                                let formatter = ISO8601DateFormatter()
+                                timestamp = formatter.date(from: timestampString)
+                            } else if let timestampInt = timestampValue as? Int {
+                                timestamp = Date(timeIntervalSince1970: TimeInterval(timestampInt))
+                            }
                         }
                     }
 
                     let newImage = ImageData(name: name, note: note, creator: creator)
                     newImage.timestamp = timestamp ?? Date()
 
-                    if let selectedTag {
-                        newImage.tags.append(selectedTag)
+                    if !filterTags.isEmpty {
+                        newImage.tags.append(contentsOf: filterTags)
                     }
 
                     if newImage.updateFile(to: image) {
                         modelContext.insert(newImage)
                         try modelContext.save()
                         currentGallery.addImage(newImage)
+
                         try? fileManager.removeItem(at: imageFile)
                         if fileManager.fileExists(atPath: jsonFile.path) {
                             try? fileManager.removeItem(at: jsonFile)
                         }
+
+                        importedCount += 1
                     } else {
-                        print("failed to save image data for file: \(imageFile.lastPathComponent)")
+                        print("failed to update file for image: \(imageFile.lastPathComponent)")
                     }
                 } else {
-                    print("could not load image from file: \(imageFile.lastPathComponent)")
+                    print("could not load image data from: \(imageFile.lastPathComponent)")
                 }
             }
             try modelContext.save()
+
         } catch {
             print("error reading shared images: \(error)")
         }
     }
+
 }

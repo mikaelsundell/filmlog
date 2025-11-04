@@ -13,7 +13,7 @@ Button("Capture and Export") {
                 self.showExport = true
             }
         } else {
-            print("Failed to capture image")
+            print("failed to capture image")
         }
     }
 }

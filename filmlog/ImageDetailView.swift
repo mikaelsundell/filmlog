@@ -8,9 +8,8 @@ import CoreLocation
 struct ImageDetailView: View {
     @Bindable var image: ImageData
     var gallery: Gallery
-    var index: Int
-    var count: Int
-    var onSelect: ((Int) -> Void)?
+    var onPrevious: (() -> Void)?
+    var onNext: (() -> Void)?
     var onBack: (() -> Void)?
 
     enum ActiveField {
@@ -45,8 +44,7 @@ struct ImageDetailView: View {
 
                 HStack(spacing: 8) {
                     Button {
-                        let previousIndex = (index - 1 + count) % count
-                        onSelect?(previousIndex)
+                        onPrevious?()
                     } label: {
                         Image(systemName: "chevron.up")
                             .font(.system(size: 24, weight: .regular))
@@ -54,8 +52,7 @@ struct ImageDetailView: View {
                     .buttonStyle(.borderless)
 
                     Button {
-                        let nextIndex = (index + 1) % count
-                        onSelect?(nextIndex)
+                        onNext?()
                     } label: {
                         Image(systemName: "chevron.down")
                             .font(.system(size: 24, weight: .regular))
@@ -67,25 +64,27 @@ struct ImageDetailView: View {
             }
             .background(Color.black)
             .shadow(radius: 2)
-            
-            if let uiImage = image.original ?? image.thumbnail {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.black)
-                    .cornerRadius(10)
-                    .padding(.horizontal, 16)   // add side padding
-                    .padding(.vertical, 12)     // increase top/bottom
-            } else {
-                Color.gray
-                    .frame(height: 180)
-                    .cornerRadius(10)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-            }
-            
+
             Form {
+                Section {
+                    if let uiImage = image.original ?? image.thumbnail {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.black)
+                            .cornerRadius(0)
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                    } else {
+                        Color.gray
+                            .frame(height: 180)
+                            .cornerRadius(0)
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                    }
+                }
+                
                 Section(
                     header: HStack {
                         Text("Image")
@@ -184,12 +183,12 @@ struct ImageDetailView: View {
     }
     
     private func toggleTag(_ tag: Tag) {
-        if let index = image.tags.firstIndex(where: { $0.id == tag.id }) {
-            image.tags.remove(at: index)
-        } else {
-            image.tags.append(tag)
-        }
         do {
+            if let index = image.tags.firstIndex(where: { $0.id == tag.id }) {
+                image.tags.remove(at: index)
+            } else {
+                image.tags.append(tag)
+            }
             try modelContext.save()
         } catch {
             print("failed to update image tags: \(error)")

@@ -6,7 +6,7 @@ import SwiftUI
 
 struct TagView: View {
     let gallery: Gallery
-    @Binding var selectedTag: Tag?
+    @Binding var filterTags: [Tag]
 
     @State private var filterText: String = ""
     @State private var activeTag: Tag? = nil
@@ -22,7 +22,6 @@ struct TagView: View {
     var body: some View {
         ZStack {
             if activeTag == nil {
-                
                 VStack(spacing: 0) {
                     Form {
                         Section {
@@ -68,9 +67,7 @@ struct TagView: View {
                                             .font(.caption)
                                             .padding(.horizontal, 14)
                                             .padding(.vertical, 7)
-                                            .background(
-                                                    tag.defaultColor.opacity(isSelected ? 1.0 : 0.1)
-                                            )
+                                            .background(tag.defaultColor.opacity(isSelected ? 1.0 : 0.1))
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 12)
                                                     .stroke(
@@ -112,8 +109,14 @@ struct TagView: View {
                     }
                 }
                 .background(Color(red: 0.05, green: 0.05, blue: 0.05))
+                .onAppear {
+                    selectedTags = Set(filterTags)
+                }
+                .onChange(of: selectedTags) { _, newValue in
+                    filterTags = Array(newValue)
+                }
             }
-            
+
             if let tag = activeTag,
                let index = gallery.orderedTags.firstIndex(where: { $0.id == tag.id }) {
                 TagDetailView(
@@ -139,7 +142,6 @@ struct TagView: View {
             let newTag = Tag(name: "New Tag", note: "")
             modelContext.insert(newTag)
             try modelContext.save()
-            
             gallery.tags.append(newTag)
         } catch {
             print("failed to create new tag: \(error)")

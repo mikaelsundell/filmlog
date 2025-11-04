@@ -788,6 +788,9 @@ class Tag: Codable {
     var note: String
     var color: String?
     
+    @Relationship(inverse: \ImageData.tags)
+    var images: [ImageData] = []
+    
     required init(name: String,
                   note: String = "") {
         self.name = name
