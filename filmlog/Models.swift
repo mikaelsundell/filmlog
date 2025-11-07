@@ -1465,4 +1465,9 @@ extension ModelContext {
         shot.cleanup(context: self)
         self.delete(shot)
     }
+    
+    func safelyDelete(_ image: ImageData) {
+        image.cleanup(context: self)
+        self.delete(image)
+    }
 }

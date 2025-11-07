@@ -38,6 +38,7 @@ struct GalleryView: View {
     @State private var showTagSheet = false
     @State private var showSlideShow = false
     @State private var showImagePicker = false
+    @State private var showDeleteAlert = false
     
     @State private var activeImage: ImageData? = nil
     
@@ -192,15 +193,7 @@ struct GalleryView: View {
                     HStack {
                         Button {
                             if isSelecting && !selectedImages.isEmpty {
-                                withAnimation(.easeInOut) {
-                                    for id in selectedImages {
-                                        if let image = images.first(where: { $0.id == id }) {
-                                            deleteImage(image)
-                                        }
-                                    }
-                                    selectedImages.removeAll()
-                                    isSelecting = false
-                                }
+                                showDeleteAlert = true  // 👈 trigger confirmation alert
                             }
                         } label: {
                             Image(systemName: "trash")
@@ -212,6 +205,22 @@ struct GalleryView: View {
                         }
                         .buttonStyle(.plain)
                         .help("Delete selected images")
+                        .alert("Are you sure?", isPresented: $showDeleteAlert) {
+                            Button("Delete", role: .destructive) {
+                                withAnimation(.easeInOut) {
+                                    for id in selectedImages {
+                                        if let image = images.first(where: { $0.id == id }) {
+                                            deleteImage(image)
+                                        }
+                                    }
+                                    selectedImages.removeAll()
+                                    isSelecting = false
+                                }
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("This will delete \(selectedImages.count) image\(selectedImages.count == 1 ? "" : "s"). Are you sure you want to proceed?")
+                        }
                         
                         Spacer()
                         
@@ -248,7 +257,6 @@ struct GalleryView: View {
                     .background(Color.black)
                     .ignoresSafeArea(edges: .bottom)
                 }
-                
             }
             
             let images = sortedImages(filteredImages, option: selectedImageSort)
@@ -256,7 +264,9 @@ struct GalleryView: View {
                let index = images.firstIndex(where: { $0.id == image.id }) {
                 ImageDetailView(
                     image: images[index],
-                    gallery: currentGallery,
+                    gallery: gallery,
+                    index: index,
+                    count: images.count,
                     onPrevious: {
                         let previousIndex = (index - 1 + images.count) % images.count
                         activeImage = images[previousIndex]
@@ -267,6 +277,12 @@ struct GalleryView: View {
                     },
                     onBack: {
                         withAnimation(.easeInOut(duration: 0.2)) {
+                            activeImage = nil
+                        }
+                    },
+                    onDelete: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            gallery.deleteImage(image, context: modelContext)
                             activeImage = nil
                         }
                     }
@@ -298,7 +314,7 @@ struct GalleryView: View {
                                 try modelContext.save()
 
                                 withAnimation {
-                                    currentGallery.addImage(newImage)
+                                    gallery.addImage(newImage)
                                 }
 
                                 try modelContext.save()
@@ -340,7 +356,7 @@ struct GalleryView: View {
         }
         .sheet(isPresented: $showTagSheet) {
             TagView(
-                gallery: currentGallery,
+                gallery: gallery,
                 filterTags: $filterTags
             )
             .presentationDetents([.medium, .large])
@@ -374,7 +390,7 @@ struct GalleryView: View {
         }
     }
 
-    private var currentGallery: Gallery {
+    private var gallery: Gallery {
         if let gallery = galleries.first {
             return gallery
         } else {
@@ -386,7 +402,7 @@ struct GalleryView: View {
     }
 
     private var filteredImages: [ImageData] {
-        var imgs = currentGallery.orderedImages
+        var imgs = gallery.orderedImages
         if !filterTags.isEmpty {
             imgs = imgs.filter { !$0.tags.filter { filterTags.contains($0) }.isEmpty }
         }
@@ -401,7 +417,7 @@ struct GalleryView: View {
     
     private func deleteImage(_ image: ImageData) {
         do {
-            currentGallery.deleteImage(image, context: modelContext)
+            gallery.deleteImage(image, context: modelContext)
             try modelContext.save()
         } catch {
             print("failed to delete image: \(error)")
@@ -467,7 +483,7 @@ struct GalleryView: View {
                     if newImage.updateFile(to: image) {
                         modelContext.insert(newImage)
                         try modelContext.save()
-                        currentGallery.addImage(newImage)
+                        gallery.addImage(newImage)
 
                         try? fileManager.removeItem(at: imageFile)
                         if fileManager.fileExists(atPath: jsonFile.path) {
@@ -488,5 +504,4 @@ struct GalleryView: View {
             print("error reading shared images: \(error)")
         }
     }
-
 }

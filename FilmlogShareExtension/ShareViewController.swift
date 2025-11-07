@@ -229,7 +229,7 @@ class ShareViewController: UIViewController {
     }
     
     @objc private func addToGallery() {
-        for (index, image) in selectedImages.enumerated() {
+        for (_, image) in selectedImages.enumerated() {
             saveImageToAppGroup(image, name: nameField.text, note: noteField.text)
         }
         
