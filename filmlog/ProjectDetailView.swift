@@ -113,6 +113,18 @@ struct ProjectDetailView: View {
                             .buttonStyle(.plain)
                             .foregroundColor(.blue)
                             .help("Delete project")
+                            .alert("Are you sure?", isPresented: $showDeleteAlert) {
+                                Button("Delete", role: .destructive) {
+                                    withAnimation {
+                                        modelContext.safelyDelete(project)
+                                        selectedProject = nil
+                                        dismiss()
+                                    }
+                                }
+                                Button("Cancel", role: .cancel) {}
+                            } message: {
+                                Text("This project contains \(project.shots.count) shot\(project.shots.count == 1 ? "" : "s"). Are you sure you want to delete it?")
+                            }
                             
                             Spacer()
                             
@@ -185,8 +197,15 @@ struct ProjectDetailView: View {
                     project: project,
                     index: index,
                     count: project.orderedShots.count,
-                    onDelete: {
-                        project.shots.removeAll { $0.id == shot.id }
+                    onPrevious: {
+                        let previousIndex = (index - 1 + project.orderedShots.count) % project.orderedShots.count
+                        activeShot = project.orderedShots[previousIndex]
+                    },
+                    onNext: {
+                        let nextIndex = (index + 1) % project.orderedShots.count
+                        activeShot = project.orderedShots[nextIndex]
+                    },
+                    onBack: {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             activeShot = nil
                         }
@@ -195,8 +214,9 @@ struct ProjectDetailView: View {
                         guard newIndex >= 0 && newIndex < project.orderedShots.count else { return }
                         activeShot = project.orderedShots[newIndex]
                     },
-                    onBack: {
+                    onDelete: {
                         withAnimation(.easeInOut(duration: 0.2)) {
+                            project.deleteShot(shot, context: modelContext)
                             activeShot = nil
                         }
                     }
@@ -206,7 +226,7 @@ struct ProjectDetailView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: activeShot)
-        .navigationTitle("\(project.name.isEmpty ? "" : project.name)")
+        .navigationTitle("\(project.name.isEmpty ? "Untitled" : project.name)")
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 if activeShot == nil {
@@ -247,18 +267,6 @@ struct ProjectDetailView: View {
                     }
                 }
             }
-        }
-        .alert("Are you sure?", isPresented: $showDeleteAlert) {
-            Button("Delete", role: .destructive) {
-                withAnimation {
-                    modelContext.safelyDelete(project)
-                    selectedProject = nil
-                    dismiss()
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This project contains \(project.shots.count) shot\(project.shots.count == 1 ? "" : "s"). Are you sure you want to delete it?")
         }
     }
     

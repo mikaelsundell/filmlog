@@ -44,9 +44,11 @@ struct ShotDetailView: View {
     var project: Project
     var index: Int
     var count: Int
-    var onDelete: (() -> Void)?
-    var onSelect: ((Int) -> Void)?
+    var onPrevious: (() -> Void)?
+    var onNext: (() -> Void)?
     var onBack: (() -> Void)?
+    var onSelect: ((Int) -> Void)?
+    var onDelete: (() -> Void)?
 
     enum ActiveField {
         case name, note, locationElevation, locationColorTemperature, focusDistance
@@ -74,7 +76,7 @@ struct ShotDetailView: View {
                     .buttonStyle(.borderless)
                 }
                 .frame(width: 80, alignment: .leading)
-                Text(shot.name)
+                Text(shot.name.isEmpty ? "Untitled" : shot.name)
                     .font(.system(size: 16, weight: .semibold))
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -84,8 +86,7 @@ struct ShotDetailView: View {
 
                 HStack(spacing: 8) {
                     Button {
-                        let previousIndex = (index - 1 + count) % count
-                        onSelect?(previousIndex)
+                        onPrevious?()
                     } label: {
                         Image(systemName: "chevron.up")
                             .font(.system(size: 24, weight: .regular))
@@ -93,8 +94,7 @@ struct ShotDetailView: View {
                     .buttonStyle(.borderless)
 
                     Button {
-                        let nextIndex = (index + 1) % count
-                        onSelect?(nextIndex)
+                        onNext?()
                     } label: {
                         Image(systemName: "chevron.down")
                             .font(.system(size: 24, weight: .regular))
@@ -156,21 +156,6 @@ struct ShotDetailView: View {
                     requestingLocation = false
                 }
             }
-            .alert("Are you sure?", isPresented: $showDeleteAlert) {
-                Button("Delete", role: .destructive) {
-                    withAnimation {
-                        modelContext.safelyDelete(shot)
-                        onDelete?()
-                    }
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                if index == count - 1 {
-                    Text("This shot contains associated data. Are you sure you want to delete it?")
-                } else {
-                    Text("Deleting this shot will change the shot order. Are you sure you want to proceed?")
-                }
-            }
             
             if activeField == nil {
                 HStack {
@@ -185,8 +170,17 @@ struct ShotDetailView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(.blue)
-                    .help("Delete project")
-                    
+                    .help("Delete shot?")
+                    .alert("Are you sure?", isPresented: $showDeleteAlert) {
+                        Button("Delete", role: .destructive) {
+                            withAnimation {
+                                onDelete?()
+                            }
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("This shot contains associated data. Are you sure you want to delete it?")
+                    }
                     Spacer()
                     
                     HStack(spacing: 6) {

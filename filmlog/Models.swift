@@ -1056,6 +1056,13 @@ class Project: Codable {
             return timestamp
         }
     }
+    
+    func deleteShot(_ shot: Shot, context: ModelContext) {
+        if let index = shots.firstIndex(where: { $0.id == shot.id }) {
+            shots.remove(at: index)
+            context.delete(shot)
+        }
+    }
 
     required init(name: String = "",
          note: String = "",
