@@ -55,6 +55,10 @@ extension CGSize {
         let scaleH = other.height / height
         return min(scaleW, scaleH)
     }
+    
+    func isApproximatelyEqual(to other: CGSize, tolerance: CGFloat = 0.5) -> Bool {
+        abs(width - other.width) < tolerance && abs(height - other.height) < tolerance
+    }
 
     static func * (lhs: CGSize, rhs: CGFloat) -> CGSize {
         CGSize(width: lhs.width * rhs, height: lhs.height * rhs)

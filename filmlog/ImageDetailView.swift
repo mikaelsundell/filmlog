@@ -73,7 +73,11 @@ struct ImageDetailView: View {
                 .shadow(radius: 2)
                 
                 Form {
-                    Section {
+                    Section(
+                        header: HStack {
+                            Text("Preview")
+                        }
+                    ) {
                         if let uiImage = image.original ?? image.thumbnail {
                             Image(uiImage: uiImage)
                                 .resizable()

@@ -16,7 +16,7 @@ struct ShotSectionView: View {
     @Environment(\.modelContext) private var modelContext
     
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             ZStack {
                 Color.black
                 if let image = shot.imageData?.thumbnail {
@@ -45,7 +45,7 @@ struct ShotSectionView: View {
                             MaskView(
                                 frameSize: imageSize.isLandscape ? displayedSize : displayedSize.toPortrait(),
                                 aspectSize: imageSize.isLandscape ? aspectFrame : aspectFrame.toPortrait(),
-                                radius: 2,
+                                radius: 4,
                                 inner: 0.4,
                                 outer: 0.995,
                                 geometry: geometry
@@ -53,33 +53,39 @@ struct ShotSectionView: View {
                         }
                     }
                     .id(shot.id)
+                    .padding(3)
                 } else {
-                    Text("No image")
-                        .foregroundColor(.secondary)
-                        .padding(6)
+                    Rectangle()
+                    .fill(Color(red: 0.05, green: 0.05, blue: 0.05))
+                    .overlay(
+                        Text("No image")
+                            .foregroundColor(.secondary)
+                    )
+                    .cornerRadius(4)
                         
                 }
             }
-            .frame(height: 220)
-            .cornerRadius(2)
-            .padding(.top, 4)
+            .frame(maxWidth: .infinity)
+            .aspectRatio(shot.imageData?.original.map { $0.size.width / $0.size.height } ?? 3/2,
+                         contentMode: .fit)
             .clipped()
 
             if let metadata = shot.imageData?.metadata, !metadata.isEmpty {
                 ImageMetadataView(imageData: shot.imageData)
+                    .padding(-4)
             }
 
             if !isLocked {
-                HStack(spacing: 12) {
+                HStack(spacing: 16) {
                     Button {
                         showCamera = true
                     } label: {
                         Circle()
-                            .fill(Color.black)
-                            .frame(width: 56, height: 56)
+                            .fill(Color(red: 0.1, green: 0.1, blue: 0.1))
+                            .frame(width: 64, height: 64)
                             .overlay(
                                 Image(systemName: "camera.fill")
-                                    .font(.system(size: 22, weight: .medium))
+                                    .font(.system(size: 24, weight: .medium))
                                     .foregroundColor(.accentColor)
                                     .offset(y: -1)
                             )
@@ -90,11 +96,11 @@ struct ShotSectionView: View {
                         showDeleteAlert = true
                     } label: {
                         Circle()
-                            .fill(Color.black)
-                            .frame(width: 56, height: 56)
+                            .fill(Color(red: 0.1, green: 0.1, blue: 0.1))
+                            .frame(width: 64, height: 64)
                             .overlay(
                                 Image(systemName: "trash.fill")
-                                    .font(.system(size: 22, weight: .medium))
+                                    .font(.system(size: 24, weight: .medium))
                                     .foregroundColor(.accentColor)
                             )
                     }
@@ -114,6 +120,7 @@ struct ShotSectionView: View {
                 .padding(.bottom, 8)
             }
         }
+        .transaction { $0.animation = nil } 
         .fullScreenCover(isPresented: $showCamera) {
             ShotViewfinderView(shot: shot) { image in
                 onImagePicked(image)

@@ -123,7 +123,7 @@ struct ShotDetailView: View {
             .shadow(radius: 2)
             
             Form {
-                imageSection
+                viewfinderSection
                 shotSection
                 locationSection
                 cameraSection
@@ -226,8 +226,8 @@ struct ShotDetailView: View {
         .navigationBarBackButtonHidden(false)
     }
     
-    private var imageSection: some View {
-        Section(header: Text("Image")) {
+    private var viewfinderSection: some View {
+        Section(header: Text("Viewfinder")) {
             ShotSectionView(
                     shot: shot,
                     isLocked: shot.isLocked
@@ -277,8 +277,13 @@ struct ShotDetailView: View {
                         shot.updateImage(to: newImage, context: modelContext)
                     }
                 }
-            .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+            .padding(.horizontal, 0)
+            .padding(.vertical, 6)
+            .listRowInsets(EdgeInsets())
         }
+        .listRowBackground(Color.black)
+        .listRowSeparator(.hidden)
+        .listSectionSpacing(0)
     }
     
     private var shotSection: some View {

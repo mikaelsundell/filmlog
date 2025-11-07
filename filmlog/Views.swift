@@ -720,14 +720,17 @@ struct MaskView: View {
                 .frame(width: frameSize.width, height: frameSize.height)
                 .position(x: width / 2, y: height / 2)
 
-            Rectangle()
-                .stroke(.blue, lineWidth: 2)
-                .frame(width: aspectSize.width, height: aspectSize.height)
-                .position(x: width / 2, y: height / 2)
+            if !frameSize.isApproximatelyEqual(to: aspectSize, tolerance: 1.0) {
+                Rectangle()
+                    .stroke(.blue, lineWidth: 1)
+                    .frame(width: aspectSize.width, height: aspectSize.height)
+                    .position(x: width / 2, y: height / 2)
+            }
         }
         .allowsHitTesting(false)
         .ignoresSafeArea()
     }
+    
 }
 
 struct SymmetryView: View {

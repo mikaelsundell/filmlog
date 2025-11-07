@@ -141,7 +141,7 @@ struct ShotViewfinderView: View {
                                 ZStack {
                                     Image(uiImage: image)
                                         .scaleEffect(scale)
-                                        .rotationEffect(.degrees(90)) // to potrait
+                                        .rotationEffect(.degrees(90))
                                 }
                                 .clipped()
                                 .ignoresSafeArea()
@@ -174,6 +174,7 @@ struct ShotViewfinderView: View {
                                         .animation(.easeOut(duration: 0.3), value: scaleRatio)
                                     
                                     CameraMetalPreview(renderer: cameraModel.renderer)
+                                    
                                 }
                                 .scaleEffect(scale)
                             }
@@ -184,10 +185,13 @@ struct ShotViewfinderView: View {
                         MaskView(
                             frameSize: displaySize,
                             aspectSize: aspectFrame,
-                            radius: 6,
+                            radius: 8,
                             inner: 0.4,
                             outer: 0.995,
                             geometry: geometry
+                        )
+                        .clipShape(
+                            RoundedRectangle(cornerRadius: 8)
                         )
                         
                         if centerMode != .off && (activeControls == .overlay || activeControls == .none) {
@@ -255,6 +259,11 @@ struct ShotViewfinderView: View {
                     }
                     .transition(.opacity)
                     .animation(.easeInOut(duration: 0.3), value: isCaptured)
+                    .mask(
+                        RoundedRectangle(cornerRadius: 8)
+                            .frame(width: displaySize.width, height: displaySize.height)
+                            .position(x: width / 2, y: height / 2)
+                    )
                     
                     if activeControls == .none {
                         let scale = (width * scale) / width;
@@ -934,7 +943,7 @@ struct ShotViewfinderView: View {
             shot.deviceRoll = normalized.roll
             shot.deviceTilt = normalized.tilt
         }
-
+        
         shot.deviceLens = cameraModel.lensType.rawValue
         onCapture(croppedImage)
     }
