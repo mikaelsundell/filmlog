@@ -82,7 +82,7 @@ struct ShotSectionView: View {
                     } label: {
                         Circle()
                             .fill(Color(red: 0.1, green: 0.1, blue: 0.1))
-                            .frame(width: 64, height: 64)
+                            .frame(width: 56, height: 56)
                             .overlay(
                                 Image(systemName: "camera.fill")
                                     .font(.system(size: 24, weight: .medium))
@@ -97,7 +97,7 @@ struct ShotSectionView: View {
                     } label: {
                         Circle()
                             .fill(Color(red: 0.1, green: 0.1, blue: 0.1))
-                            .frame(width: 64, height: 64)
+                            .frame(width: 56, height: 56)
                             .overlay(
                                 Image(systemName: "trash.fill")
                                     .font(.system(size: 24, weight: .medium))

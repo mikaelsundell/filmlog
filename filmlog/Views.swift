@@ -277,6 +277,7 @@ struct ControlButton {
     let icon: String
     let label: String
     let action: () -> Void
+    var foreground: Color = .white
     var background: Color = Color.black.opacity(0.6)
     var rotation: Angle = .zero
 }
@@ -318,19 +319,19 @@ struct ControlsView<Overlay: View>: View {
                     ZStack {
                         Color.clear
                             .frame(height: height)
-                        HStack(spacing: 24) {
+                        HStack(spacing: 20) {
                             ForEach(buttons, id: \.label) { button in
                                 Button(action: button.action) {
-                                    VStack(spacing: 4) {
+                                    VStack(spacing: 8) {
                                         ZStack {
                                             Circle()
                                                 .fill(button.background)
-                                                .frame(width: 42, height: 42)
+                                                .frame(width: 32, height: 32)
                                             
                                             Image(systemName: button.icon)
-                                                .font(.system(size: 20, weight: .medium))
-                                                .foregroundColor(.white)
-                                                .frame(width: 42, height: 42)
+                                                .font(.system(size: 16, weight: .medium))
+                                                .foregroundColor(button.foreground)
+                                                .frame(width: 32, height: 32)
                                                 .background(button.background)
                                                 .clipShape(Circle())
                                                 .animation(.easeInOut(duration: 0.25), value: button.background)
@@ -342,7 +343,7 @@ struct ControlsView<Overlay: View>: View {
                                             .font(.system(size: 12))
                                             .foregroundColor(.white)
                                     }
-                                    .frame(width: 64)
+                                    .frame(width: 52)
                                     .rotationEffect(button.rotation)
                                 }
                                 .buttonStyle(.plain)
@@ -765,8 +766,8 @@ struct MaskView: View {
     }
 }
 
-struct SymmetryView: View {
-    let symmetryMode: ToggleMode
+struct GridView: View {
+    let gridMode: ToggleMode
     let size: CGSize
     let geometry: GeometryProxy
     
@@ -812,8 +813,8 @@ struct SymmetryView: View {
             lines.move(to: CGPoint(x: 0, y: height - cross.height))
             lines.addLine(to: CGPoint(x: width, y: height - cross.height))
             
-            let opacity = symmetryMode == .full ? 0.8 : 0.4
-            let lineWidth: CGFloat = symmetryMode == .full ? 2 : 1
+            let opacity = gridMode == .full ? 0.8 : 0.4
+            let lineWidth: CGFloat = gridMode == .full ? 2 : 1
             
             context.stroke(lines, with: .color(.white.opacity(opacity)), lineWidth: lineWidth)
         }

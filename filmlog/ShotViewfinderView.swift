@@ -34,6 +34,7 @@ struct ShotViewfinderView: View {
     
     enum ControlTypes {
         case none
+        case opacityPicker
         case effectPicker
         case colorPicker
         case ndPicker
@@ -50,10 +51,10 @@ struct ShotViewfinderView: View {
         set { centerModeRawValue = newValue.rawValue }
     }
     
-    @AppStorage("symmetryMode") private var symmetryModeRawValue: Int = ToggleMode.off.rawValue
-    private var symmetryMode: ToggleMode {
-        get { ToggleMode(rawValue: symmetryModeRawValue) ?? .off }
-        set { symmetryModeRawValue = newValue.rawValue }
+    @AppStorage("gridMode") private var gridModeRawValue: Int = ToggleMode.off.rawValue
+    private var gridMode: ToggleMode {
+        get { ToggleMode(rawValue: gridModeRawValue) ?? .off }
+        set { gridModeRawValue = newValue.rawValue }
     }
     
     @AppStorage("levelMode") private var levelModeRawValue: Int = ToggleMode.off.rawValue
@@ -62,7 +63,7 @@ struct ShotViewfinderView: View {
         set { levelModeRawValue = newValue.rawValue }
     }
     
-    @AppStorage("metaDataMode") private var metaDataMode: Bool = true
+    @AppStorage("textMode") private var textMode: Bool = true
     
     @AppStorage("imageMode") private var imageMode: Bool = true
     @AppStorage("overlayOpacity") private var overlayOpacity: Double = 0.4
@@ -208,9 +209,9 @@ struct ShotViewfinderView: View {
                             .position(x: width / 2, y: height / 2)
                         }
                         
-                        if symmetryMode != .off && (activeControls == .guides || activeControls == .none) {
-                            SymmetryView(
-                                symmetryMode: symmetryMode,
+                        if gridMode != .off && (activeControls == .guides || activeControls == .none) {
+                            GridView(
+                                gridMode: gridMode,
                                 size: aspectFrame,
                                 geometry: geometry
                             )
@@ -247,7 +248,7 @@ struct ShotViewfinderView: View {
                                 }
                             }
                             
-                            if metaDataMode && (activeControls == .guides || activeControls == .none) {
+                            if textMode && (activeControls == .guides || activeControls == .none) {
                                 let aperture = CameraUtils.aperture(for: shot.aperture)
                                 let colorFilter = CameraUtils.colorFilter(for: shot.colorFilter)
                                 let ndFilter = CameraUtils.ndFilter(for: shot.ndFilter)
@@ -336,7 +337,7 @@ struct ShotViewfinderView: View {
                     buttons: [
                         ControlButton(
                             icon: "gyroscope",
-                            label: "Gyroscope",
+                            label: "Level",
                             action: {
                                 levelModeRawValue = levelMode.next().rawValue
                             },
@@ -345,11 +346,11 @@ struct ShotViewfinderView: View {
                         ),
                         ControlButton(
                             icon: "grid",
-                            label: "Symmetry",
+                            label: "Grid",
                             action: {
-                                symmetryModeRawValue = symmetryMode.next().rawValue
+                                gridModeRawValue = gridMode.next().rawValue
                             },
-                            background: symmetryMode.color,
+                            background: gridMode.color,
                             rotation: orientationObserver.orientation.toLandscape
                         ),
                         ControlButton(
@@ -363,11 +364,11 @@ struct ShotViewfinderView: View {
                         ),
                         ControlButton(
                             icon: "textformat",
-                            label: "Metadata",
+                            label: "Text",
                             action: {
-                                metaDataMode.toggle()
+                                textMode.toggle()
                             },
-                            background: (metaDataMode) ? Color.blue.opacity(0.4) : Color.clear,
+                            background: (textMode) ? Color.blue.opacity(0.4) : Color.clear,
                             rotation: orientationObserver.orientation.toLandscape
                         )
                     ]
@@ -384,16 +385,62 @@ struct ShotViewfinderView: View {
                     isVisible: .constant(true),
                     buttons: [
                         ControlButton(
-                            icon: "photo.on.rectangle",
+                            icon: imageMode ? "eye" : "eye.slash",
                             label: "Image",
-                            action: {
-                                showGalleryPicker = true
-                            },
-                            background: (metaDataMode) ? Color.blue.opacity(0.4) : Color.clear,
+                            action: { imageMode.toggle() },
+                            background: imageMode ? Color.blue.opacity(0.4) : Color.clear,
                             rotation: orientationObserver.orientation.toLandscape
                         ),
-                    ]
-                )
+                        ControlButton(
+                            icon: overlayImage == nil ? "photo.on.rectangle" : "trash",
+                            label: overlayImage == nil ? "Pick" : "Delete",
+                            action: {
+                                if imageMode {
+                                    if overlayImage == nil {
+                                        showGalleryPicker = true
+                                    } else {
+                                        overlayImage = nil
+                                    }
+                                }
+                            },
+                            foreground: imageMode ? .white : Color.white.opacity(0.4),
+                            background: overlayImage == nil
+                                ? (imageMode ? Color.clear : Color.black.opacity(0.2))
+                                : (imageMode ? Color.red.opacity(0.4) : Color.red.opacity(0.15)),
+                            rotation: orientationObserver.orientation.toLandscape
+                        ),
+                        ControlButton(
+                            icon: "circle.lefthalf.filled",
+                            label: "Opacity",
+                            action: {
+                                if imageMode {
+                                    activeControlType = (activeControlType == .opacityPicker) ? nil : .opacityPicker
+                                }
+                            },
+                            foreground: imageMode ? .white : Color.white.opacity(0.2),
+                            background: imageMode
+                                ? (activeControlType == .opacityPicker ? Color.blue.opacity(0.4) : Color.clear)
+                                : Color.black.opacity(0.2),
+                            rotation: orientationObserver.orientation.toLandscape
+                        )
+                    ],
+                    showOverlay: activeControlType == .opacityPicker
+                ) {
+                    CircularPickerView(
+                        selectedLabel: String(format: "%.0f%%", overlayOpacity * 100),
+                        labels: stride(from: 0.0, through: 1.0, by: 0.1)
+                            .map { String(format: "%.0f%%", $0 * 100) },
+                        onChange: { selected in
+                            if imageMode,
+                               let value = Double(selected.replacingOccurrences(of: "%", with: "")) {
+                                overlayOpacity = value / 100.0
+                            }
+                        },
+                        onRelease: { _ in }
+                    )
+                    .frame(width: 240, height: 240)
+                    .rotationEffect(orientationObserver.orientation.toLandscape)
+                }
                 .fullScreenCover(isPresented: $showGalleryPicker) {
                     GalleryPicker(selectedImage: $overlayImage)
                 }
@@ -403,7 +450,7 @@ struct ShotViewfinderView: View {
                 .transition(.opacity)
                 .zIndex(2)
             }
-            
+
             if activeControls == .effect {
                 ControlsView(
                     isVisible: .constant(true),
