@@ -606,19 +606,19 @@ struct ImageUtils {
 
         private let folderURL: URL = {
             let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            let folder = docs.appendingPathComponent("data")
+            let folder = docs.appendingPathComponent("File Storage")
             if !FileManager.default.fileExists(atPath: folder.path) {
                 try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: nil)
             }
             return folder
         }()
 
-        private func fileURL(for id: UUID, type: FileType) -> URL {
+        private func imageURL(for id: UUID, type: FileType) -> URL {
             return folderURL.appendingPathComponent("\(id.uuidString)_\(type.rawValue).jpg")
         }
         
         func imageSize(id: UUID, type: FileType) -> Int {
-            let url = fileURL(for: id, type: type)
+            let url = imageURL(for: id, type: type)
             if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
                let fileSize = attrs[.size] as? NSNumber {
                 return fileSize.intValue
@@ -626,8 +626,8 @@ struct ImageUtils {
             return 0
         }
         
-        func fileExists(id: UUID, type: FileType) -> Bool {
-            let url = fileURL(for: id, type: type)
+        func imageExists(id: UUID, type: FileType) -> Bool {
+            let url = imageURL(for: id, type: type)
             return FileManager.default.fileExists(atPath: url.path)
         }
 
@@ -651,7 +651,7 @@ struct ImageUtils {
         }
 
         func saveImageFile(_ data: Data, id: UUID, type: FileType) -> Bool {
-            let fileURL = fileURL(for: id, type: type)
+            let fileURL = imageURL(for: id, type: type)
             do {
                 try data.write(to: fileURL)
                 return true
@@ -662,18 +662,18 @@ struct ImageUtils {
         }
 
         func loadImage(id: UUID, type: FileType) -> UIImage? {
-            let url = fileURL(for: id, type: type)
+            let url = imageURL(for: id, type: type)
             guard let data = try? Data(contentsOf: url) else { return nil }
             return UIImage(data: data)
         }
 
         func loadImageData(id: UUID, type: FileType) -> Data? {
-            let url = fileURL(for: id, type: type)
+            let url = imageURL(for: id, type: type)
             return try? Data(contentsOf: url)
         }
 
         func deleteImage(id: UUID, type: FileType) -> Bool {
-            let url = fileURL(for: id, type: type)
+            let url = imageURL(for: id, type: type)
             if FileManager.default.fileExists(atPath: url.path) {
                 do {
                     try FileManager.default.removeItem(at: url)
@@ -903,7 +903,7 @@ class ImageData: Codable {
         creator: String? = nil,
         metadata: [String: DataValue] = [:]
     ) {
-        self.referenceCount = 1
+        self.referenceCount = 0
         self.tags = tags
         self.name = name
         self.note = note
@@ -979,19 +979,36 @@ class Gallery: Codable {
     
     @Relationship private var images: [ImageData] = []
     
-    func addImage(_ image: ImageData) {
-        if !images.contains(where: { $0.id == image.id }) {
-            image.incrementReference()
-            images.append(image)
+    func addImage(_ newImage: ImageData) {
+        if images.contains(where: { $0.id == newImage.id }) {
+            return
         }
+        newImage.incrementReference()
+        images.append(newImage)
+        timestamp = Date()
     }
-    
+
+    func updateImage(from oldImage: ImageData?, to newImage: ImageData?, context: ModelContext) {
+        if oldImage?.id == newImage?.id {
+            return
+        }
+        if let oldImage = oldImage {
+            deleteImage(oldImage, context: context)
+        }
+        if let newImage = newImage {
+            addImage(newImage)
+        }
+
+        timestamp = Date()
+    }
+
     func deleteImage(_ image: ImageData, context: ModelContext) {
         if let index = images.firstIndex(where: { $0.id == image.id }) {
             images.remove(at: index)
             if image.decrementReference() {
                 context.delete(image)
             }
+            timestamp = Date()
         }
     }
     
@@ -1060,7 +1077,7 @@ class Project: Codable {
     func deleteShot(_ shot: Shot, context: ModelContext) {
         if let index = shots.firstIndex(where: { $0.id == shot.id }) {
             shots.remove(at: index)
-            context.delete(shot)
+            context.safelyDelete(shot)
         }
     }
 
@@ -1206,6 +1223,9 @@ class Shot: Codable {
     }
     
     func updateImage(to newImage: ImageData?, context: ModelContext) {
+        if let currentImage = image, currentImage.id == newImage?.id {
+            return
+        }
         deleteImage(context: context)
         if let newImage = newImage {
             newImage.incrementReference()
@@ -1213,15 +1233,14 @@ class Shot: Codable {
         self.timestamp = Date()
         self.image = newImage
     }
-    
+
     func deleteImage(context: ModelContext) {
-        if let image = self.image {
-            if image.decrementReference() {
-                context.delete(image)
-            }
-            self.timestamp = Date()
-            self.image = nil
+        guard let image = self.image else { return }
+        if image.decrementReference() {
+            context.delete(image)
         }
+        self.timestamp = Date()
+        self.image = nil
     }
 
     required init(filmSize: String = "135 (35mm)",
