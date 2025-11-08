@@ -76,7 +76,7 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button(action: addProject) {
-                        Label("Add project", systemImage: "plus")
+                        Label("Add project", systemImage: "plus.circle")
                     }
 
                     NavigationLink(destination: GalleryView()) {

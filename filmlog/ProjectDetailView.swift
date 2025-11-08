@@ -216,8 +216,16 @@ struct ProjectDetailView: View {
                     },
                     onDelete: {
                         withAnimation(.easeInOut(duration: 0.2)) {
+                            let shots = project.orderedShots
+                            guard let currentIndex = shots.firstIndex(where: { $0.id == shot.id }) else { return }
                             project.deleteShot(shot, context: modelContext)
-                            activeShot = nil
+                            let remainingShots = project.orderedShots
+                            if !remainingShots.isEmpty {
+                                let nextIndex = currentIndex < remainingShots.count ? currentIndex : max(remainingShots.count - 1, 0)
+                                activeShot = remainingShots[nextIndex]
+                            } else {
+                                activeShot = nil
+                            }
                         }
                     }
                 )
@@ -233,7 +241,7 @@ struct ProjectDetailView: View {
                     Button {
                         addShot(count: 1)
                     } label: {
-                        Label("Add shot", systemImage: "plus")
+                        Label("Add shot", systemImage: "plus.circle")
                     }
                     
                     Button(action: {

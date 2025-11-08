@@ -86,7 +86,7 @@ struct ShotDetailView: View {
 
                 HStack(spacing: 8) {
                     Button {
-                        onPrevious?()
+                        onNext?()
                     } label: {
                         Image(systemName: "chevron.up")
                             .font(.system(size: 24, weight: .regular))
@@ -94,7 +94,7 @@ struct ShotDetailView: View {
                     .buttonStyle(.borderless)
 
                     Button {
-                        onNext?()
+                        onPrevious?()
                     } label: {
                         Image(systemName: "chevron.down")
                             .font(.system(size: 24, weight: .regular))

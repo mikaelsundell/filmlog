@@ -40,6 +40,9 @@ struct GalleryView: View {
     @State private var showImagePicker = false
     @State private var showDeleteAlert = false
     
+    @State private var showPresentation = false
+    @State private var presentationStartIndex = 0
+    
     @State private var activeImage: ImageData? = nil
     
     @State private var selectedItems: [PhotosPickerItem] = []
@@ -282,8 +285,16 @@ struct GalleryView: View {
                     },
                     onDelete: {
                         withAnimation(.easeInOut(duration: 0.2)) {
+                            let sorted = sortedImages(filteredImages, option: selectedImageSort)
+                            guard let currentIndex = sorted.firstIndex(where: { $0.id == image.id }) else { return }
                             gallery.deleteImage(image, context: modelContext)
-                            activeImage = nil
+                            let remaining = sortedImages(filteredImages.filter { $0.id != image.id }, option: selectedImageSort)
+                            if !remaining.isEmpty {
+                                let nextIndex = currentIndex < remaining.count ? currentIndex : max(remaining.count - 1, 0)
+                                activeImage = remaining[nextIndex]
+                            } else {
+                                activeImage = nil
+                            }
                         }
                     }
                 )
@@ -334,11 +345,17 @@ struct GalleryView: View {
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 Button(action: { showImagePicker = true }) {
-                    Label("Add image", systemImage: "plus")
+                    Label("Add image", systemImage: "plus.circle")
                 }
 
                 Button(action: {
-                    showSlideShow = true
+                    if let current = activeImage,
+                       let index = filteredImages.firstIndex(where: { $0.id == current.id }) {
+                        presentationStartIndex = index
+                    } else {
+                        presentationStartIndex = 0
+                    }
+                    showPresentation = true
                 }) {
                     Image(systemName: "display")
                 }
@@ -352,6 +369,14 @@ struct GalleryView: View {
                     Image(systemName: "ellipsis.circle")
                 }
                 .help("Settings")
+            }
+        }
+        .fullScreenCover(isPresented: $showPresentation) {
+            GalleryPresentationView(
+                images: sortedImages(filteredImages, option: selectedImageSort),
+                startIndex: presentationStartIndex
+            ) {
+                showPresentation = false
             }
         }
         .sheet(isPresented: $showTagSheet) {
@@ -440,7 +465,6 @@ struct GalleryView: View {
             }
 
             if imageFiles.isEmpty {
-                print("no shared images found in: \(containerURL.path)")
                 return
             }
             
