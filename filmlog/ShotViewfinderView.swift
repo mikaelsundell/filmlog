@@ -14,6 +14,7 @@ struct ShotViewfinderView: View {
     @State private var capturedImage: UIImage? = nil
     @State private var isCaptured = false
     @State private var focusPoint: CGPoint? = nil
+    @State private var showGalleryPicker = false
     @State private var showExport = false
     
     @AppStorage("isFullscreen") private var isFullscreen = true
@@ -23,17 +24,17 @@ struct ShotViewfinderView: View {
     
     enum ActiveControls: String {
         case none
+        case guides
         case overlay
-        case metadata
         case image
-        case look
+        case effect
         case filter
         case exposure
     }
     
     enum ControlTypes {
         case none
-        case lookPicker
+        case effectPicker
         case colorPicker
         case ndPicker
         case shutterPicker
@@ -62,6 +63,10 @@ struct ShotViewfinderView: View {
     }
     
     @AppStorage("metaDataMode") private var metaDataMode: Bool = true
+    
+    @AppStorage("imageMode") private var imageMode: Bool = true
+    @AppStorage("overlayOpacity") private var overlayOpacity: Double = 0.4
+    @State private var overlayImage: UIImage? = nil
     
     @AppStorage("lensType") private var selectedLensRawValue: String = LensType.wide.rawValue
     @AppStorage("lutType") private var selectedLutTypeValue: String = LUTType.kodakNeutral.rawValue
@@ -194,7 +199,7 @@ struct ShotViewfinderView: View {
                             RoundedRectangle(cornerRadius: 8)
                         )
                         
-                        if centerMode != .off && (activeControls == .overlay || activeControls == .none) {
+                        if centerMode != .off && (activeControls == .guides || activeControls == .none) {
                             CenterView(
                                 centerMode: centerMode,
                                 size: aspectFrame,
@@ -203,7 +208,7 @@ struct ShotViewfinderView: View {
                             .position(x: width / 2, y: height / 2)
                         }
                         
-                        if symmetryMode != .off && (activeControls == .overlay || activeControls == .none) {
+                        if symmetryMode != .off && (activeControls == .guides || activeControls == .none) {
                             SymmetryView(
                                 symmetryMode: symmetryMode,
                                 size: aspectFrame,
@@ -212,48 +217,11 @@ struct ShotViewfinderView: View {
                             .position(x: width / 2, y: height / 2)
                         }
                         
-                        if levelMode != .off && (activeControls == .overlay || activeControls == .none) {
+                        if levelMode != .off && (activeControls == .guides || activeControls == .none) {
                             LevelIndicatorView(
                                 level: orientationObserver.level,
                                 orientation: orientationObserver.orientation,
                                 levelMode: levelMode
-                            )
-                        }
-                        
-                        if metaDataMode && (activeControls == .metadata || activeControls == .none) {
-                            let aperture = CameraUtils.aperture(for: shot.aperture)
-                            let colorFilter = CameraUtils.colorFilter(for: shot.colorFilter)
-                            let ndFilter = CameraUtils.ndFilter(for: shot.ndFilter)
-                            let filmSize = CameraUtils.filmSize(for: shot.filmSize)
-                            let filmStock = CameraUtils.filmStock(for: shot.filmStock)
-                            let shutter = CameraUtils.shutter(for: shot.shutter)
-                            let focalLength = CameraUtils.focalLength(for: shot.focalLength)
-
-                            let exposureCompensation = colorFilter.exposureCompensation + ndFilter.exposureCompensation
-                            let exposureText: String = (cameraMode != .auto)
-                                ? "\(aperture.name) \(shutter.name)" +
-                                  (exposureCompensation != 0
-                                    ? " (\(exposureCompensation >= 0 ? "+" : "")\(String(format: "%.1f", exposureCompensation)))"
-                                    : "")
-                                : "Auto"
-                            
-                            let colorText: String = !colorFilter.isNone
-                                ? "\(Int(filmStock.colorTemperature))k" +
-                                  (colorFilter.colorTemperatureShift != 0
-                                    ? " (\(colorFilter.colorTemperatureShift >= 0 ? "+" : "")\(colorFilter.colorTemperatureShift))"
-                                    : "")
-                                : "Auto"
-                            
-                            let text =
-                                "\(Int(filmSize.width))x\(Int(filmSize.height))mm " +
-                                "(\(String(format: "%.1f", filmSize.angleOfView(focalLength: focalLength.length).horizontal))°) " +
-                                "· \(String(format: "%.0f", filmStock.speed)) · \(exposureText) · \(colorText)"
-                            
-                            TextView(
-                                text: text,
-                                alignment: .top,
-                                orientation: orientationObserver.orientation,
-                                geometry: geometry
                             )
                         }
                     }
@@ -263,6 +231,59 @@ struct ShotViewfinderView: View {
                         RoundedRectangle(cornerRadius: 8)
                             .frame(width: displaySize.width, height: displaySize.height)
                             .position(x: width / 2, y: height / 2)
+                    )
+                    .overlay(
+                        Group {
+                            if imageMode && (activeControls == .overlay || activeControls == .none) {
+                                if let image = overlayImage {
+                                    ImageOverlayView(
+                                        image: image,
+                                        aspectSize: aspectFrame,
+                                        geometry: geometry,
+                                        cornerRadius: 6.0,
+                                        opacity: overlayOpacity,
+                                        blendMode: .screen
+                                    )
+                                }
+                            }
+                            
+                            if metaDataMode && (activeControls == .guides || activeControls == .none) {
+                                let aperture = CameraUtils.aperture(for: shot.aperture)
+                                let colorFilter = CameraUtils.colorFilter(for: shot.colorFilter)
+                                let ndFilter = CameraUtils.ndFilter(for: shot.ndFilter)
+                                let filmSize = CameraUtils.filmSize(for: shot.filmSize)
+                                let filmStock = CameraUtils.filmStock(for: shot.filmStock)
+                                let shutter = CameraUtils.shutter(for: shot.shutter)
+                                let focalLength = CameraUtils.focalLength(for: shot.focalLength)
+
+                                let exposureCompensation = colorFilter.exposureCompensation + ndFilter.exposureCompensation
+                                let exposureText: String = (cameraMode != .auto)
+                                    ? "\(aperture.name) \(shutter.name)" +
+                                      (exposureCompensation != 0
+                                        ? " (\(exposureCompensation >= 0 ? "+" : "")\(String(format: "%.1f", exposureCompensation)))"
+                                        : "")
+                                    : "Auto"
+                                
+                                let colorText: String = !colorFilter.isNone
+                                    ? "\(Int(filmStock.colorTemperature))k" +
+                                      (colorFilter.colorTemperatureShift != 0
+                                        ? " (\(colorFilter.colorTemperatureShift >= 0 ? "+" : "")\(colorFilter.colorTemperatureShift))"
+                                        : "")
+                                    : "Auto"
+                                
+                                let text =
+                                    "\(Int(filmSize.width))x\(Int(filmSize.height))mm " +
+                                    "(\(String(format: "%.1f", filmSize.angleOfView(focalLength: focalLength.length).horizontal))°) " +
+                                    "· \(String(format: "%.0f", filmStock.speed)) · \(exposureText) · \(colorText)"
+                                
+                                TextView(
+                                    text: text,
+                                    alignment: .top,
+                                    orientation: orientationObserver.orientation,
+                                    geometry: geometry
+                                )
+                            }
+                        }
                     )
                     
                     if activeControls == .none {
@@ -304,15 +325,12 @@ struct ShotViewfinderView: View {
                                 .animation(.easeOut(duration: 0.3), value: focusPoint)
                         }
                     }
-                    
-                    
-                    
                 }
                 .ignoresSafeArea()
             }
             .ignoresSafeArea()
             
-            if activeControls == .overlay {
+            if activeControls == .guides {
                 ControlsView(
                     isVisible: .constant(true),
                     buttons: [
@@ -342,20 +360,7 @@ struct ShotViewfinderView: View {
                             },
                             background: centerMode.color,
                             rotation: orientationObserver.orientation.toLandscape
-                        )
-                    ]
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.clear)
-                .ignoresSafeArea()
-                .transition(.opacity)
-                .zIndex(2)
-            }
-            
-            if activeControls == .metadata {
-                ControlsView(
-                    isVisible: .constant(true),
-                    buttons: [
+                        ),
                         ControlButton(
                             icon: "textformat",
                             label: "Metadata",
@@ -364,7 +369,7 @@ struct ShotViewfinderView: View {
                             },
                             background: (metaDataMode) ? Color.blue.opacity(0.4) : Color.clear,
                             rotation: orientationObserver.orientation.toLandscape
-                        ),
+                        )
                     ]
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -374,7 +379,32 @@ struct ShotViewfinderView: View {
                 .zIndex(2)
             }
             
-            if activeControls == .look {
+            if activeControls == .overlay {
+                ControlsView(
+                    isVisible: .constant(true),
+                    buttons: [
+                        ControlButton(
+                            icon: "photo.on.rectangle",
+                            label: "Image",
+                            action: {
+                                showGalleryPicker = true
+                            },
+                            background: (metaDataMode) ? Color.blue.opacity(0.4) : Color.clear,
+                            rotation: orientationObserver.orientation.toLandscape
+                        ),
+                    ]
+                )
+                .fullScreenCover(isPresented: $showGalleryPicker) {
+                    GalleryPicker(selectedImage: $overlayImage)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.clear)
+                .ignoresSafeArea()
+                .transition(.opacity)
+                .zIndex(2)
+            }
+            
+            if activeControls == .effect {
                 ControlsView(
                     isVisible: .constant(true),
                     buttons: [
@@ -382,13 +412,13 @@ struct ShotViewfinderView: View {
                             icon: "paintpalette",
                             label: "Look",
                             action: {
-                                activeControlType = (activeControlType == .lookPicker) ? nil : .lookPicker
+                                activeControlType = (activeControlType == .effectPicker) ? nil : .effectPicker
                             },
-                            background: (activeControlType == .lookPicker) ? Color.blue.opacity(0.4) : Color.clear,
+                            background: (activeControlType == .effectPicker) ? Color.blue.opacity(0.4) : Color.clear,
                             rotation: orientationObserver.orientation.toLandscape
                         )
                     ],
-                    showOverlay: activeControlType == .lookPicker
+                    showOverlay: activeControlType == .effectPicker
                 ) {
                     CircularPickerView(
                         selectedLabel: selectedLutTypeValue,
@@ -576,17 +606,13 @@ struct ShotViewfinderView: View {
                         }) {
                             ZStack {
                                 Circle()
-                                    .stroke(Color.white, lineWidth: 2)
-                                    .frame(width: 42, height: 42)
-                                
-                                Circle()
-                                    .fill(Color.black)
+                                    .fill(Color(red: 0.1, green: 0.1, blue: 0.1))
                                     .frame(width: 38, height: 38)
                                     .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
                                 
                                 Image(systemName: isCaptured ? "chevron.down" : "xmark")
                                     .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(Color.white)
+                                    .foregroundColor(Color.blue)
                                     .offset(y: isCaptured ? 2 : 0)
                                     .animation(.easeInOut(duration: 0.2), value: isCaptured)
                             }
@@ -678,9 +704,9 @@ struct ShotViewfinderView: View {
         }
         .onChange(of: activeControls) { _, newValue in
             switch newValue {
-            case .look:
+            case .effect:
                 withAnimation(.easeInOut(duration: 0.3)) {
-                    activeControlType = .lookPicker
+                    activeControlType = .effectPicker
                 }
             case .filter:
                 withAnimation(.easeInOut(duration: 0.3)) {
@@ -725,7 +751,6 @@ struct ShotViewfinderView: View {
                 .frame(width: 55)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 4)
-                //.background(Color.black.opacity(0.4))
                 .cornerRadius(4)
                 .rotationEffect(orientationObserver.orientation.toLandscape)
             
@@ -794,8 +819,20 @@ struct ShotViewfinderView: View {
                 Text(lensLabel(for: cameraModel.lensType))
                     .font(.system(size: 12, weight: .regular))
                     .foregroundColor(.white)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
                     .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
+                    .rotationEffect(orientationObserver.orientation.toLandscape)
+            }
+            
+            Button(action: {
+                activeControls = (activeControls == .guides) ? .none : .guides
+            }) {
+                Image(systemName: "viewfinder.circle")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.white)
+                    .frame(width: 32, height: 32)
+                    .background(activeControls == .guides ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.toLandscape)
             }
@@ -803,35 +840,23 @@ struct ShotViewfinderView: View {
             Button(action: {
                 activeControls = (activeControls == .overlay) ? .none : .overlay
             }) {
-                Image(systemName: "viewfinder.circle")
+                Image(systemName: "photo")
                     .font(.system(size: 12, weight: .regular))
                     .foregroundColor(.white)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
                     .background(activeControls == .overlay ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.toLandscape)
             }
             
             Button(action: {
-                activeControls = (activeControls == .metadata) ? .none : .metadata
-            }) {
-                Image(systemName: "textformat")
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundColor(.white)
-                    .frame(width: 28, height: 28)
-                    .background(activeControls == .metadata ? Color.blue.opacity(0.4) : Color.clear)
-                    .clipShape(Circle())
-                    .rotationEffect(orientationObserver.orientation.toLandscape)
-            }
-            
-            Button(action: {
-                activeControls = (activeControls == .look) ? .none : .look
+                activeControls = (activeControls == .effect) ? .none : .effect
             }) {
                 Image(systemName: "paintpalette")
                 .font(.system(size: 12, weight: .regular))
                 .foregroundColor(.white)
-                .frame(width: 28, height: 28)
-                .background(activeControls == .look ? Color.blue.opacity(0.4) : Color.clear)
+                .frame(width: 32, height: 32)
+                .background(activeControls == .effect ? Color.blue.opacity(0.4) : Color.clear)
                 .clipShape(Circle())
                 .rotationEffect(orientationObserver.orientation.toLandscape)
             }
@@ -852,7 +877,7 @@ struct ShotViewfinderView: View {
                 Text(cameraLabel(for: cameraMode))
                     .font(.system(size: 12, weight: .regular))
                     .foregroundColor(.white)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
                     .background(cameraMode == .manual ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.toLandscape)
@@ -864,7 +889,7 @@ struct ShotViewfinderView: View {
                 Image(systemName: "camera.filters")
                     .font(.system(size: 12, weight: .regular))
                     .foregroundColor(.white)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
                     .background(activeControls == .filter ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.toLandscape)
@@ -878,7 +903,7 @@ struct ShotViewfinderView: View {
                 Image(systemName: "camera.aperture")
                     .font(.system(size: 12, weight: .regular))
                     .foregroundColor(.white)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
                     .background(activeControls == .exposure ? Color.blue.opacity(0.4) : Color.clear)
                     .clipShape(Circle())
                     .rotationEffect(orientationObserver.orientation.toLandscape)
@@ -896,7 +921,7 @@ struct ShotViewfinderView: View {
                       : "arrow.up.left.and.arrow.down.right")
                 .font(.system(size: 12, weight: .regular))
                 .foregroundColor(.white)
-                .frame(width: 28, height: 28)
+                .frame(width: 32, height: 32)
                 .background(Color.black.opacity(0.4))
                 .clipShape(Circle())
                 .rotationEffect(orientationObserver.orientation.toLandscape)

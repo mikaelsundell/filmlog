@@ -318,19 +318,19 @@ struct ControlsView<Overlay: View>: View {
                     ZStack {
                         Color.clear
                             .frame(height: height)
-                        HStack(spacing: 32) {
+                        HStack(spacing: 24) {
                             ForEach(buttons, id: \.label) { button in
                                 Button(action: button.action) {
                                     VStack(spacing: 4) {
                                         ZStack {
                                             Circle()
                                                 .fill(button.background)
-                                                .frame(width: 48, height: 48)
+                                                .frame(width: 42, height: 42)
                                             
                                             Image(systemName: button.icon)
                                                 .font(.system(size: 20, weight: .medium))
                                                 .foregroundColor(.white)
-                                                .frame(width: 48, height: 48)
+                                                .frame(width: 42, height: 42)
                                                 .background(button.background)
                                                 .clipShape(Circle())
                                                 .animation(.easeInOut(duration: 0.25), value: button.background)
@@ -428,6 +428,40 @@ struct FlowLayout: Layout {
             x += size.width + spacing
             currentLineHeight = max(currentLineHeight, size.height)
         }
+    }
+}
+
+struct ImageOverlayView: View {
+    let image: UIImage
+    let aspectSize: CGSize
+    let geometry: GeometryProxy
+    let cornerRadius: CGFloat
+    var opacity: Double = 0.5
+    var blendMode: BlendMode = .normal
+
+    var body: some View {
+        let width = geometry.size.width
+        let height = geometry.size.height
+        let imageSize = image.size
+        let size = imageSize.isLandscape ? imageSize.switchOrientation() : imageSize // to potrait
+        
+        let padding: CGFloat = 0
+        let iw = aspectSize.width - padding * 2
+        let ih = aspectSize.height - padding * 2
+        let fit = min(iw / size.width, ih / size.height)
+        
+        let rotation: Angle = imageSize.isLandscape ? .degrees(90) : .degrees(0)
+        
+        Image(uiImage: image)
+            .scaleEffect(fit)
+            .rotationEffect(rotation)
+            .frame(width: aspectSize.width, height: aspectSize.height)
+            .clipped()
+            .cornerRadius(cornerRadius)
+            .position(x: width / 2, y: height / 2)
+            .opacity(opacity)
+            .blendMode(blendMode)
+            .contentShape(Rectangle())
     }
 }
 
@@ -584,7 +618,6 @@ extension TupleView {
     }
 }
 
-
 struct LevelIndicatorView: View {
     var level: OrientationUtils.Level
     let orientation: UIDeviceOrientation
@@ -730,7 +763,6 @@ struct MaskView: View {
         .allowsHitTesting(false)
         .ignoresSafeArea()
     }
-    
 }
 
 struct SymmetryView: View {

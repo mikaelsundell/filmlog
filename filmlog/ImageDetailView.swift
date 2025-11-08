@@ -98,7 +98,7 @@ struct ImageDetailView: View {
                     
                     Section(
                         header: HStack {
-                            Text("Image")
+                            Text("Thumbnail")
                         }
                     ) {
                         HStack {
@@ -192,50 +192,13 @@ struct ImageDetailView: View {
                         }
                     }
                 }
-            
-                HStack {
-                    Button {
-                        showDeleteAlert = true
-                    } label: {
-                        Image(systemName: "trash")
-                            .font(.system(size: 18, weight: .semibold))
-                            .frame(width: 40, height: 40)
-                            .background(.ultraThinMaterial)
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundColor(.blue)
-                    .help("Delete image")
-                    .alert("Are you sure?", isPresented: $showDeleteAlert) {
-                        Button("Delete", role: .destructive) {
-                            withAnimation {
-                                onDelete?()
-                            }
-                        }
-                        Button("Cancel", role: .cancel) {}
-                    } message: {
-                        Text("This image contains associated data. Are you sure you want to proceed?")
-                    }
-                    
-                    Spacer()
-                    
-                    HStack(spacing: 6) {
-                        Image(systemName: "photo.stack")
-                            .font(.system(size: 14, weight: .medium))
-                        Text("Image \(index + 1) of \(count)")
-                            .font(.subheadline)
-                            .fontWeight(.regular)
-                    }
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 8)
-                    .foregroundColor(.blue)
-                    .shadow(radius: 1)
-                    
-                    Spacer()
-                    
-                    if let uiImage = image.original ?? image.thumbnail {
-                        ShareLink(item: Image(uiImage: uiImage), preview: SharePreview(image.name ?? "Filmlog image")) {
-                            Image(systemName: "square.and.arrow.up")
+                
+                if activeField == nil {
+                    HStack {
+                        Button {
+                            showDeleteAlert = true
+                        } label: {
+                            Image(systemName: "trash")
                                 .font(.system(size: 18, weight: .semibold))
                                 .frame(width: 40, height: 40)
                                 .background(.ultraThinMaterial)
@@ -243,16 +206,54 @@ struct ImageDetailView: View {
                         }
                         .buttonStyle(.plain)
                         .foregroundColor(.blue)
-                        .help("Share image")
+                        .help("Delete image")
+                        .alert("Are you sure?", isPresented: $showDeleteAlert) {
+                            Button("Delete", role: .destructive) {
+                                withAnimation {
+                                    onDelete?()
+                                }
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("This image contains associated data. Are you sure you want to proceed?")
+                        }
+                        
+                        Spacer()
+                        
+                        HStack(spacing: 6) {
+                            Image(systemName: "photo.stack")
+                                .font(.system(size: 14, weight: .medium))
+                            Text("Image \(index + 1) of \(count)")
+                                .font(.subheadline)
+                                .fontWeight(.regular)
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 8)
+                        .foregroundColor(.blue)
+                        .shadow(radius: 1)
+                        
+                        Spacer()
+                        
+                        if let uiImage = image.original ?? image.thumbnail {
+                            ShareLink(item: Image(uiImage: uiImage), preview: SharePreview(image.name ?? "Filmlog image")) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .frame(width: 40, height: 40)
+                                    .background(.ultraThinMaterial)
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundColor(.blue)
+                            .help("Share image")
+                        }
                     }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 8)
+                    .background(Color.black)
+                    .ignoresSafeArea(edges: .bottom)
                 }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 8)
-                .background(Color.black)
-                .ignoresSafeArea(edges: .bottom)
             }
         }
-        
     }
     
     private func toggleTag(_ tag: Tag) {
