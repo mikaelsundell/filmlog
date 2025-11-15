@@ -319,8 +319,9 @@ struct ControlsView<Overlay: View>: View {
                     ZStack {
                         Color.clear
                             .frame(height: height)
-                        HStack(spacing: 20) {
-                            ForEach(buttons, id: \.label) { button in
+                        HStack(spacing: 16) {
+                            ForEach(buttons.indices, id: \.self) { index in
+                                let button = buttons[index]
                                 Button(action: button.action) {
                                     VStack(spacing: 8) {
                                         ZStack {
