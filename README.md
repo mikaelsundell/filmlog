@@ -79,6 +79,11 @@ The estimated exposure value (EV) from the custom Metal pipeline differs by appr
 * Apple Developer Forum
 https://developer.apple.com/forums/thread/795593
 
+### iOS File Picker Folder Memory
+
+On iOS, the system file picker does not always reopen in the last folder used.
+Depending on multi-selection iOS may ignore the app’s requested folder and return to an earlier single-selection location instead. This behavior is controlled by the system and cannot be fully overridden by apps.
+
 Documentation
 -------
 * Metal Feature Set Tables          
