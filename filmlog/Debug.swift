@@ -7,7 +7,6 @@ import UIKit
 import UniformTypeIdentifiers
 import ImageIO
 
-
 func captureScreenshot() {
     guard let window = UIApplication.shared.connectedScenes
         .compactMap({ $0 as? UIWindowScene })

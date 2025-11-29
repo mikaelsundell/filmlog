@@ -75,7 +75,7 @@ struct ImageDetailView: View {
                 Form {
                     Section(
                         header: HStack {
-                            Text("Preview")
+                            Text("Thumbnail")
                         }
                     ) {
                         if let uiImage = image.original ?? image.thumbnail {
@@ -98,7 +98,7 @@ struct ImageDetailView: View {
                     
                     Section(
                         header: HStack {
-                            Text("Thumbnail")
+                            Text("Image")
                         }
                     ) {
                         HStack {

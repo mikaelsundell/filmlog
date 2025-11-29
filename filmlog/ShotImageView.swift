@@ -153,6 +153,4 @@ struct ShotImageView: View {
             UIApplication.shared.isIdleTimerDisabled = false
         }
     }
-    
-    
 }

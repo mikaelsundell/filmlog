@@ -48,7 +48,6 @@ struct GalleryPicker: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // 🔍 Search bar
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.gray)
@@ -62,8 +61,8 @@ struct GalleryPicker: View {
                 .cornerRadius(10)
                 .padding(.horizontal)
                 .padding(.top, 12)
+                .padding(.bottom, 24)
                 
-                // 📂 Sorting bar
                 HStack {
                     Menu {
                         Picker("Sort by", selection: $selectedImageSortRawValue) {
@@ -91,9 +90,8 @@ struct GalleryPicker: View {
                     Spacer()
                 }
                 .padding(.horizontal)
-                .padding(.bottom, 6)
+                .padding(.bottom, 12)
                 
-                // 🖼️ Image grid
                 ScrollView {
                     if filteredImages.isEmpty {
                         Text("No images found")

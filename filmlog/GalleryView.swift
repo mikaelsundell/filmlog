@@ -36,7 +36,7 @@ struct GalleryView: View {
     @State private var selectedImage: ImageData? = nil
     
     @State private var showTagSheet = false
-    @State private var showSlideShow = false
+    @State private var showFilePicker = false
     @State private var showImagePicker = false
     @State private var showDeleteAlert = false
     
@@ -344,7 +344,19 @@ struct GalleryView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
-                Button(action: { showImagePicker = true }) {
+                Menu {
+                    Button {
+                        showImagePicker = true
+                    } label: {
+                        Label("Import from Photos", systemImage: "photo")
+                    }
+
+                    Button {
+                        showFilePicker = true
+                    } label: {
+                        Label("Import from Files", systemImage: "folder")
+                    }
+                } label: {
                     Label("Add image", systemImage: "plus.circle")
                 }
 
@@ -385,6 +397,13 @@ struct GalleryView: View {
                 filterTags: $filterTags
             )
             .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showFilePicker) {
+            FilePicker(kind: .image, allowsMultiple: true) { urls in
+                for url in urls {
+                    importFromFile(url)
+                }
+            }
         }
         .photosPicker(
             isPresented: $showImagePicker,
@@ -438,6 +457,37 @@ struct GalleryView: View {
             }
         }
         return imgs
+    }
+    
+    private func importFromFile(_ url: URL) {
+        guard let localURL = saveToLocalStorageDirectory(url, as: .image) else {
+            print("Could not save imported file to Local Storage")
+            return
+        }
+
+        guard let data = try? Data(contentsOf: localURL),
+              let uiImage = UIImage(data: data) else {
+            print("could not load image from local file: \(localURL)")
+            return
+        }
+        
+        do {
+            let newImage = ImageData()
+            if newImage.updateFile(to: uiImage) {
+                modelContext.insert(newImage)
+                try modelContext.save()
+
+                withAnimation {
+                    gallery.addImage(newImage)
+                }
+
+            } else {
+                print("failed saving file")
+            }
+        } catch {
+            print("import error: \(error)")
+        }
+        try? FileManager.default.removeItem(at: localURL)
     }
     
     private func deleteImage(_ image: ImageData) {

@@ -71,7 +71,7 @@ struct ShotSectionView: View {
             .clipped()
 
             if let metadata = shot.imageData?.metadata, !metadata.isEmpty {
-                ImageMetadataView(imageData: shot.imageData)
+                MetadataView(imageData: shot.imageData)
                     .padding(-4)
             }
 

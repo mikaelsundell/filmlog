@@ -13,7 +13,7 @@ enum ToggleMode: Int, CaseIterable {
     case full = 2
     var color: Color {
         switch self {
-        case .off: return Color.black.opacity(0.4)
+        case .off: return Color.clear
         case .partial: return Color.blue.opacity(0.4)
         case .full: return Color.blue.opacity(1.0)
         }
@@ -328,21 +328,17 @@ struct ControlsView<Overlay: View>: View {
                                             Circle()
                                                 .fill(button.background)
                                                 .frame(width: 32, height: 32)
-                                            
+
                                             Image(systemName: button.icon)
-                                                .font(.system(size: 16, weight: .medium))
+                                                .font(.system(size: 12, weight: .medium))
                                                 .foregroundColor(button.foreground)
-                                                .frame(width: 32, height: 32)
-                                                .background(button.background)
-                                                .clipShape(Circle())
-                                                .animation(.easeInOut(duration: 0.25), value: button.background)
                                         }
                                         .contentShape(Circle())
                                         .animation(.easeInOut(duration: 0.25), value: button.background)
 
                                         Text(button.label)
                                             .font(.system(size: 12))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(button.foreground)
                                     }
                                     .frame(width: 52)
                                     .rotationEffect(button.rotation)
@@ -433,41 +429,7 @@ struct FlowLayout: Layout {
     }
 }
 
-struct ImageOverlayView: View {
-    let image: UIImage
-    let aspectSize: CGSize
-    let geometry: GeometryProxy
-    let cornerRadius: CGFloat
-    var opacity: Double = 0.5
-    var blendMode: BlendMode = .normal
-
-    var body: some View {
-        let width = geometry.size.width
-        let height = geometry.size.height
-        let imageSize = image.size
-        let size = imageSize.isLandscape ? imageSize.switchOrientation() : imageSize // to potrait
-        
-        let padding: CGFloat = 0
-        let iw = aspectSize.width - padding * 2
-        let ih = aspectSize.height - padding * 2
-        let fit = min(iw / size.width, ih / size.height)
-        
-        let rotation: Angle = imageSize.isLandscape ? .degrees(90) : .degrees(0)
-        
-        Image(uiImage: image)
-            .scaleEffect(fit)
-            .rotationEffect(rotation)
-            .frame(width: aspectSize.width, height: aspectSize.height)
-            .clipped()
-            .cornerRadius(cornerRadius)
-            .position(x: width / 2, y: height / 2)
-            .opacity(opacity)
-            .blendMode(blendMode)
-            .contentShape(Rectangle())
-    }
-}
-
-struct ImageMetadataView: View {
+struct MetadataView: View {
     let imageData: ImageData?
     let metadata: [String: DataValue]
 
@@ -821,6 +783,40 @@ struct GridView: View {
         }
         .frame(width: size.width, height: size.height)
         .drawingGroup() 
+    }
+}
+
+struct OverlayImageView: View {
+    let image: UIImage
+    let aspectSize: CGSize
+    let geometry: GeometryProxy
+    let cornerRadius: CGFloat
+    var opacity: Double = 0.5
+    var blendMode: BlendMode = .normal
+
+    var body: some View {
+        let width = geometry.size.width
+        let height = geometry.size.height
+        let imageSize = image.size
+        let size = imageSize.isLandscape ? imageSize.switchOrientation() : imageSize // to potrait
+        
+        let padding: CGFloat = 0
+        let iw = aspectSize.width - padding * 2
+        let ih = aspectSize.height - padding * 2
+        let fit = min(iw / size.width, ih / size.height)
+        
+        let rotation: Angle = imageSize.isLandscape ? .degrees(90) : .degrees(0)
+        
+        Image(uiImage: image)
+            .scaleEffect(fit)
+            .rotationEffect(rotation)
+            .frame(width: aspectSize.width, height: aspectSize.height)
+            .clipped()
+            .cornerRadius(cornerRadius)
+            .position(x: width / 2, y: height / 2)
+            .opacity(opacity)
+            .blendMode(blendMode)
+            .contentShape(Rectangle())
     }
 }
 

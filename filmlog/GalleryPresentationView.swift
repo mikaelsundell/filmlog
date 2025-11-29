@@ -4,190 +4,390 @@
 
 import SwiftUI
 
+// MARK: - FitAwareScrollView
+
+class FitAwareScrollView: UIScrollView {
+    var onLayout: (() -> Void)?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        onLayout?()
+    }
+}
+
+// MARK: - ZoomableScrollView
+
+struct ZoomableScrollView: UIViewRepresentable {
+    let image: UIImage
+    @Binding var isControlsVisible: Bool
+
+    func makeUIView(context: Context) -> UIScrollView {
+        let scrollView = FitAwareScrollView()
+        scrollView.delegate = context.coordinator
+        scrollView.minimumZoomScale = 1.0
+        scrollView.maximumZoomScale = 5.0
+        scrollView.bouncesZoom = true
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.backgroundColor = .black
+
+        // ImageView
+        let imageView = UIImageView(image: image)
+        imageView.contentMode = .scaleAspectFit
+        imageView.isUserInteractionEnabled = true
+        imageView.tag = 101
+        scrollView.addSubview(imageView)
+
+        // Store references
+        context.coordinator.scrollView = scrollView
+        context.coordinator.imageView = imageView
+
+        // Tap to toggle controls
+        let tap = UITapGestureRecognizer(target: context.coordinator,
+                                         action: #selector(Coordinator.handleTap))
+        tap.numberOfTapsRequired = 1
+        scrollView.addGestureRecognizer(tap)
+
+        // Double-tap zoom
+        let doubleTap = UITapGestureRecognizer(target: context.coordinator,
+                                               action: #selector(Coordinator.handleDoubleTap(_:)))
+        doubleTap.numberOfTapsRequired = 2
+        scrollView.addGestureRecognizer(doubleTap)
+
+        // Require double tap to fail before single tap fires
+        tap.require(toFail: doubleTap)
+
+        // Fit image once, when layout is ready
+        scrollView.onLayout = { [weak scrollView] in
+            guard let scrollView else { return }
+            fitImage(scrollView: scrollView, context: context)
+        }
+
+        return scrollView
+    }
+
+    // MARK: Initial fit-to-screen logic
+
+    func fitImage(scrollView: UIScrollView, context: Context) {
+        let coordinator = context.coordinator
+
+        // Only do initial fit once per image
+        if coordinator.hasInitialLayout {
+            return
+        }
+
+        guard let imageView = coordinator.imageView else { return }
+        guard let image = imageView.image else { return }
+
+        let scrollSize = scrollView.bounds.size
+        guard scrollSize.width > 0, scrollSize.height > 0 else { return }
+
+        // Compute scale factor for aspect fit
+        let scaleX = scrollSize.width / image.size.width
+        let scaleY = scrollSize.height / image.size.height
+        let fitScale = min(scaleX, scaleY)
+
+        let newWidth = image.size.width * fitScale
+        let newHeight = image.size.height * fitScale
+
+        imageView.frame = CGRect(x: 0, y: 0, width: newWidth, height: newHeight)
+        scrollView.contentSize = imageView.frame.size
+
+        // Baseline zoom = 1.0 ("fit to screen")
+        scrollView.minimumZoomScale = 1.0
+        scrollView.zoomScale = 1.0
+
+        coordinator.hasInitialLayout = true
+        coordinator.centerImage()
+    }
+
+    func updateUIView(_ scrollView: UIScrollView, context: Context) {
+        // no-op — layout & fitting handled by FitAwareScrollView
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(isControlsVisible: $isControlsVisible)
+    }
+
+    // MARK: - Coordinator
+
+    class Coordinator: NSObject, UIScrollViewDelegate {
+        @Binding var isControlsVisible: Bool
+        weak var scrollView: UIScrollView?
+        weak var imageView: UIImageView?
+
+        // To avoid refitting on every layout
+        var hasInitialLayout: Bool = false
+
+        init(isControlsVisible: Binding<Bool>) {
+            _isControlsVisible = isControlsVisible
+        }
+
+        // MARK: Zooming
+
+        func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+            return imageView
+        }
+
+        func scrollViewDidZoom(_ scrollView: UIScrollView) {
+            centerImage()
+        }
+
+        func centerImage() {
+            guard let scrollView, let imageView else { return }
+
+            let offsetX = max((scrollView.bounds.width - imageView.frame.width) * 0.5, 0)
+            let offsetY = max((scrollView.bounds.height - imageView.frame.height) * 0.5, 0)
+
+            scrollView.contentInset = UIEdgeInsets(
+                top: offsetY,
+                left: offsetX,
+                bottom: offsetY,
+                right: offsetX
+            )
+        }
+
+        // MARK: Gestures
+
+        @objc func handleTap() {
+            isControlsVisible.toggle()
+        }
+
+        @objc func handleDoubleTap(_ recognizer: UITapGestureRecognizer) {
+            guard let scrollView else { return }
+
+            // If zoomed in → reset to "fit" (zoomScale = 1)
+            if abs(scrollView.zoomScale - 1.0) > 0.01 {
+                scrollView.setZoomScale(1.0, animated: true)
+                centerImage()
+                return
+            }
+
+            // If already fitted → zoom in at tap location
+            let location = recognizer.location(in: imageView)
+            zoom(to: location)
+        }
+
+        private func zoom(to point: CGPoint) {
+            guard let scrollView else { return }
+
+            let zoomScale: CGFloat = 2.5
+            let size = scrollView.bounds.size
+
+            let width = size.width / zoomScale
+            let height = size.height / zoomScale
+
+            let rect = CGRect(
+                x: point.x - width / 2,
+                y: point.y - height / 2,
+                width: width,
+                height: height
+            )
+
+            scrollView.zoom(to: rect, animated: true)
+        }
+    }
+}
+
+// MARK: - PagedImageViewer
+
+struct PagedImageViewer: UIViewControllerRepresentable {
+    let images: [UIImage]
+    @Binding var index: Int
+    @Binding var isControlsVisible: Bool
+
+    func makeUIViewController(context: Context) -> UIPageViewController {
+        let controller = UIPageViewController(
+            transitionStyle: .scroll,
+            navigationOrientation: .horizontal
+        )
+        controller.dataSource = context.coordinator
+        controller.delegate = context.coordinator
+
+        let initialVC = context.coordinator.viewController(for: index)
+        controller.setViewControllers([initialVC], direction: .forward, animated: false)
+
+        return controller
+    }
+
+    func updateUIViewController(_ controller: UIPageViewController, context: Context) {
+        let vc = context.coordinator.viewController(for: index)
+        controller.setViewControllers([vc], direction: .forward, animated: false)
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
+        var parent: PagedImageViewer
+        private var cache: [Int: UIViewController] = [:]
+
+        init(_ parent: PagedImageViewer) {
+            self.parent = parent
+        }
+
+        func viewController(for index: Int) -> UIViewController {
+            if let vc = cache[index] { return vc }
+
+            let vc = UIHostingController(
+                rootView:
+                    ZoomableScrollView(
+                        image: parent.images[index],
+                        isControlsVisible: parent.$isControlsVisible
+                    )
+                    .ignoresSafeArea()
+            )
+
+            cache[index] = vc
+            return vc
+        }
+
+        func pageViewController(
+            _ pageViewController: UIPageViewController,
+            viewControllerBefore viewController: UIViewController
+        ) -> UIViewController? {
+            guard parent.images.count > 1 else { return nil }
+            guard let index = index(of: viewController) else { return nil }
+            let prev = (index - 1 + parent.images.count) % parent.images.count
+            return self.viewController(for: prev)
+        }
+
+        func pageViewController(
+            _ pageViewController: UIPageViewController,
+            viewControllerAfter viewController: UIViewController
+        ) -> UIViewController? {
+            guard parent.images.count > 1 else { return nil }
+            guard let index = index(of: viewController) else { return nil }
+            let next = (index + 1) % parent.images.count
+            return self.viewController(for: next)
+        }
+
+        func pageViewController(
+            _ pageViewController: UIPageViewController,
+            didFinishAnimating finished: Bool,
+            previousViewControllers: [UIViewController],
+            transitionCompleted completed: Bool
+        ) {
+            if completed,
+               let visible = pageViewController.viewControllers?.first,
+               let newIndex = index(of: visible) {
+                parent.index = newIndex
+            }
+        }
+
+        private func index(of vc: UIViewController) -> Int? {
+            cache.first(where: { $0.value === vc })?.key
+        }
+    }
+}
+
+import UIKit
+
+struct VisualEffectView: UIViewRepresentable {
+    var style: UIBlurEffect.Style
+
+    func makeUIView(context: Context) -> UIVisualEffectView {
+        return UIVisualEffectView(effect: UIBlurEffect(style: style))
+    }
+
+    func updateUIView(_ uiView: UIVisualEffectView, context: Context) {}
+}
+
+
+
 struct GalleryPresentationView: View {
     let images: [ImageData]
     @State private var currentIndex: Int
     var onClose: () -> Void
-    
-    @State private var showControls = true
-    @State private var scale: CGFloat = 1.0
-    @State private var lastScale: CGFloat = 1.0
-    @State private var offset: CGSize = .zero
-    @State private var lastOffset: CGSize = .zero
-    
+
+    @State private var isControlsVisible: Bool = true
+
     init(images: [ImageData], startIndex: Int, onClose: @escaping () -> Void) {
         self.images = images
         _currentIndex = State(initialValue: startIndex)
         self.onClose = onClose
     }
-    
+
+    private var uiImages: [UIImage] {
+        images.compactMap { $0.original ?? $0.thumbnail }
+    }
+
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
-            
-            if let uiImage = images[safe: currentIndex]?.original ?? images[safe: currentIndex]?.thumbnail {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFit()
-                    .scaleEffect(scale)
-                    .offset(offset)
-                    .animation(.easeInOut(duration: 0.2), value: scale)
-                    .animation(.easeInOut(duration: 0.2), value: offset)
-                    .gesture(dragGesture)
-                    .gesture(magnificationGesture)
-                    .gesture(doubleTapGesture)
-                    .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            showControls.toggle()
-                        }
+            GeometryReader { geometry in
+                let screen = geometry.size
+                let width = geometry.size.width
+                let height = geometry.size.height
+                let frameSize = CGSize(width: 200, height: 200)
+                
+                ZStack {
+                    if !uiImages.isEmpty {
+                        PagedImageViewer(
+                            images: uiImages,
+                            index: $currentIndex,
+                            isControlsVisible: $isControlsVisible
+                        )
+                        .scaleEffect(0.75)
+                        .rotationEffect(.degrees(90))
+                        .frame(
+                            width: screen.height,    // correct landscape frame
+                            height: screen.width
+                        )
+                        .position(
+                            x: screen.width / 2,     // ⭐ center manually
+                            y: screen.height / 2
+                        )
+                        .clipped()
+                        .ignoresSafeArea()
                     }
-                    .transition(.opacity)
-            } else {
-                Color.gray
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            
-            if showControls {
-                VStack(spacing: 0) {
-                    HStack {
-                        HStack {
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.25)) {
-                                    resetView()
-                                    onClose()
-                                }
-                            } label: {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 24, weight: .regular))
-                                    .frame(width: 46, height: 46)
-                            }
-                            .padding(.leading, -6)
-                            .buttonStyle(.borderless)
-                        }
-                        .frame(width: 80, alignment: .leading)
-                        
-                        Text(currentTitle)
-                            .font(.system(size: 16, weight: .semibold))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .frame(maxWidth: .infinity)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 8)
-                        
-                        HStack(spacing: 8) {
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    previous()
-                                }
-                            } label: {
-                                Image(systemName: "chevron.up")
-                                    .font(.system(size: 24, weight: .regular))
-                            }
-                            .buttonStyle(.borderless)
 
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    next()
-                                }
-                            } label: {
-                                Image(systemName: "chevron.down")
-                                    .font(.system(size: 24, weight: .regular))
-                            }
-                            .buttonStyle(.borderless)
-                        }
-                        .frame(width: 80, alignment: .trailing)
-                        .padding(.trailing, 16)
+                    if isControlsVisible {
+                        controls
+                            .transition(.move(edge: .top).combined(with: .opacity))
                     }
-                    .background(Color.black.opacity(0.85))
-                    .shadow(radius: 2)
-                    
-                    Spacer()
                 }
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .ignoresSafeArea()
             }
+            .ignoresSafeArea()
+            
+        }.statusBarHidden()
+    }
+    
+    private func geometrySafeTopPadding() -> CGFloat {
+        // if you don’t have geometry in this scope,
+        // we safely read from UIApplication
+        let topInset = UIApplication.shared.windows.first?.safeAreaInsets.top ?? 0
+        return topInset - 8   // nice breathing room
+    }
+
+    private var controls: some View {
+        VStack {
+            HStack {
+                Spacer()    // fill left side
+
+                Button(action: { onClose() }) {
+                    ZStack {
+                        Circle()
+                            .fill(Color(red: 0.1, green: 0.1, blue: 0.1))
+                            .frame(width: 38, height: 38)
+                            .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+
+                        Image(systemName: "xmark")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.blue)
+                    }
+                }
+                .frame(width: 42)
+
+                Spacer()    // fill right side
+            }
+            .padding(.top, 42)        // exactly like your viewfinder
+            .padding(.horizontal)
+
+            Spacer()
         }
-        .gesture(
-            DragGesture()
-                .onEnded { value in
-                    guard abs(value.translation.width) > 60 else { return }
-                    if value.translation.width > 0 {
-                        withAnimation(.easeInOut(duration: 0.25)) { previous() }
-                    } else {
-                        withAnimation(.easeInOut(duration: 0.25)) { next() }
-                    }
-                }
-        )
     }
-    
-    private var currentTitle: String {
-        let img = images[safe: currentIndex]
-        return img?.name ?? "Untitled"
-    }
-    
-    private func next() {
-        resetView()
-        currentIndex = (currentIndex + 1) % images.count
-    }
-    
-    private func previous() {
-        resetView()
-        currentIndex = (currentIndex - 1 + images.count) % images.count
-    }
-    
-    private func resetView() {
-        scale = 1.0
-        lastScale = 1.0
-        offset = .zero
-        lastOffset = .zero
-    }
-    
-    private var magnificationGesture: some Gesture {
-        MagnificationGesture()
-            .onChanged { value in
-                let delta = value / lastScale
-                lastScale = value
-                let newScale = scale * delta
-                scale = min(max(newScale, 1.0), 4.0)
-            }
-            .onEnded { _ in
-                lastScale = 1.0
-                if scale < 1.05 {
-                    resetView()
-                }
-            }
-    }
-    
-    private var dragGesture: some Gesture {
-        DragGesture()
-            .onChanged { value in
-                guard scale > 1 else { return }
-                offset = CGSize(
-                    width: lastOffset.width + value.translation.width,
-                    height: lastOffset.height + value.translation.height
-                )
-            }
-            .onEnded { _ in
-                guard scale > 1 else { return }
-                lastOffset = offset
-            }
-    }
-    
-    private var doubleTapGesture: some Gesture {
-        TapGesture(count: 2)
-            .onEnded {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    if abs(scale - 1.0) < 0.1 {
-                        scale = 2.5
-                    } else {
-                        resetView()
-                    }
-                }
-            }
-    }
-}
 
-private extension Collection {
-    subscript(safe index: Index) -> Element? {
-        indices.contains(index) ? self[index] : nil
-    }
+
 }
