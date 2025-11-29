@@ -406,7 +406,7 @@ struct FlowLayout: Layout {
             currentLineHeight = max(currentLineHeight, size.height)
         }
         height += currentLineHeight
-        width = maxWidth // 👈 use full width to prevent centering
+        width = maxWidth
         return CGSize(width: width, height: height)
     }
 
