@@ -3,8 +3,7 @@
 // https://github.com/mikaelsundell/filmlog
 
 import SwiftUI
-
-// MARK: - FitAwareScrollView
+import UIKit
 
 class FitAwareScrollView: UIScrollView {
     var onLayout: (() -> Void)?
@@ -14,8 +13,6 @@ class FitAwareScrollView: UIScrollView {
         onLayout?()
     }
 }
-
-// MARK: - ZoomableScrollView
 
 struct ZoomableScrollView: UIViewRepresentable {
     let image: UIImage
@@ -31,47 +28,36 @@ struct ZoomableScrollView: UIViewRepresentable {
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.backgroundColor = .black
 
-        // ImageView
         let imageView = UIImageView(image: image)
         imageView.contentMode = .scaleAspectFit
         imageView.isUserInteractionEnabled = true
         imageView.tag = 101
         scrollView.addSubview(imageView)
 
-        // Store references
         context.coordinator.scrollView = scrollView
         context.coordinator.imageView = imageView
 
-        // Tap to toggle controls
         let tap = UITapGestureRecognizer(target: context.coordinator,
                                          action: #selector(Coordinator.handleTap))
         tap.numberOfTapsRequired = 1
         scrollView.addGestureRecognizer(tap)
 
-        // Double-tap zoom
         let doubleTap = UITapGestureRecognizer(target: context.coordinator,
                                                action: #selector(Coordinator.handleDoubleTap(_:)))
         doubleTap.numberOfTapsRequired = 2
         scrollView.addGestureRecognizer(doubleTap)
 
-        // Require double tap to fail before single tap fires
         tap.require(toFail: doubleTap)
-
-        // Fit image once, when layout is ready
         scrollView.onLayout = { [weak scrollView] in
             guard let scrollView else { return }
             fitImage(scrollView: scrollView, context: context)
         }
-
         return scrollView
     }
-
-    // MARK: Initial fit-to-screen logic
 
     func fitImage(scrollView: UIScrollView, context: Context) {
         let coordinator = context.coordinator
 
-        // Only do initial fit once per image
         if coordinator.hasInitialLayout {
             return
         }
@@ -82,7 +68,6 @@ struct ZoomableScrollView: UIViewRepresentable {
         let scrollSize = scrollView.bounds.size
         guard scrollSize.width > 0, scrollSize.height > 0 else { return }
 
-        // Compute scale factor for aspect fit
         let scaleX = scrollSize.width / image.size.width
         let scaleY = scrollSize.height / image.size.height
         let fitScale = min(scaleX, scaleY)
@@ -93,7 +78,6 @@ struct ZoomableScrollView: UIViewRepresentable {
         imageView.frame = CGRect(x: 0, y: 0, width: newWidth, height: newHeight)
         scrollView.contentSize = imageView.frame.size
 
-        // Baseline zoom = 1.0 ("fit to screen")
         scrollView.minimumZoomScale = 1.0
         scrollView.zoomScale = 1.0
 
@@ -102,29 +86,23 @@ struct ZoomableScrollView: UIViewRepresentable {
     }
 
     func updateUIView(_ scrollView: UIScrollView, context: Context) {
-        // no-op — layout & fitting handled by FitAwareScrollView
     }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(isControlsVisible: $isControlsVisible)
     }
 
-    // MARK: - Coordinator
-
     class Coordinator: NSObject, UIScrollViewDelegate {
         @Binding var isControlsVisible: Bool
         weak var scrollView: UIScrollView?
         weak var imageView: UIImageView?
 
-        // To avoid refitting on every layout
         var hasInitialLayout: Bool = false
 
         init(isControlsVisible: Binding<Bool>) {
             _isControlsVisible = isControlsVisible
         }
-
-        // MARK: Zooming
-
+        
         func viewForZooming(in scrollView: UIScrollView) -> UIView? {
             return imageView
         }
@@ -146,9 +124,7 @@ struct ZoomableScrollView: UIViewRepresentable {
                 right: offsetX
             )
         }
-
-        // MARK: Gestures
-
+        
         @objc func handleTap() {
             isControlsVisible.toggle()
         }
@@ -156,14 +132,12 @@ struct ZoomableScrollView: UIViewRepresentable {
         @objc func handleDoubleTap(_ recognizer: UITapGestureRecognizer) {
             guard let scrollView else { return }
 
-            // If zoomed in → reset to "fit" (zoomScale = 1)
             if abs(scrollView.zoomScale - 1.0) > 0.01 {
                 scrollView.setZoomScale(1.0, animated: true)
                 centerImage()
                 return
             }
 
-            // If already fitted → zoom in at tap location
             let location = recognizer.location(in: imageView)
             zoom(to: location)
         }
@@ -188,8 +162,6 @@ struct ZoomableScrollView: UIViewRepresentable {
         }
     }
 }
-
-// MARK: - PagedImageViewer
 
 struct PagedImageViewer: UIViewControllerRepresentable {
     let images: [UIImage]
@@ -238,7 +210,6 @@ struct PagedImageViewer: UIViewControllerRepresentable {
                     )
                     .ignoresSafeArea()
             )
-
             cache[index] = vc
             return vc
         }
@@ -282,8 +253,6 @@ struct PagedImageViewer: UIViewControllerRepresentable {
     }
 }
 
-import UIKit
-
 struct VisualEffectView: UIViewRepresentable {
     var style: UIBlurEffect.Style
 
@@ -293,8 +262,6 @@ struct VisualEffectView: UIViewRepresentable {
 
     func updateUIView(_ uiView: UIVisualEffectView, context: Context) {}
 }
-
-
 
 struct GalleryPresentationView: View {
     let images: [ImageData]
@@ -331,11 +298,11 @@ struct GalleryPresentationView: View {
                         .scaleEffect(0.75)
                         .rotationEffect(.degrees(90))
                         .frame(
-                            width: screen.height,    // correct landscape frame
+                            width: screen.height,
                             height: screen.width
                         )
                         .position(
-                            x: screen.width / 2,     // ⭐ center manually
+                            x: screen.width / 2,
                             y: screen.height / 2
                         )
                         .clipped()
@@ -346,6 +313,28 @@ struct GalleryPresentationView: View {
                         controls
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
+                    
+                    MaskView(
+                        frameSize: displaySize,
+                        aspectSize: aspectFrame,
+                        radius: 8,
+                        geometry: geometry
+                    )
+                    .clipShape(
+                        RoundedRectangle(cornerRadius: 8)
+                    )
+                    
+                }
+                .overlay()
+                {
+                    if gridMode != .off
+                        
+                        GridView(
+                            gridMode: gridMode,
+                            size: aspectFrame,
+                            geometry: geometry
+                        )
+                        .position(x: width / 2, y: height / 2)
                 }
                 .ignoresSafeArea()
             }
@@ -355,16 +344,14 @@ struct GalleryPresentationView: View {
     }
     
     private func geometrySafeTopPadding() -> CGFloat {
-        // if you don’t have geometry in this scope,
-        // we safely read from UIApplication
         let topInset = UIApplication.shared.windows.first?.safeAreaInsets.top ?? 0
-        return topInset - 8   // nice breathing room
+        return topInset - 8
     }
 
     private var controls: some View {
         VStack {
             HStack {
-                Spacer()    // fill left side
+                Spacer()
 
                 Button(action: { onClose() }) {
                     ZStack {
@@ -380,14 +367,12 @@ struct GalleryPresentationView: View {
                 }
                 .frame(width: 42)
 
-                Spacer()    // fill right side
+                Spacer()
             }
-            .padding(.top, 42)        // exactly like your viewfinder
+            .padding(.top, 42)
             .padding(.horizontal)
 
             Spacer()
         }
     }
-
-
 }
