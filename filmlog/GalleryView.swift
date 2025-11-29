@@ -31,7 +31,7 @@ struct ImageView: View {
 struct GalleryView: View {
     @Query private var galleries: [Gallery]
     @State private var filterText: String = ""
-    @State private var filterTags: [Tag] = []
+    @State private var selectedTags: [Tag] = []
     @State private var selectedItem: PhotosPickerItem? = nil
     @State private var selectedImage: ImageData? = nil
     
@@ -44,12 +44,13 @@ struct GalleryView: View {
     @State private var presentationStartIndex = 0
     
     @State private var activeImage: ImageData? = nil
+    @State private var activeImages: [ImageData] = []
     
     @State private var selectedItems: [PhotosPickerItem] = []
     
     @State private var isSelecting = false
     @State private var selectedImages = Set<UUID>()
-    
+
     enum SortOption: String, CaseIterable, Identifiable {
         case name = "Name"
         case created = "Created"
@@ -164,6 +165,7 @@ struct GalleryView: View {
                                                         }
                                                     } else {
                                                         activeImage = image
+                                                        activeImages = sortedImages(filteredImages, option: selectedImageSort)
                                                     }
                                                 }
                                             
@@ -195,9 +197,7 @@ struct GalleryView: View {
                     
                     HStack {
                         Button {
-                            if isSelecting && !selectedImages.isEmpty {
-                                showDeleteAlert = true  // 👈 trigger confirmation alert
-                            }
+                            showDeleteAlert = true
                         } label: {
                             Image(systemName: "trash")
                                 .font(.system(size: 18, weight: .semibold))
@@ -206,6 +206,7 @@ struct GalleryView: View {
                                 .clipShape(Circle())
                                 .foregroundColor(isSelecting && !selectedImages.isEmpty ? .red : .gray.opacity(0.5))
                         }
+                        .disabled(isSelecting && selectedImages.isEmpty)
                         .buttonStyle(.plain)
                         .help("Delete selected images")
                         .alert("Are you sure?", isPresented: $showDeleteAlert) {
@@ -249,11 +250,13 @@ struct GalleryView: View {
                                 .frame(width: 40, height: 40)
                                 .background(.ultraThinMaterial)
                                 .clipShape(Circle())
+                                .foregroundColor(
+                                    isSelecting && selectedImages.isEmpty
+                                        ? .gray.opacity(0.3)
+                                        : .blue
+                                )
                         }
-                        .buttonStyle(.plain)
-                        .foregroundColor(.blue)
-                        .opacity(isSelecting ? 0.4 : 1.0)
-                        .disabled(isSelecting)
+                        .disabled(isSelecting && selectedImages.isEmpty)
                     }
                     .padding(.horizontal, 24)
                     .padding(.vertical, 8)
@@ -262,21 +265,20 @@ struct GalleryView: View {
                 }
             }
             
-            let images = sortedImages(filteredImages, option: selectedImageSort)
             if let image = activeImage,
-               let index = images.firstIndex(where: { $0.id == image.id }) {
+               let index = activeImages.firstIndex(where: { $0.id == image.id }) {
                 ImageDetailView(
-                    image: images[index],
+                    image: activeImages[index],
                     gallery: gallery,
                     index: index,
-                    count: images.count,
+                    count: activeImages.count,
                     onPrevious: {
-                        let previousIndex = (index - 1 + images.count) % images.count
-                        activeImage = images[previousIndex]
+                        let previousIndex = (index - 1 + activeImages.count) % activeImages.count
+                        activeImage = activeImages[previousIndex]
                     },
                     onNext: {
-                        let nextIndex = (index + 1) % images.count
-                        activeImage = images[nextIndex]
+                        let nextIndex = (index + 1) % activeImages.count
+                        activeImage = activeImages[nextIndex]
                     },
                     onBack: {
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -392,11 +394,36 @@ struct GalleryView: View {
             }
         }
         .sheet(isPresented: $showTagSheet) {
-            TagView(
-                gallery: gallery,
-                filterTags: $filterTags
-            )
-            .presentationDetents([.medium, .large])
+            if isSelecting && !selectedImages.isEmpty {
+                let selected = gallery.orderedImages.filter { selectedImages.contains($0.id) }
+                let tags: [Tag] = {
+                    guard let first = selected.first else { return [] }
+                    return selected
+                        .dropFirst()
+                        .reduce(Set(first.tags)) { result, img in
+                            result.intersection(img.tags)
+                        }
+                        .sorted { $0.name < $1.name }
+                }()
+
+                TagPicker(
+                    gallery: gallery,
+                    selectedTags: Binding(
+                        get: { tags },
+                        set: { newTags in
+                            toggleTags(newTags)
+                        }
+                    )
+                )
+                .presentationDetents([.medium, .large])
+            }
+            else {
+                TagPicker(
+                    gallery: gallery,
+                    selectedTags: $selectedTags
+                )
+                .presentationDetents([.medium, .large])
+            }
         }
         .sheet(isPresented: $showFilePicker) {
             FilePicker(kind: .image, allowsMultiple: true) { urls in
@@ -447,8 +474,8 @@ struct GalleryView: View {
 
     private var filteredImages: [ImageData] {
         var imgs = gallery.orderedImages
-        if !filterTags.isEmpty {
-            imgs = imgs.filter { !$0.tags.filter { filterTags.contains($0) }.isEmpty }
+        if !selectedTags.isEmpty {
+            imgs = imgs.filter { !$0.tags.filter { selectedTags.contains($0) }.isEmpty }
         }
         if !filterText.isEmpty {
             imgs = imgs.filter {
@@ -488,6 +515,18 @@ struct GalleryView: View {
             print("import error: \(error)")
         }
         try? FileManager.default.removeItem(at: localURL)
+    }
+    
+    private func toggleTags(_ tags: [Tag]) {
+        let selectedImgs = gallery.orderedImages.filter { selectedImages.contains($0.id) }
+        do {
+            for img in selectedImgs {
+                img.tags = tags
+            }
+            try modelContext.save()
+        } catch {
+            print("failed to replace tags: \(error)")
+        }
     }
     
     private func deleteImage(_ image: ImageData) {
@@ -550,8 +589,8 @@ struct GalleryView: View {
                     let newImage = ImageData(name: name, note: note, creator: creator)
                     newImage.timestamp = timestamp ?? Date()
 
-                    if !filterTags.isEmpty {
-                        newImage.tags.append(contentsOf: filterTags)
+                    if !selectedTags.isEmpty {
+                        newImage.tags.append(contentsOf: selectedTags)
                     }
 
                     if newImage.updateFile(to: image) {

@@ -90,8 +90,6 @@ struct FilePicker: UIViewControllerRepresentable {
             let group = DispatchGroup()
             
             for url in urls {
-                print("📁 → Picked URL: \(url)")
-
                 group.enter()
                 prepareURL(url) { readyURL in
                     if let readyURL = readyURL {
