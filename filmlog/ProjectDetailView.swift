@@ -28,6 +28,9 @@ struct ProjectDetailView: View {
     @State private var confirmMoveToShooting = false
     @State private var confirmMoveToArchived = false
     
+    @State private var showPresentation = false
+    @State private var presentationStartIndex = 0
+    
     enum SortOption: String, CaseIterable, Identifiable {
         case name = "Name"
         case created = "Created"
@@ -234,6 +237,16 @@ struct ProjectDetailView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: activeShot)
+        .fullScreenCover(isPresented: $showPresentation) {
+            let images = sortedShots(project.shots).compactMap { $0.imageData }
+
+            ImagePresentationView(
+                images: images,
+                startIndex: presentationStartIndex
+            ) {
+                showPresentation = false
+            }
+        }
         .navigationTitle("\(project.name.isEmpty ? "Untitled" : project.name)")
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
@@ -245,6 +258,14 @@ struct ProjectDetailView: View {
                     }
                     
                     Button(action: {
+                        if let current = activeShot,
+                           let index = project.orderedShots.firstIndex(where: { $0.id == current.id }) {
+                            presentationStartIndex = index
+                        } else {
+                            presentationStartIndex = 0
+                        }
+
+                        showPresentation = true
                     }) {
                         Image(systemName: "display")
                     }

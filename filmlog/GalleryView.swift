@@ -156,6 +156,19 @@ struct GalleryView: View {
                                                         .stroke(selectedImages.contains(image.id) ? Color.accentColor : Color.clear, lineWidth: 3)
                                                 )
                                                 .opacity(isSelecting ? (selectedImages.contains(image.id) ? 1.0 : 0.8) : 1.0)
+                                                .onTapGesture(count: 2) {
+                                                    guard !isSelecting else { return }
+                                                    let sorted = sortedImages(filteredImages, option: selectedImageSort)
+                                                    activeImages = sorted
+                                                    
+                                                    if let index = sorted.firstIndex(where: { $0.id == image.id }) {
+                                                        presentationStartIndex = index
+                                                    } else {
+                                                        presentationStartIndex = 0
+                                                    }
+                                                    
+                                                    showPresentation = true
+                                                }
                                                 .onTapGesture {
                                                     if isSelecting {
                                                         if selectedImages.contains(image.id) {
@@ -386,7 +399,7 @@ struct GalleryView: View {
             }
         }
         .fullScreenCover(isPresented: $showPresentation) {
-            GalleryPresentationView(
+            ImagePresentationView(
                 images: sortedImages(filteredImages, option: selectedImageSort),
                 startIndex: presentationStartIndex
             ) {

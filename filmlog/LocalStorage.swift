@@ -101,11 +101,8 @@ func localStorageDirectory(for kind: LocalStorageKind) -> URL {
 func loadLocalStorageFiles(kind: LocalStorageKind) -> [LocalStorageFile] {
     let fm = FileManager.default
     let dir = localStorageDirectory(for: kind)
-    
-    print("Local Storage dir: \(dir)")
-    
     let allowed = kind.supportedExtensions.map { $0.lowercased() }
-    
+
     guard let files = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {
         return []
     }
@@ -144,12 +141,9 @@ func saveToLocalStorageDirectory(_ sourceURL: URL, as kind: LocalStorageKind) ->
         }
 
         try fm.copyItem(at: sourceURL, to: destURL)
-
-        print("[LocalStorage] Saved \(sourceURL.lastPathComponent) → \(destURL.path)")
         return destURL
 
     } catch {
-        print("[LocalStorage] Error saving \(sourceURL.lastPathComponent): \(error)")
         return nil
     }
 }

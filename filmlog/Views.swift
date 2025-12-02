@@ -6,6 +6,7 @@ import SwiftUI
 import PhotosUI
 import Combine
 import CoreMotion
+import UIKit
 
 enum ToggleMode: Int, CaseIterable {
     case off = 0
@@ -275,7 +276,6 @@ struct CircularPickerView: View {
 
 struct ControlButton {
     let icon: String
-    let label: String
     let action: () -> Void
     var foreground: Color = .white
     var background: Color = Color.black.opacity(0.6)
@@ -289,6 +289,7 @@ struct ControlsView<Overlay: View>: View {
     @ViewBuilder var overlay: () -> Overlay
 
     private let height: CGFloat = 125
+
     init(
         isVisible: Binding<Bool>,
         buttons: [ControlButton],
@@ -314,16 +315,16 @@ struct ControlsView<Overlay: View>: View {
                     }
                     .ignoresSafeArea()
                 }
+
                 VStack(spacing: 0) {
                     Spacer()
+
                     ZStack {
-                        Color.clear
-                            .frame(height: height)
-                        HStack(spacing: 16) {
+                        HStack(spacing: 8) {
                             ForEach(buttons.indices, id: \.self) { index in
                                 let button = buttons[index]
                                 Button(action: button.action) {
-                                    VStack(spacing: 8) {
+                                    VStack(spacing: 4) {
                                         ZStack {
                                             Circle()
                                                 .fill(button.background)
@@ -333,12 +334,7 @@ struct ControlsView<Overlay: View>: View {
                                                 .font(.system(size: 12, weight: .medium))
                                                 .foregroundColor(button.foreground)
                                         }
-                                        .contentShape(Circle())
                                         .animation(.easeInOut(duration: 0.25), value: button.background)
-
-                                        Text(button.label)
-                                            .font(.system(size: 12))
-                                            .foregroundColor(button.foreground)
                                     }
                                     .frame(width: 52)
                                     .rotationEffect(button.rotation)
@@ -346,7 +342,13 @@ struct ControlsView<Overlay: View>: View {
                                 .buttonStyle(.plain)
                             }
                         }
-                        .offset(y: -10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 32)
+                                .fill(Color.black.opacity(0.4))
+                                .padding(.horizontal, -12)
+                                .padding(.vertical, -8)
+                        )
+                        .padding(.bottom, 42)
                     }
                 }
             }
@@ -380,6 +382,15 @@ struct ExportFileView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+}
+
+class FitAwareScrollView: UIScrollView {
+    var onLayout: (() -> Void)?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        onLayout?()
+    }
 }
 
 struct FlowLayout: Layout {
@@ -582,6 +593,28 @@ extension TupleView {
     }
 }
 
+struct AspectRatioView: View {
+    let frameSize: CGSize
+    let aspectSize: CGSize
+    let radius: CGFloat
+    let geometry: GeometryProxy
+    
+    var body: some View {
+        let width = geometry.size.width
+        let height = geometry.size.height
+        ZStack {
+            if !frameSize.isApproximatelyEqual(to: aspectSize, tolerance: 1.0) {
+                Rectangle()
+                    .stroke(.blue, lineWidth: 1)
+                    .frame(width: aspectSize.width, height: aspectSize.height)
+                    .position(x: width / 2, y: height / 2)
+            }
+        }
+        .allowsHitTesting(false)
+        .ignoresSafeArea()
+    }
+}
+
 struct LevelIndicatorView: View {
     var level: OrientationUtils.Level
     let orientation: UIDeviceOrientation
@@ -668,14 +701,13 @@ struct MaskView: View {
     let frameSize: CGSize
     let aspectSize: CGSize
     let radius: CGFloat
-    let inner: CGFloat
-    let outer: CGFloat
     let geometry: GeometryProxy
     
     var body: some View {
         let width = geometry.size.width
         let height = geometry.size.height
-        
+        let inner = 0.4
+        let outer = 0.090
         ZStack {
             Color(Color.black)
                 .opacity(outer)
@@ -711,12 +743,7 @@ struct MaskView: View {
                     }
                     .fill(style: FillStyle(eoFill: true))
                 )
-
-            RoundedRectangle(cornerRadius: radius)
-                .stroke(.gray, lineWidth: 1)
-                .frame(width: frameSize.width, height: frameSize.height)
-                .position(x: width / 2, y: height / 2)
-
+            
             if !frameSize.isApproximatelyEqual(to: aspectSize, tolerance: 1.0) {
                 Rectangle()
                     .stroke(.blue, lineWidth: 1)
@@ -957,13 +984,15 @@ struct PhotoPickerView: View {
     }
 }
 
-class OrientationObserver: ObservableObject {
+class MotionObserver: ObservableObject {
     @Published var orientation: UIDeviceOrientation = UIDevice.current.orientation
     @Published var level = OrientationUtils.Level(roll: 0.0, tilt: 0.0)
     
     private var smoothedRoll: Double = 0.0
     private var smoothedTilt: Double = 0.0
     private let alpha = 0.15
+    
+    private var isRunning = false
     
     private var cancellable: AnyCancellable?
     private var motionManager = CMMotionManager()
@@ -982,6 +1011,9 @@ class OrientationObserver: ObservableObject {
     }
     
     private func startMotionUpdates() {
+        guard !isRunning else { return }
+                isRunning = true
+        
         if motionManager.isDeviceMotionAvailable {
             motionManager.deviceMotionUpdateInterval = 0.02
             motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
@@ -1018,6 +1050,388 @@ class OrientationObserver: ObservableObject {
                     self.level = OrientationUtils.Level(roll: self.smoothedRoll, tilt: self.smoothedTilt)
                 }
             }
+        }
+    }
+    
+    func stopMotionUpdates() {
+        guard isRunning else { return }
+        isRunning = false
+        motionManager.stopDeviceMotionUpdates()
+    }
+    
+}
+
+class OrientationObserver: ObservableObject {
+    @Published var orientation: UIDeviceOrientation = UIDevice.current.orientation
+    
+    private var cancellable: AnyCancellable?
+    
+    init() {
+        cancellable = NotificationCenter.default.publisher(
+            for: UIDevice.orientationDidChangeNotification
+        )
+        .compactMap { _ in
+            let o = UIDevice.current.orientation
+            return o.isValidInterfaceOrientation ? o : nil
+        }
+        .removeDuplicates()
+        .sink { [weak self] newOrientation in
+            self?.orientation = newOrientation
+        }
+    }
+}
+
+struct PagedImageViewer: UIViewControllerRepresentable {
+    let images: [UIImage]
+
+    @Binding var index: Int
+    @Binding var showControls: Bool
+    @Binding var viewSize: CGSize
+    @Binding var viewFit: Bool
+    @Binding var viewReady: Bool
+    
+    func makeUIViewController(context: Context) -> UIPageViewController {
+        let controller = UIPageViewController(
+            transitionStyle: .scroll,
+            navigationOrientation: .horizontal
+        )
+        controller.dataSource = context.coordinator
+        controller.delegate = context.coordinator
+
+        if let scrollView = controller.view.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView {
+            scrollView.delegate = context.coordinator
+        }
+
+        let initialVC = context.coordinator.viewController(for: index)
+        controller.setViewControllers([initialVC], direction: .forward, animated: false)
+
+        if let sv = controller.view.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView {
+            sv.delegate = context.coordinator
+            context.coordinator.pageScrollView = sv
+        }
+        
+        DispatchQueue.main.async {
+            viewReady = true
+        }
+
+        return controller
+    }
+
+    func updateUIViewController(_ controller: UIPageViewController, context: Context) {
+        let vc = context.coordinator.viewController(for: index)
+        controller.setViewControllers([vc], direction: .forward, animated: false)
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate, UIScrollViewDelegate {
+        var parent: PagedImageViewer
+        private var cache: [Int: UIViewController] = [:]
+        weak var pageScrollView: UIScrollView?
+
+        init(_ parent: PagedImageViewer) {
+            self.parent = parent
+        }
+
+        func viewController(for index: Int) -> UIViewController {
+            if let vc = cache[index] { return vc }
+
+            let vc = UIHostingController(
+                rootView:
+                    ZoomableScrollView(
+                        image: parent.images[index],
+                        pageIndex: index,
+                        currentIndex: parent.$index,
+                        showControls: parent.$showControls,
+                        viewFit: parent.$viewFit,
+                        viewReady: parent.$viewReady,
+                        viewSize: parent.$viewSize
+                    )
+                    .ignoresSafeArea()
+            )
+            cache[index] = vc
+            return vc
+        }
+
+        func pageViewController(_ pageViewController: UIPageViewController,
+                                viewControllerBefore viewController: UIViewController)
+        -> UIViewController? {
+
+            guard parent.images.count > 1 else { return nil }
+            guard let index = index(of: viewController) else { return nil }
+
+            let prev = (index - 1 + parent.images.count) % parent.images.count
+            return self.viewController(for: prev)
+        }
+
+        func pageViewController(_ pageViewController: UIPageViewController,
+                                viewControllerAfter viewController: UIViewController)
+        -> UIViewController? {
+
+            guard parent.images.count > 1 else { return nil }
+            guard let index = index(of: viewController) else { return nil }
+
+            let next = (index + 1) % parent.images.count
+            return self.viewController(for: next)
+        }
+
+        func pageViewController(_ pageViewController: UIPageViewController,
+                                didFinishAnimating finished: Bool,
+                                previousViewControllers: [UIViewController],
+                                transitionCompleted completed: Bool) {
+            if completed,
+               let visible = pageViewController.viewControllers?.first,
+               let newIndex = index(of: visible) {
+
+                parent.index = newIndex
+                pruneCache(around: newIndex)
+                
+                // finisged the swupe, the page changed the ui state
+                // should be updated
+                
+                DispatchQueue.main.async {
+                    self.parent.viewReady = true
+                }
+            } else if finished && !completed {
+                
+                // the swipe started but snap-back occurred, page did not
+                // change we must still restore the ui state
+                
+                DispatchQueue.main.async {
+                    self.parent.viewReady = true
+                }
+            }
+        }
+
+        private func pruneCache(around center: Int) {
+            let count = parent.images.count
+            guard count > 3 else { return }
+
+            let prev = (center - 1 + count) % count
+            let next = (center + 1) % count
+            let allowed: Set<Int> = [prev, center, next]
+
+            for key in cache.keys where !allowed.contains(key) {
+                if let vc = cache[key] {
+                    vc.willMove(toParent: nil)
+                    vc.view.removeFromSuperview()
+                    vc.removeFromParent()
+                    if let hosting = vc as? UIHostingController<ZoomableScrollView> {
+                        hosting.view.gestureRecognizers?.forEach { $0.removeTarget(nil, action: nil) }
+                    }
+                }
+                cache.removeValue(forKey: key)
+            }
+        }
+        
+        private func index(of vc: UIViewController) -> Int? {
+            cache.first(where: { $0.value === vc })?.key
+        }
+    }
+}
+
+struct VisualEffectView: UIViewRepresentable {
+    var style: UIBlurEffect.Style
+
+    func makeUIView(context: Context) -> UIVisualEffectView {
+        return UIVisualEffectView(effect: UIBlurEffect(style: style))
+    }
+
+    func updateUIView(_ uiView: UIVisualEffectView, context: Context) {}
+}
+
+struct ZoomableScrollView: UIViewRepresentable {
+    let image: UIImage
+    let pageIndex: Int
+    
+    @Binding var currentIndex: Int
+    @Binding var showControls: Bool
+    @Binding var viewFit: Bool
+    @Binding var viewReady: Bool
+    @Binding var viewSize: CGSize
+    
+    func makeUIView(context: Context) -> UIScrollView {
+        let scrollView = FitAwareScrollView()
+        scrollView.delegate = context.coordinator
+        scrollView.minimumZoomScale = 1.0
+        scrollView.maximumZoomScale = 5.0
+        scrollView.bouncesZoom = true
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.backgroundColor = .black
+
+        let imageView = UIImageView(image: image)
+        imageView.contentMode = .scaleAspectFit
+        imageView.isUserInteractionEnabled = true
+        scrollView.addSubview(imageView)
+
+        context.coordinator.scrollView = scrollView
+        context.coordinator.imageView = imageView
+
+        let tap = UITapGestureRecognizer(target: context.coordinator,
+                                         action: #selector(Coordinator.handleTap))
+        tap.numberOfTapsRequired = 1
+        scrollView.addGestureRecognizer(tap)
+
+        let doubleTap = UITapGestureRecognizer(target: context.coordinator,
+                                               action: #selector(Coordinator.handleDoubleTap(_:)))
+        doubleTap.numberOfTapsRequired = 2
+        scrollView.addGestureRecognizer(doubleTap)
+
+        tap.require(toFail: doubleTap)
+
+        scrollView.onLayout = { [weak scrollView] in
+            guard let scrollView else { return }
+            context.coordinator.performInitialFit(in: scrollView)
+        }
+
+        return scrollView
+    }
+    
+    func updateUIView(_ scrollView: UIScrollView, context: Context) {
+        if context.coordinator.hasInitialFit && pageIndex != currentIndex {
+            return
+        }
+
+        guard let imageView = context.coordinator.imageView else { return }
+        let size = imageView.frame.size
+
+        if size.width < 10 || size.height < 10 {
+            return
+        }
+
+        if size.width == scrollView.bounds.width &&
+           size.height == scrollView.bounds.height {
+            return
+        }
+        
+        if context.coordinator.hasInitialFit == false {
+            return
+        }
+
+        if viewReady && pageIndex == currentIndex {
+            viewSize = size
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(
+            pageIndex: pageIndex,
+            showControls: $showControls,
+            viewSize: $viewSize,
+            viewFit: $viewFit,
+            viewReady: $viewReady
+        )
+    }
+
+    class Coordinator: NSObject, UIScrollViewDelegate {
+        let pageIndex: Int
+
+        @Binding var showControls: Bool
+        @Binding var viewSize: CGSize
+        @Binding var viewFit: Bool
+        @Binding var viewReady: Bool
+
+        weak var scrollView: UIScrollView?
+        weak var imageView: UIImageView?
+
+        var hasInitialFit: Bool = false
+
+        init(pageIndex: Int,
+             showControls: Binding<Bool>,
+             viewSize: Binding<CGSize>,
+             viewFit: Binding<Bool>,
+             viewReady: Binding<Bool>) {
+            self.pageIndex = pageIndex
+            _showControls = showControls
+            _viewSize = viewSize
+            _viewFit = viewFit
+            _viewReady = viewReady
+        }
+
+        func performInitialFit(in scrollView: UIScrollView) {
+            guard !hasInitialFit else { return }
+            guard let imageView, let image = imageView.image else { return }
+
+            let scrollSize = scrollView.bounds.size
+            guard scrollSize.width > 0, scrollSize.height > 0 else { return }
+
+            let scaleX = scrollSize.width / image.size.width
+            let scaleY = scrollSize.height / image.size.height
+            let fitScale = min(scaleX, scaleY)
+
+            let newWidth = image.size.width * fitScale
+            let newHeight = image.size.height * fitScale
+
+            imageView.frame = CGRect(x: 0, y: 0, width: newWidth, height: newHeight)
+            scrollView.contentSize = imageView.frame.size
+
+            scrollView.minimumZoomScale = 1.0
+            scrollView.zoomScale = 1.0
+
+            DispatchQueue.main.async {
+                self.viewSize = CGSize(width: newWidth, height: newHeight)
+                self.viewFit = true
+            }
+
+            hasInitialFit = true
+            centerImage()
+        }
+
+        func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+            imageView
+        }
+
+        func scrollViewDidZoom(_ scrollView: UIScrollView) {
+            centerImage()
+            let zoom = scrollView.zoomScale
+            let isViewFit = abs(zoom - 1.0) < 0.01
+            if isViewFit != viewFit {
+                viewFit = isViewFit
+            }
+        }
+
+        func centerImage() {
+            guard let scrollView, let imageView else { return }
+            let offsetX = max((scrollView.bounds.width - imageView.frame.width) * 0.5, 0)
+            let offsetY = max((scrollView.bounds.height - imageView.frame.height) * 0.5, 0)
+            scrollView.contentInset = UIEdgeInsets(
+                top: offsetY, left: offsetX,
+                bottom: offsetY, right: offsetX
+            )
+        }
+
+        @objc func handleTap() {
+            showControls.toggle()
+        }
+
+        @objc func handleDoubleTap(_ recognizer: UITapGestureRecognizer) {
+            guard let scrollView else { return }
+            if abs(scrollView.zoomScale - 1.0) > 0.01 {
+                scrollView.setZoomScale(1.0, animated: true)
+                centerImage()
+                return
+            }
+            let location = recognizer.location(in: imageView)
+            zoom(to: location)
+        }
+
+        private func zoom(to point: CGPoint) {
+            guard let scrollView else { return }
+            let zoomScale: CGFloat = 2.5
+            let size = scrollView.bounds.size
+            let width = size.width / zoomScale
+            let height = size.height / zoomScale
+            let rect = CGRect(
+                x: point.x - width/2,
+                y: point.y - height/2,
+                width: width,
+                height: height
+            )
+
+            scrollView.zoom(to: rect, animated: true)
         }
     }
 }

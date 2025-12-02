@@ -19,7 +19,9 @@ struct ImageDetailView: View {
         case name, note
     }
     @FocusState private var activeField: ActiveField?
+    
     @State private var showDeleteAlert = false
+    @State private var showPresentation = false
     
     @Environment(\.modelContext) private var modelContext
     
@@ -87,6 +89,9 @@ struct ImageDetailView: View {
                                 .cornerRadius(0)
                                 .listRowInsets(EdgeInsets())
                                 .listRowSeparator(.hidden)
+                                .onTapGesture {
+                                    showPresentation = true
+                                }
                         } else {
                             Color.gray
                                 .frame(height: 180)
@@ -252,6 +257,14 @@ struct ImageDetailView: View {
                     .background(Color.black)
                     .ignoresSafeArea(edges: .bottom)
                 }
+            }
+        }
+        .fullScreenCover(isPresented: $showPresentation) {
+            ImagePresentationView(
+                images: [image],
+                startIndex: 0
+            ) {
+                showPresentation = false
             }
         }
     }

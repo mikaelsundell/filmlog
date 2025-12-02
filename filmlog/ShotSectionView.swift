@@ -45,9 +45,7 @@ struct ShotSectionView: View {
                             MaskView(
                                 frameSize: imageSize.isLandscape ? displayedSize : displayedSize.toPortrait(),
                                 aspectSize: imageSize.isLandscape ? aspectFrame : aspectFrame.toPortrait(),
-                                radius: 4,
-                                inner: 0.4,
-                                outer: 0.995,
+                                radius: 8,
                                 geometry: geometry
                             )
                         }
@@ -127,7 +125,12 @@ struct ShotSectionView: View {
             }
         }
         .fullScreenCover(isPresented: $showFullImage) {
-            ShotImageView(shot: shot)
+            ImagePresentationView(
+                images: [shot.imageData!],
+                startIndex: 0
+            ) {
+                showFullImage = false
+            }
         }
     }
 }
