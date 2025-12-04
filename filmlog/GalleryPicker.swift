@@ -12,6 +12,10 @@ struct GalleryPicker: View {
     
     @Query private var galleries: [Gallery]
     @State private var filterText: String = ""
+    
+    @State private var selectedTags: [Tag] = []
+    @State private var showTagSheet = false
+    
     @State private var selectedImageSortRawValue: String = SortOption.lastModified.rawValue
     
     enum SortOption: String, CaseIterable, Identifiable {
@@ -36,12 +40,16 @@ struct GalleryPicker: View {
     
     private var filteredImages: [ImageData] {
         var imgs = gallery.orderedImages
+        if !selectedTags.isEmpty {
+            imgs = imgs.filter { !$0.tags.filter { selectedTags.contains($0) }.isEmpty }
+        }
         if !filterText.isEmpty {
             imgs = imgs.filter {
                 ($0.name?.localizedCaseInsensitiveContains(filterText) == true) ||
                 ($0.note?.localizedCaseInsensitiveContains(filterText) == true)
             }
         }
+
         return sortImages(imgs, by: selectedSort)
     }
     
@@ -121,8 +129,58 @@ struct GalleryPicker: View {
                         .padding(.horizontal, 8)
                     }
                 }
+                
+                HStack {
+                    
+                    Circle()
+                            .frame(width: 40, height: 40)
+                            .opacity(0)
+                    
+                    Spacer()
+                    
+                    HStack(spacing: 6) {
+                        Image(systemName: "photo.stack")
+                            .font(.system(size: 14, weight: .medium))
+                        Text("\(filteredImages.count) image\(filteredImages.count == 1 ? "" : "s")")
+                            .font(.subheadline)
+                            .fontWeight(.regular)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 8)
+                    .foregroundColor(.blue)
+                    .shadow(radius: 1)
+                    
+                    Spacer()
+                    
+                    Button {
+                        showTagSheet = true
+                    } label: {
+                        Image(systemName: "tag")
+                            .font(.system(size: 18, weight: .semibold))
+                            .frame(width: 40, height: 40)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Circle())
+                            .foregroundColor(
+                                filteredImages.isEmpty
+                                    ? .gray.opacity(0.3)
+                                    : .blue
+                            )
+                    }
+                    .disabled(filteredImages.isEmpty)
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
+                .background(Color.black)
+                .ignoresSafeArea(edges: .bottom)
             }
             .navigationTitle("Pick Image")
+            .sheet(isPresented: $showTagSheet) {
+                TagPicker(
+                    gallery: gallery,
+                    selectedTags: $selectedTags
+                )
+                .presentationDetents([.medium, .large])
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
