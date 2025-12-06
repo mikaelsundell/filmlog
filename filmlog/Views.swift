@@ -1005,6 +1005,22 @@ struct PagedImageViewer: UIViewControllerRepresentable {
     @Binding var viewFit: Bool
     @Binding var viewReady: Bool
     
+    @State private var pageSizes: [Int: CGSize] = [:]
+
+    init(images: [UIImage],
+         index: Binding<Int>,
+         showControls: Binding<Bool>,
+         viewSize: Binding<CGSize>,
+         viewFit: Binding<Bool>,
+         viewReady: Binding<Bool>) {
+        self.images = images
+        self._index = index
+        self._showControls = showControls
+        self._viewSize = viewSize
+        self._viewFit = viewFit
+        self._viewReady = viewReady
+    }
+
     func makeUIViewController(context: Context) -> UIPageViewController {
         let controller = UIPageViewController(
             transitionStyle: .scroll,
@@ -1024,13 +1040,15 @@ struct PagedImageViewer: UIViewControllerRepresentable {
         DispatchQueue.main.async {
             viewReady = true
         }
-
         return controller
     }
 
     func updateUIViewController(_ controller: UIPageViewController, context: Context) {
-        let vc = context.coordinator.makePageController(for: index)
-        controller.setViewControllers([vc], direction: .forward, animated: false)
+        if let currentVC = controller.viewControllers?.first,
+           currentVC.view.tag != index {
+            let newVC = context.coordinator.makePageController(for: index)
+            controller.setViewControllers([newVC], direction: .forward, animated: false)
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -1044,9 +1062,18 @@ struct PagedImageViewer: UIViewControllerRepresentable {
         init(_ parent: PagedImageViewer) {
             self.parent = parent
         }
-        
+
         func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
             parent.viewReady = false
+        }
+
+        func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+            DispatchQueue.main.async {
+                if let saved = self.parent.pageSizes[self.parent.index] {
+                    self.parent.viewSize = saved
+                }
+                self.parent.viewReady = true
+            }
         }
 
         func makePageController(for index: Int) -> UIViewController {
@@ -1059,17 +1086,26 @@ struct PagedImageViewer: UIViewControllerRepresentable {
                         showControls: parent.$showControls,
                         viewFit: parent.$viewFit,
                         viewReady: parent.$viewReady,
-                        viewSize: parent.$viewSize
+                        viewSize: .constant(.zero),   // <- no longer used
+                        onInitialSize: { size in
+                            if self.parent.pageSizes[index] == nil {
+                                self.parent.pageSizes[index] = size
+                            }
+                            if index == self.parent.index {
+                                self.parent.viewSize = size
+                            }
+                        }
                     )
                     .ignoresSafeArea()
             )
+
             vc.view.tag = index
             return vc
         }
 
         func pageViewController(_ pageViewController: UIPageViewController,
                                 viewControllerBefore viewController: UIViewController)
-        -> UIViewController? {
+            -> UIViewController? {
             guard parent.images.count > 1 else { return nil }
             guard let index = index(of: viewController) else { return nil }
 
@@ -1079,7 +1115,7 @@ struct PagedImageViewer: UIViewControllerRepresentable {
 
         func pageViewController(_ pageViewController: UIPageViewController,
                                 viewControllerAfter viewController: UIViewController)
-        -> UIViewController? {
+            -> UIViewController? {
             guard parent.images.count > 1 else { return nil }
             guard let index = index(of: viewController) else { return nil }
 
@@ -1099,11 +1135,9 @@ struct PagedImageViewer: UIViewControllerRepresentable {
                 parent.index = newIndex
 
                 DispatchQueue.main.async {
-                    self.parent.viewReady = true
-                }
-            } else if finished && !completed {
-                DispatchQueue.main.async {
-                    self.parent.viewReady = true
+                    if let saved = self.parent.pageSizes[newIndex] {
+                        self.parent.viewSize = saved
+                    }
                 }
             }
         }
@@ -1113,7 +1147,6 @@ struct PagedImageViewer: UIViewControllerRepresentable {
         }
     }
 }
-
 
 struct VisualEffectView: UIViewRepresentable {
     var style: UIBlurEffect.Style
@@ -1134,6 +1167,8 @@ struct ZoomableScrollView: UIViewRepresentable {
     @Binding var viewFit: Bool
     @Binding var viewReady: Bool
     @Binding var viewSize: CGSize
+    
+    let onInitialSize: (CGSize) -> Void
     
     func makeUIView(context: Context) -> UIScrollView {
         let scrollView = FitAwareScrollView()
@@ -1213,7 +1248,8 @@ struct ZoomableScrollView: UIViewRepresentable {
             showControls: $showControls,
             viewSize: $viewSize,
             viewFit: $viewFit,
-            viewReady: $viewReady
+            viewReady: $viewReady,
+            onInitialSize: onInitialSize
         )
     }
 
@@ -1229,17 +1265,21 @@ struct ZoomableScrollView: UIViewRepresentable {
         weak var imageView: UIImageView?
 
         var hasInitialFit: Bool = false
+        
+        let onInitialSize: (CGSize) -> Void  // <-- store callback here
 
         init(pageIndex: Int,
              showControls: Binding<Bool>,
              viewSize: Binding<CGSize>,
              viewFit: Binding<Bool>,
-             viewReady: Binding<Bool>) {
+             viewReady: Binding<Bool>,
+             onInitialSize: @escaping (CGSize) -> Void) {
             self.pageIndex = pageIndex
             _showControls = showControls
             _viewSize = viewSize
             _viewFit = viewFit
             _viewReady = viewReady
+            self.onInitialSize = onInitialSize
         }
 
         func performInitialFit(in scrollView: UIScrollView) {
@@ -1265,6 +1305,12 @@ struct ZoomableScrollView: UIViewRepresentable {
             DispatchQueue.main.async {
                 self.viewSize = CGSize(width: newWidth, height: newHeight)
                 self.viewFit = true
+            }
+
+            let size = CGSize(width: newWidth, height: newHeight)
+
+            DispatchQueue.main.async {
+                self.onInitialSize(size)       // <-- Call the parent callback here
             }
 
             hasInitialFit = true

@@ -54,7 +54,7 @@ struct ImagePresentationView: View {
                                 showControls: $showControls,
                                 viewSize: $viewSize,
                                 viewFit: $viewFit,
-                                viewReady: $viewReady,
+                                viewReady: $viewReady
                             )
                             .scaleEffect(0.90)
                             .rotationEffect(.degrees(90))
@@ -90,6 +90,7 @@ struct ImagePresentationView: View {
                                         .clipShape(
                                             RoundedRectangle(cornerRadius: 8)
                                         )
+                                        .allowsHitTesting(false)
                                     }
                                 }
                             }
