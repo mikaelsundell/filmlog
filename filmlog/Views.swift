@@ -899,91 +899,6 @@ struct TextView: View {
     }
 }
 
-struct PhotoPickerView: View {
-    var image: UIImage?
-    var label: String
-    var isLocked: Bool = false
-    var onImagePicked: (UIImage) -> Void   // not Data
-
-    @State private var showCamera = false
-    @State private var showFullImage = false
-    @State private var selectedItem: PhotosPickerItem? = nil
-
-    var body: some View {
-        VStack(spacing: 8) {
-            if let uiImage = image {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(height: 180)
-                    .clipped()
-                    .cornerRadius(10)
-                    .onTapGesture {
-                        showFullImage = true
-                    }
-            } else {
-                Rectangle()
-                    .fill(Color.secondary.opacity(0.2))
-                    .frame(height: 180)
-                    .overlay(Text("No image").foregroundColor(.gray))
-                    .cornerRadius(10)
-            }
-
-            if !isLocked {
-                HStack(spacing: 16) {
-                    Button {
-                        showCamera = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "camera")
-                                .foregroundColor(.white)
-                            Text("Take photo")
-                                .foregroundColor(.white)
-                        }
-                    }
-                    .buttonStyle(PlainButtonStyle())
-
-                    PhotosPicker(
-                        selection: $selectedItem,
-                        matching: .images,
-                        photoLibrary: .shared()
-                    ) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "photo")
-                                .foregroundColor(.white)
-                            Text("From library")
-                                .foregroundColor(.white)
-                        }
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-            }
-        }
-        .fullScreenCover(isPresented: $showCamera) {
-            CameraPicker { image in
-                let scaled = image.resize(maxDimension: 512)
-                onImagePicked(scaled)
-                showCamera = false
-            }
-        }
-        .fullScreenCover(isPresented: $showFullImage) {
-            if let uiImage = image {
-                FullScreenImageView(image: uiImage)
-            }
-        }
-        .onChange(of: selectedItem) {
-            if let selectedItem {
-                Task {
-                    if let data = try? await selectedItem.loadTransferable(type: Data.self),
-                       let uiImage = UIImage(data: data) {
-                        onImagePicked(uiImage)
-                    }
-                }
-            }
-        }
-    }
-}
-
 class MotionObserver: ObservableObject {
     @Published var orientation: UIDeviceOrientation = UIDevice.current.orientation
     @Published var level = OrientationUtils.Level(roll: 0.0, tilt: 0.0)
@@ -1100,16 +1015,12 @@ struct PagedImageViewer: UIViewControllerRepresentable {
 
         if let scrollView = controller.view.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView {
             scrollView.delegate = context.coordinator
+            context.coordinator.pageScrollView = scrollView
         }
 
-        let initialVC = context.coordinator.viewController(for: index)
+        let initialVC = context.coordinator.makePageController(for: index)
         controller.setViewControllers([initialVC], direction: .forward, animated: false)
 
-        if let sv = controller.view.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView {
-            sv.delegate = context.coordinator
-            context.coordinator.pageScrollView = sv
-        }
-        
         DispatchQueue.main.async {
             viewReady = true
         }
@@ -1118,7 +1029,7 @@ struct PagedImageViewer: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ controller: UIPageViewController, context: Context) {
-        let vc = context.coordinator.viewController(for: index)
+        let vc = context.coordinator.makePageController(for: index)
         controller.setViewControllers([vc], direction: .forward, animated: false)
     }
 
@@ -1128,16 +1039,17 @@ struct PagedImageViewer: UIViewControllerRepresentable {
 
     class Coordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate, UIScrollViewDelegate {
         var parent: PagedImageViewer
-        private var cache: [Int: UIViewController] = [:]
         weak var pageScrollView: UIScrollView?
 
         init(_ parent: PagedImageViewer) {
             self.parent = parent
         }
+        
+        func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+            parent.viewReady = false
+        }
 
-        func viewController(for index: Int) -> UIViewController {
-            if let vc = cache[index] { return vc }
-
+        func makePageController(for index: Int) -> UIViewController {
             let vc = UIHostingController(
                 rootView:
                     ZoomableScrollView(
@@ -1151,86 +1063,57 @@ struct PagedImageViewer: UIViewControllerRepresentable {
                     )
                     .ignoresSafeArea()
             )
-            cache[index] = vc
+            vc.view.tag = index
             return vc
         }
 
         func pageViewController(_ pageViewController: UIPageViewController,
                                 viewControllerBefore viewController: UIViewController)
         -> UIViewController? {
-
             guard parent.images.count > 1 else { return nil }
             guard let index = index(of: viewController) else { return nil }
 
             let prev = (index - 1 + parent.images.count) % parent.images.count
-            return self.viewController(for: prev)
+            return makePageController(for: prev)
         }
 
         func pageViewController(_ pageViewController: UIPageViewController,
                                 viewControllerAfter viewController: UIViewController)
         -> UIViewController? {
-
             guard parent.images.count > 1 else { return nil }
             guard let index = index(of: viewController) else { return nil }
 
             let next = (index + 1) % parent.images.count
-            return self.viewController(for: next)
+            return makePageController(for: next)
         }
 
         func pageViewController(_ pageViewController: UIPageViewController,
                                 didFinishAnimating finished: Bool,
                                 previousViewControllers: [UIViewController],
                                 transitionCompleted completed: Bool) {
+
             if completed,
                let visible = pageViewController.viewControllers?.first,
                let newIndex = index(of: visible) {
 
                 parent.index = newIndex
-                pruneCache(around: newIndex)
-                
-                // finisged the swupe, the page changed the ui state
-                // should be updated
-                
+
                 DispatchQueue.main.async {
                     self.parent.viewReady = true
                 }
             } else if finished && !completed {
-                
-                // the swipe started but snap-back occurred, page did not
-                // change we must still restore the ui state
-                
                 DispatchQueue.main.async {
                     self.parent.viewReady = true
                 }
             }
         }
 
-        private func pruneCache(around center: Int) {
-            let count = parent.images.count
-            guard count > 3 else { return }
-
-            let prev = (center - 1 + count) % count
-            let next = (center + 1) % count
-            let allowed: Set<Int> = [prev, center, next]
-
-            for key in cache.keys where !allowed.contains(key) {
-                if let vc = cache[key] {
-                    vc.willMove(toParent: nil)
-                    vc.view.removeFromSuperview()
-                    vc.removeFromParent()
-                    if let hosting = vc as? UIHostingController<ZoomableScrollView> {
-                        hosting.view.gestureRecognizers?.forEach { $0.removeTarget(nil, action: nil) }
-                    }
-                }
-                cache.removeValue(forKey: key)
-            }
-        }
-        
         private func index(of vc: UIViewController) -> Int? {
-            cache.first(where: { $0.value === vc })?.key
+            vc.view.tag
         }
     }
 }
+
 
 struct VisualEffectView: UIViewRepresentable {
     var style: UIBlurEffect.Style
@@ -1262,9 +1145,17 @@ struct ZoomableScrollView: UIViewRepresentable {
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.backgroundColor = .black
 
-        let imageView = UIImageView(image: image)
+        // we force landscape no matter if the image is
+        // in potrait or landscape orientation.
+        
+        let raw = image.asLandscape ?? image
+        let imageView = UIImageView(image: raw)
+        
         imageView.contentMode = .scaleAspectFit
         imageView.isUserInteractionEnabled = true
+        imageView.layer.cornerRadius = 8
+        imageView.layer.masksToBounds = true
+        imageView.clipsToBounds = true
         scrollView.addSubview(imageView)
 
         context.coordinator.scrollView = scrollView

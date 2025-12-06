@@ -84,6 +84,15 @@ https://developer.apple.com/forums/thread/795593
 On iOS, the system file picker does not always reopen in the last folder used.
 Depending on multi-selection iOS may ignore the app’s requested folder and return to an earlier single-selection location instead. This behavior is controlled by the system and cannot be fully overridden by apps.
 
+### UIKit Page Viewer Memory Behavior
+
+When using UIPageViewController with UIHostingController, iOS keeps extra UIKit views, scroll snapshots, and rendering caches alive longer than expected.
+This can make memory slowly rise while scrolling, even with a small cache.
+
+This behavior is normal and controlled by the system — UIKit releases these objects only after the viewer is dismissed or when memory pressure occurs.
+
+For lightweight galleries, this is safe, and memory returns to normal once the viewer closes.
+
 Documentation
 -------
 * Metal Feature Set Tables          

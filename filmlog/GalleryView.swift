@@ -44,7 +44,9 @@ struct GalleryView: View {
     @State private var presentationStartIndex = 0
     
     @State private var activeImage: ImageData? = nil
+    @State private var activeImageId: UUID?
     @State private var activeImages: [ImageData] = []
+    @State private var activeScroll = false
     
     @State private var selectedItems: [PhotosPickerItem] = []
     
@@ -137,77 +139,89 @@ struct GalleryView: View {
                     
                     let images = sortedImages(filteredImages, option: selectedImageSort)
                     VStack(alignment: .leading, spacing: 12) {
-                        ScrollView {
-                            if filteredImages.isEmpty {
-                                Text("No images found")
-                                    .foregroundColor(.gray)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .padding(.top, 40)
-                            } else {
-                                let gridWidth = UIScreen.main.bounds.width / 3 - 8
-                                let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
-                                
-                                LazyVGrid(columns: columns, spacing: 6) {
-                                    ForEach(images, id: \.id) { image in
-                                        ZStack(alignment: .topTrailing) {
-                                            ImageView(imageData: image, size: gridWidth)
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 4)
-                                                        .stroke(selectedImages.contains(image.id) ? Color.accentColor : Color.clear, lineWidth: 3)
-                                                )
-                                                .opacity(isSelecting ? (selectedImages.contains(image.id) ? 1.0 : 0.8) : 1.0)
-                                                .onTapGesture(count: 2) {
-                                                    guard !isSelecting else { return }
-                                                    let sorted = sortedImages(filteredImages, option: selectedImageSort)
-                                                    activeImages = sorted
-                                                    
-                                                    if let index = sorted.firstIndex(where: { $0.id == image.id }) {
-                                                        presentationStartIndex = index
-                                                    } else {
-                                                        presentationStartIndex = 0
-                                                    }
-                                                    
-                                                    showPresentation = true
-                                                }
-                                                .onTapGesture {
-                                                    if isSelecting {
-                                                        if selectedImages.contains(image.id) {
-                                                            selectedImages.remove(image.id)
-                                                        } else {
-                                                            selectedImages.insert(image.id)
-                                                        }
-                                                    } else {
-                                                        activeImage = image
-                                                        activeImages = sortedImages(filteredImages, option: selectedImageSort)
-                                                    }
-                                                }
-                                            
-                                            if isSelecting {
-                                                Circle()
-                                                    .fill(selectedImages.contains(image.id) ? Color.accentColor : Color.gray.opacity(0.4))
-                                                    .frame(width: 20, height: 20)
+                        ScrollViewReader { proxy in
+                            ScrollView {
+                                if filteredImages.isEmpty {
+                                    Text("No images found")
+                                        .foregroundColor(.gray)
+                                        .frame(maxWidth: .infinity, alignment: .center)
+                                        .padding(.top, 40)
+                                } else {
+                                    let gridWidth = UIScreen.main.bounds.width / 3 - 8
+                                    let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
+
+                                    LazyVGrid(columns: columns, spacing: 6) {
+                                        ForEach(images, id: \.id) { image in
+                                            ZStack(alignment: .topTrailing) {
+                                                ImageView(imageData: image, size: gridWidth)
                                                     .overlay(
-                                                        Group {
-                                                            if selectedImages.contains(image.id) {
-                                                                Image(systemName: "checkmark")
-                                                                    .font(.system(size: 10, weight: .bold))
-                                                                    .foregroundColor(.white)
-                                                            } else {
-                                                                EmptyView()
-                                                            }
-                                                        }
+                                                        RoundedRectangle(cornerRadius: 4)
+                                                            .stroke(selectedImages.contains(image.id) ? Color.accentColor : Color.clear, lineWidth: 3)
                                                     )
-                                                    .padding(6)
+                                                    .opacity(isSelecting ? (selectedImages.contains(image.id) ? 1.0 : 0.8) : 1.0)
+                                                    .onTapGesture(count: 2) {
+                                                        guard !isSelecting else { return }
+                                                        let sorted = sortedImages(filteredImages, option: selectedImageSort)
+                                                        activeImages = sorted
+
+                                                        if let index = sorted.firstIndex(where: { $0.id == image.id }) {
+                                                            presentationStartIndex = index
+                                                        } else {
+                                                            presentationStartIndex = 0
+                                                        }
+
+                                                        showPresentation = true
+                                                    }
+                                                    .onTapGesture {
+                                                        if isSelecting {
+                                                            if selectedImages.contains(image.id) {
+                                                                selectedImages.remove(image.id)
+                                                            } else {
+                                                                selectedImages.insert(image.id)
+                                                            }
+                                                        } else {
+                                                            activeImageId = image.id
+                                                            activeScroll = true
+                                                            activeImage = image
+                                                            activeImages = sortedImages(filteredImages, option: selectedImageSort)
+                                                        }
+                                                    }
+
+                                                if isSelecting {
+                                                    Circle()
+                                                        .fill(selectedImages.contains(image.id) ? Color.accentColor : Color.gray.opacity(0.4))
+                                                        .frame(width: 20, height: 20)
+                                                        .overlay(
+                                                            Group {
+                                                                if selectedImages.contains(image.id) {
+                                                                    Image(systemName: "checkmark")
+                                                                        .font(.system(size: 10, weight: .bold))
+                                                                        .foregroundColor(.white)
+                                                                } else {
+                                                                    EmptyView()
+                                                                }
+                                                            }
+                                                        )
+                                                        .padding(6)
+                                                }
                                             }
                                         }
                                     }
+                                    .padding(.horizontal, 8)
                                 }
-                                .padding(.horizontal, 8)
                             }
+                            .onAppear {
+                                if activeScroll, let id = activeImageId {
+                                    activeScroll = false
+                                    DispatchQueue.main.async {
+                                        proxy.scrollTo(id, anchor: .center)
+                                    }
+                                }
+                            }
+                            .padding(.top)
                         }
-                        .padding(.top)
                     }
-                    
+
                     HStack {
                         Button {
                             showDeleteAlert = true
@@ -452,7 +466,7 @@ struct GalleryView: View {
             matching: .images
         )
     }
-
+    
     private func sortedImages(_ images: [ImageData], option: SortOption) -> [ImageData] {
         switch option {
         case .name:

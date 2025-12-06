@@ -63,17 +63,23 @@ struct ImagePresentationView: View {
                             .clipped()
                             .ignoresSafeArea()
                             
+                            // use the view size of the current image scaled to match the
+                            // paged image viewer, overlay frame and aspect ratio and switch
+                            // to potrait mode. Images in the paged image viewer are shown
+                            // as shot, landscape orientation.
+                            
                             if aspectRatioMode {
                                 let ratio = aspectRatioMetadataDouble
                                 if (ratio > 1.0) {
                                     if viewReady && viewFit {
-                                        let displaySize = viewSize * 0.9
-                                        let projectedAspectRatio = Projection.frameForAspectRatio(
-                                            size: displaySize.toLandscape(), // match camera
+                                        let imageFrame = viewSize * 0.9
+                                        let imageAspectRatio = Projection.frameForAspectRatio(
+                                            size: imageFrame, // in camera
                                             aspectRatio: ratio > 0.0 ? ratio : 1.0
                                         )
                                         
-                                        let aspectFrame = projectedAspectRatio.toPortrait()
+                                        let displaySize = imageFrame.toPortrait()
+                                        let aspectFrame = imageAspectRatio.toPortrait()
                                         
                                         AspectRatioView(
                                             frameSize: displaySize,
@@ -90,34 +96,36 @@ struct ImagePresentationView: View {
                         }
                         .overlay {
                             if viewReady && viewFit && gridMode != .off {
-                                let displaySize = viewSize.toPortrait() * 0.9
+                                let imageFrame = viewSize * 0.9
+                                let displaySize = imageFrame.toPortrait()
                                 
                                 GridView(
                                     gridMode: gridMode,
                                     size: displaySize,
                                     geometry: geometry
                                 )
-                                .allowsHitTesting(false)
+                                .frame(width: height, height: width)
                                 .position(x: width / 2, y: height / 2)
                                 .mask(
                                     RoundedRectangle(cornerRadius: 8)
                                         .frame(width: displaySize.width, height: displaySize.height)
-                                        .position(x: width / 2, y: height / 2)
+                                        .position(x: width/2, y: height/2)
                                 )
+                                .allowsHitTesting(false)
                             }
                             
                             if (textMode) {
                                 TextView(
                                     text: hasCameraMetadata ? cameraMetadataText : imageNameText,
                                     alignment: .top,
-                                    orientation: UIDeviceOrientation.landscapeLeft,
+                                    orientation: orientationObserver.orientation,
                                     geometry: geometry
                                 )
                                 
                                 TextView(
                                     text: hasCameraMetadata ? detailsMetadataText : imageDetailsText,
                                     alignment: .bottom,
-                                    orientation: UIDeviceOrientation.landscapeLeft,
+                                    orientation: orientationObserver.orientation,
                                     geometry: geometry
                                 )
                             }

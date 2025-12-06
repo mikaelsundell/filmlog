@@ -145,6 +145,10 @@ extension UIDeviceOrientation {
 }
 
 extension UIImage {
+    var asLandscape: UIImage? {
+        guard let cg = self.cgImage else { return nil }
+        return UIImage(cgImage: cg, scale: 1.0, orientation: .up)
+    }
     var aspectRatio: CGFloat {
         size.width / size.height
     }
