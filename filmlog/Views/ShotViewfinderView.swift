@@ -94,9 +94,7 @@ struct ShotViewfinderView: View {
                     .onChange(of: geometry.size) { _, newSize in
                         cameraModel.viewSize = newSize
                     }
-                
                 ZStack {
-                    
                     let aspectRatio = CameraUtils.aspectRatio(for: shot.aspectRatio)
                     let filmSize = CameraUtils.filmSize(for: shot.filmSize)
                     
@@ -201,7 +199,7 @@ struct ShotViewfinderView: View {
                                         .scaleEffect(x: scaleRatio)
                                         .animation(.easeOut(duration: 0.3), value: scaleRatio)
                                     
-                                    CameraMetalPreview(renderer: cameraModel.renderer)
+                                    CameraPreview(renderer: cameraModel.renderer)
                                 }
                                 .scaleEffect((arMode && cameraModel.arState != .placed) ? 1.0 : scale)
                             }
@@ -242,6 +240,7 @@ struct ShotViewfinderView: View {
                                     geometry: geometry
                                 )
                                 .position(x: width / 2, y: height / 2)
+                                .allowsHitTesting(false)
                             }
                             
                             if centerMode != .off && (activeControls == .guides || activeControls == .none) {
@@ -465,7 +464,7 @@ struct ShotViewfinderView: View {
                             rotation: motionObserver.orientation.toLandscape
                         ),
                         ControlButton(
-                            icon: overlayImage == nil ? "photo.badge.plus" : "trash",
+                            icon: overlayImage == nil ? "arrow.down.doc" : "trash",
                             action: {
                                 if overlayMode {
                                     if overlayImage == nil {
@@ -534,7 +533,7 @@ struct ShotViewfinderView: View {
                         ),
                         ControlButton(
                             icon: (cameraModel.arState != .ready || arFile == nil)
-                                ? "square.and.arrow.down"
+                                ? "arrow.down.doc"
                                 : "xmark.circle.fill",
                             action: {
                                 // todo: restore this

@@ -1,0 +1,24 @@
+// Copyright (c) 2025 Mikael Sundell
+// SPDX-License-Identifier: MIT
+// https://github.com/mikaelsundell/filmlog
+
+import SwiftUI
+import MetalKit
+
+struct CameraPreview: UIViewRepresentable {
+    let renderer: CameraRenderer
+
+    func makeUIView(context: Context) -> MTKView {
+        let mtkView = MTKView()
+        mtkView.device = MTLCreateSystemDefaultDevice()
+        mtkView.framebufferOnly = false
+        mtkView.enableSetNeedsDisplay = false
+        mtkView.isPaused = false
+        mtkView.colorPixelFormat = .bgra8Unorm_srgb
+        mtkView.preferredFramesPerSecond = 30
+        renderer.attach(to: mtkView)
+        return mtkView
+    }
+
+    func updateUIView(_ uiView: MTKView, context: Context) { }
+}

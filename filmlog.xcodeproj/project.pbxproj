@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1F0E65D02E84866800C7FD85 /* ShotImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F0E65CF2E84866800C7FD85 /* ShotImageView.swift */; };
 		1F0E65D22E85583700C7FD85 /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F0E65D12E85583700C7FD85 /* Extensions.swift */; };
 		1F2A9A252E41543F00C304FA /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F2A9A242E41543F00C304FA /* Views.swift */; };
 		1F2A9A3A2E42216600C304FA /* LutExposure.cube in Resources */ = {isa = PBXBuildFile; fileRef = 1F2A9A362E42216600C304FA /* LutExposure.cube */; };
@@ -22,7 +21,6 @@
 		1F2D89E72E2E61780040D673 /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1F2D89E52E2E61780040D673 /* MainInterface.storyboard */; };
 		1F2D89EB2E2E61780040D673 /* FilmlogShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1F2D89E12E2E61780040D673 /* FilmlogShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1F62CE0F2E21608C002DBAA3 /* CameraModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F62CE0E2E21608C002DBAA3 /* CameraModel.swift */; };
-		1F62CE112E2160BD002DBAA3 /* CameraPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F62CE102E2160BD002DBAA3 /* CameraPreview.swift */; };
 		1F64D2E42E1B1362009EA1A8 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F64D2E32E1B1362009EA1A8 /* Models.swift */; };
 		1F64D2E82E1B1457009EA1A8 /* CameraPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F64D2E72E1B1457009EA1A8 /* CameraPicker.swift */; };
 		1F70B3752E30124B0021DB93 /* ShotDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F70B3712E30124B0021DB93 /* ShotDetailView.swift */; };
@@ -38,17 +36,27 @@
 		1F9B3EB42E1AE48F005F95A0 /* filmlogUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B3EB32E1AE48F005F95A0 /* filmlogUITestsLaunchTests.swift */; };
 		1F9D42962E82F4850072D498 /* Debug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9D42952E82F4850072D498 /* Debug.swift */; };
 		1F9DC7E62E3AB90B00D95B79 /* GalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9DC7E52E3AB90B00D95B79 /* GalleryView.swift */; };
-		1F9DC7E82E3BC3FB00D95B79 /* CameraMetalPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9DC7E72E3BC3FB00D95B79 /* CameraMetalPreview.swift */; };
-		1F9DC7EA2E3BC42900D95B79 /* CameraMetalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9DC7E92E3BC42900D95B79 /* CameraMetalRenderer.swift */; };
-		1F9DC7EC2E3BC70400D95B79 /* CameraMetalProgram.metal in Sources */ = {isa = PBXBuildFile; fileRef = 1F9DC7EB2E3BC70400D95B79 /* CameraMetalProgram.metal */; };
 		1FD3D14F2E2102F100A1C9EF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FD3D14E2E2102F100A1C9EF /* SettingsView.swift */; };
-		1FEDFF2A2E1EA54400E64567 /* FullscreenImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */; };
+		3A0194D72EE449B1001374A1 /* ShaderLut.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3A0194D62EE449A9001374A1 /* ShaderLut.metal */; };
 		3A06CBD32EB7FFC100984DCA /* TagDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A06CBD22EB7FFBD00984DCA /* TagDetailView.swift */; };
-		3A3BA7102EBF369C00A7CB98 /* GalleryPresentationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A3BA70F2EBF369C00A7CB98 /* GalleryPresentationView.swift */; };
 		3A43C4F52EAAB5B7001E7080 /* ProjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A43C4F42EAAB5B7001E7080 /* ProjectDetailView.swift */; };
+		3A7723BD2EE59CA600257222 /* ARRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723BC2EE59CA600257222 /* ARRenderer.swift */; };
+		3A7723C32EE5A33A00257222 /* CameraRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723C02EE5A33A00257222 /* CameraRenderer.swift */; };
+		3A7723C52EE5A33A00257222 /* PBRRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723C22EE5A33A00257222 /* PBRRenderer.swift */; };
+		3A7723CA2EE5A82D00257222 /* CameraPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723C92EE5A82D00257222 /* CameraPreview.swift */; };
+		3A7723CC2EE5A88900257222 /* OutputRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723CB2EE5A88900257222 /* OutputRenderer.swift */; };
+		3A7723CE2EE5B01500257222 /* ShaderModel.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723CD2EE5B01500257222 /* ShaderModel.metal */; };
+		3A7723D22EE5C5F700257222 /* ShaderIndicator.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723D12EE5C5F700257222 /* ShaderIndicator.metal */; };
 		3A8E95892EBF5ED100884160 /* GalleryPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A8E95882EBF5ED100884160 /* GalleryPicker.swift */; };
-		3A99F59C2EB94B7600BAEBE7 /* TagView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A99F59B2EB94B7300BAEBE7 /* TagView.swift */; };
-		3A99F59E2EB9552600BAEBE7 /* ImageDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A99F59D2EB9552100BAEBE7 /* ImageDetailView.swift */; };
+		3A923C472EE4599000911E30 /* SharedStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A923C462EE4599000911E30 /* SharedStorage.swift */; };
+		3A923C4B2EE4A55800911E30 /* ShaderPBRMesh.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3A923C4A2EE4A55800911E30 /* ShaderPBRMesh.metal */; };
+		3AC4E1392ED3764B00A3E09B /* ARPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AC4E1382ED3764200A3E09B /* ARPicker.swift */; };
+		3AC4E1412ED379FF00A3E09B /* FilePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AC4E1402ED379FF00A3E09B /* FilePicker.swift */; };
+		3AC4E1492EDB435D00A3E09B /* GalleryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AC4E1482EDB435D00A3E09B /* GalleryDetailView.swift */; };
+		3AC4E14B2EDB55D000A3E09B /* TagPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AC4E14A2EDB55D000A3E09B /* TagPicker.swift */; };
+		3AC4E14D2EDB570100A3E09B /* TagView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AC4E14C2EDB570100A3E09B /* TagView.swift */; };
+		3ACD5E182EDF38E700F88D68 /* ImagePresentationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ACD5E172EDF38E700F88D68 /* ImagePresentationView.swift */; };
+		3AE72F6A2ECD05C7005B35BC /* ShaderNv12ToLinear709.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3AE72F682ECD05C7005B35BC /* ShaderNv12ToLinear709.metal */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -90,10 +98,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		1F0E65CF2E84866800C7FD85 /* ShotImageView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShotImageView.swift; sourceTree = "<group>"; };
 		1F0E65D12E85583700C7FD85 /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
 		1F2A9A242E41543F00C304FA /* Views.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views.swift; sourceTree = "<group>"; };
-		1F2A9A362E42216600C304FA /* LutExposure.cube */ = {isa = PBXFileReference; lastKnownFileType = text; name = LutExposure.cube; path = filmlog/LutExposure.cube; sourceTree = SOURCE_ROOT; };
+		1F2A9A362E42216600C304FA /* LutExposure.cube */ = {isa = PBXFileReference; lastKnownFileType = text; name = LutExposure.cube; path = filmlog/Shaders/LutExposure.cube; sourceTree = SOURCE_ROOT; };
 		1F2A9A3E2E422EF300C304FA /* LutKodakWarm.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LutKodakWarm.cube; sourceTree = "<group>"; };
 		1F2A9A3F2E422EF300C304FA /* LutKodakNeutral.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LutKodakNeutral.cube; sourceTree = "<group>"; };
 		1F2A9A402E422EF300C304FA /* LutFujiNeutral.cube */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LutFujiNeutral.cube; sourceTree = "<group>"; };
@@ -108,7 +115,6 @@
 		1F2D89F02E2E719F0040D673 /* FilmlogShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FilmlogShareExtension.entitlements; sourceTree = "<group>"; };
 		1F2D89F12E2E762E0040D673 /* filmlog.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = filmlog.entitlements; sourceTree = "<group>"; };
 		1F62CE0E2E21608C002DBAA3 /* CameraModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraModel.swift; sourceTree = "<group>"; };
-		1F62CE102E2160BD002DBAA3 /* CameraPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreview.swift; sourceTree = "<group>"; };
 		1F64D2E32E1B1362009EA1A8 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		1F64D2E72E1B1457009EA1A8 /* CameraPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPicker.swift; sourceTree = "<group>"; };
 		1F70B3712E30124B0021DB93 /* ShotDetailView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShotDetailView.swift; sourceTree = "<group>"; };
@@ -127,18 +133,28 @@
 		1F9B3EB32E1AE48F005F95A0 /* filmlogUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = filmlogUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		1F9D42952E82F4850072D498 /* Debug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Debug.swift; sourceTree = "<group>"; };
 		1F9DC7E52E3AB90B00D95B79 /* GalleryView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GalleryView.swift; sourceTree = "<group>"; };
-		1F9DC7E72E3BC3FB00D95B79 /* CameraMetalPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraMetalPreview.swift; sourceTree = "<group>"; };
-		1F9DC7E92E3BC42900D95B79 /* CameraMetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraMetalRenderer.swift; sourceTree = "<group>"; };
-		1F9DC7EB2E3BC70400D95B79 /* CameraMetalProgram.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = CameraMetalProgram.metal; sourceTree = "<group>"; };
 		1FD3D14E2E2102F100A1C9EF /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		1FD3D1502E2108A100A1C9EF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullscreenImageView.swift; sourceTree = "<group>"; };
+		1FD3D1502E2108A100A1C9EF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		3A0194D62EE449A9001374A1 /* ShaderLut.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ShaderLut.metal; sourceTree = "<group>"; };
 		3A06CBD22EB7FFBD00984DCA /* TagDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagDetailView.swift; sourceTree = "<group>"; };
-		3A3BA70F2EBF369C00A7CB98 /* GalleryPresentationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryPresentationView.swift; sourceTree = "<group>"; };
 		3A43C4F42EAAB5B7001E7080 /* ProjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDetailView.swift; sourceTree = "<group>"; };
+		3A7723BC2EE59CA600257222 /* ARRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARRenderer.swift; sourceTree = "<group>"; };
+		3A7723C02EE5A33A00257222 /* CameraRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraRenderer.swift; sourceTree = "<group>"; };
+		3A7723C22EE5A33A00257222 /* PBRRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PBRRenderer.swift; sourceTree = "<group>"; };
+		3A7723C92EE5A82D00257222 /* CameraPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreview.swift; sourceTree = "<group>"; };
+		3A7723CB2EE5A88900257222 /* OutputRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputRenderer.swift; sourceTree = "<group>"; };
+		3A7723CD2EE5B01500257222 /* ShaderModel.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ShaderModel.metal; sourceTree = "<group>"; };
+		3A7723D12EE5C5F700257222 /* ShaderIndicator.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ShaderIndicator.metal; sourceTree = "<group>"; };
 		3A8E95882EBF5ED100884160 /* GalleryPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryPicker.swift; sourceTree = "<group>"; };
-		3A99F59B2EB94B7300BAEBE7 /* TagView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagView.swift; sourceTree = "<group>"; };
-		3A99F59D2EB9552100BAEBE7 /* ImageDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageDetailView.swift; sourceTree = "<group>"; };
+		3A923C462EE4599000911E30 /* SharedStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedStorage.swift; sourceTree = "<group>"; };
+		3A923C4A2EE4A55800911E30 /* ShaderPBRMesh.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ShaderPBRMesh.metal; sourceTree = "<group>"; };
+		3AC4E1382ED3764200A3E09B /* ARPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARPicker.swift; sourceTree = "<group>"; };
+		3AC4E1402ED379FF00A3E09B /* FilePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePicker.swift; sourceTree = "<group>"; };
+		3AC4E1482EDB435D00A3E09B /* GalleryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryDetailView.swift; sourceTree = "<group>"; };
+		3AC4E14A2EDB55D000A3E09B /* TagPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagPicker.swift; sourceTree = "<group>"; };
+		3AC4E14C2EDB570100A3E09B /* TagView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagView.swift; sourceTree = "<group>"; };
+		3ACD5E172EDF38E700F88D68 /* ImagePresentationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePresentationView.swift; sourceTree = "<group>"; };
+		3AE72F682ECD05C7005B35BC /* ShaderNv12ToLinear709.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ShaderNv12ToLinear709.metal; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -213,40 +229,17 @@
 				1FD3D1502E2108A100A1C9EF /* Info.plist */,
 				1F2D89F12E2E762E0040D673 /* filmlog.entitlements */,
 				1F9B3E942E1AE48C005F95A0 /* filmlogApp.swift */,
-				1F9DC7E72E3BC3FB00D95B79 /* CameraMetalPreview.swift */,
-				1F9DC7E92E3BC42900D95B79 /* CameraMetalRenderer.swift */,
-				1F9DC7EB2E3BC70400D95B79 /* CameraMetalProgram.metal */,
 				1F62CE0E2E21608C002DBAA3 /* CameraModel.swift */,
-				1F62CE102E2160BD002DBAA3 /* CameraPreview.swift */,
-				1F64D2E72E1B1457009EA1A8 /* CameraPicker.swift */,
-				1F9B3E962E1AE48C005F95A0 /* ContentView.swift */,
 				1F9D42952E82F4850072D498 /* Debug.swift */,
 				1F0E65D12E85583700C7FD85 /* Extensions.swift */,
-				1FEDFF292E1EA54400E64567 /* FullscreenImageView.swift */,
-				3A8E95882EBF5ED100884160 /* GalleryPicker.swift */,
-				1F9DC7E52E3AB90B00D95B79 /* GalleryView.swift */,
-				3A3BA70F2EBF369C00A7CB98 /* GalleryPresentationView.swift */,
-				3A99F59D2EB9552100BAEBE7 /* ImageDetailView.swift */,
 				1F9B3E982E1AE48C005F95A0 /* Item.swift */,
 				1F64D2E32E1B1362009EA1A8 /* Models.swift */,
-				3A43C4F42EAAB5B7001E7080 /* ProjectDetailView.swift */,
-				1FD3D14E2E2102F100A1C9EF /* SettingsView.swift */,
-				1F70B3712E30124B0021DB93 /* ShotDetailView.swift */,
-				1F70B3722E30124B0021DB93 /* ShotSectionView.swift */,
-				1F0E65CF2E84866800C7FD85 /* ShotImageView.swift */,
-				1F70B3732E30124B0021DB93 /* ShotViewfinderView.swift */,
-				3A99F59B2EB94B7300BAEBE7 /* TagView.swift */,
-				3A06CBD22EB7FFBD00984DCA /* TagDetailView.swift */,
-				1F2A9A242E41543F00C304FA /* Views.swift */,
-				1F2A9A362E42216600C304FA /* LutExposure.cube */,
-				1F2A9A402E422EF300C304FA /* LutFujiNeutral.cube */,
-				1F2A9A412E422EF300C304FA /* LutFujiWarm.cube */,
-				1F2A9A482E42302300C304FA /* LutLookExposure.cube */,
-				1F2A9A4A2E42304000C304FA /* LutBWNeutral.cube */,
-				1F2A9A4C2E4230D100C304FA /* LutBWContrast.cube */,
-				1F2A9A3F2E422EF300C304FA /* LutKodakNeutral.cube */,
-				1F2A9A3E2E422EF300C304FA /* LutKodakWarm.cube */,
+				3A923C462EE4599000911E30 /* SharedStorage.swift */,
 				1F9B3E9C2E1AE48F005F95A0 /* Preview Content */,
+				3A7723C82EE5A49A00257222 /* Shaders */,
+				3A7723BF2EE5A32700257222 /* Renderers */,
+				3A7723C72EE5A3C400257222 /* Pickers */,
+				3A7723C62EE5A38B00257222 /* Views */,
 			);
 			path = filmlog;
 			sourceTree = "<group>";
@@ -274,6 +267,69 @@
 				1F9B3EB32E1AE48F005F95A0 /* filmlogUITestsLaunchTests.swift */,
 			);
 			path = filmlogUITests;
+			sourceTree = "<group>";
+		};
+		3A7723BF2EE5A32700257222 /* Renderers */ = {
+			isa = PBXGroup;
+			children = (
+				3A7723BC2EE59CA600257222 /* ARRenderer.swift */,
+				3A7723C02EE5A33A00257222 /* CameraRenderer.swift */,
+				3A7723CB2EE5A88900257222 /* OutputRenderer.swift */,
+				3A7723C22EE5A33A00257222 /* PBRRenderer.swift */,
+			);
+			path = Renderers;
+			sourceTree = "<group>";
+		};
+		3A7723C62EE5A38B00257222 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				3A7723C92EE5A82D00257222 /* CameraPreview.swift */,
+				1F9B3E962E1AE48C005F95A0 /* ContentView.swift */,
+				3AC4E1482EDB435D00A3E09B /* GalleryDetailView.swift */,
+				1F9DC7E52E3AB90B00D95B79 /* GalleryView.swift */,
+				3ACD5E172EDF38E700F88D68 /* ImagePresentationView.swift */,
+				3A43C4F42EAAB5B7001E7080 /* ProjectDetailView.swift */,
+				1FD3D14E2E2102F100A1C9EF /* SettingsView.swift */,
+				1F70B3712E30124B0021DB93 /* ShotDetailView.swift */,
+				1F70B3722E30124B0021DB93 /* ShotSectionView.swift */,
+				1F70B3732E30124B0021DB93 /* ShotViewfinderView.swift */,
+				3AC4E14C2EDB570100A3E09B /* TagView.swift */,
+				3A06CBD22EB7FFBD00984DCA /* TagDetailView.swift */,
+				1F2A9A242E41543F00C304FA /* Views.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		3A7723C72EE5A3C400257222 /* Pickers */ = {
+			isa = PBXGroup;
+			children = (
+				3AC4E1382ED3764200A3E09B /* ARPicker.swift */,
+				1F64D2E72E1B1457009EA1A8 /* CameraPicker.swift */,
+				3AC4E1402ED379FF00A3E09B /* FilePicker.swift */,
+				3A8E95882EBF5ED100884160 /* GalleryPicker.swift */,
+				3AC4E14A2EDB55D000A3E09B /* TagPicker.swift */,
+			);
+			path = Pickers;
+			sourceTree = "<group>";
+		};
+		3A7723C82EE5A49A00257222 /* Shaders */ = {
+			isa = PBXGroup;
+			children = (
+				3A0194D62EE449A9001374A1 /* ShaderLut.metal */,
+				3A7723D12EE5C5F700257222 /* ShaderIndicator.metal */,
+				3A7723CD2EE5B01500257222 /* ShaderModel.metal */,
+				3A923C4A2EE4A55800911E30 /* ShaderPBRMesh.metal */,
+				3AE72F682ECD05C7005B35BC /* ShaderNv12ToLinear709.metal */,
+				1F2A9A362E42216600C304FA /* LutExposure.cube */,
+				1F2A9A402E422EF300C304FA /* LutFujiNeutral.cube */,
+				1F2A9A412E422EF300C304FA /* LutFujiWarm.cube */,
+				1F2A9A482E42302300C304FA /* LutLookExposure.cube */,
+				1F2A9A4A2E42304000C304FA /* LutBWNeutral.cube */,
+				1F2A9A4C2E4230D100C304FA /* LutBWContrast.cube */,
+				1F2A9A3F2E422EF300C304FA /* LutKodakNeutral.cube */,
+				1F2A9A3E2E422EF300C304FA /* LutKodakWarm.cube */,
+			);
+			path = Shaders;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -454,31 +510,39 @@
 			buildActionMask = 2147483647;
 			files = (
 				3A8E95892EBF5ED100884160 /* GalleryPicker.swift in Sources */,
-				1F62CE112E2160BD002DBAA3 /* CameraPreview.swift in Sources */,
 				1F9D42962E82F4850072D498 /* Debug.swift in Sources */,
 				1F70B3772E30124B0021DB93 /* ShotViewfinderView.swift in Sources */,
-				1F9DC7E82E3BC3FB00D95B79 /* CameraMetalPreview.swift in Sources */,
+				3A7723BD2EE59CA600257222 /* ARRenderer.swift in Sources */,
+				3A0194D72EE449B1001374A1 /* ShaderLut.metal in Sources */,
+				3AC4E14B2EDB55D000A3E09B /* TagPicker.swift in Sources */,
+				3A7723CA2EE5A82D00257222 /* CameraPreview.swift in Sources */,
 				1F9B3E972E1AE48C005F95A0 /* ContentView.swift in Sources */,
+				3ACD5E182EDF38E700F88D68 /* ImagePresentationView.swift in Sources */,
 				3A43C4F52EAAB5B7001E7080 /* ProjectDetailView.swift in Sources */,
 				1F9B3E992E1AE48C005F95A0 /* Item.swift in Sources */,
+				3A7723CC2EE5A88900257222 /* OutputRenderer.swift in Sources */,
+				3A7723D22EE5C5F700257222 /* ShaderIndicator.metal in Sources */,
 				1F9B3E952E1AE48C005F95A0 /* filmlogApp.swift in Sources */,
-				3A99F59C2EB94B7600BAEBE7 /* TagView.swift in Sources */,
+				3AC4E1412ED379FF00A3E09B /* FilePicker.swift in Sources */,
+				3A7723CE2EE5B01500257222 /* ShaderModel.metal in Sources */,
+				3AE72F6A2ECD05C7005B35BC /* ShaderNv12ToLinear709.metal in Sources */,
 				1F62CE0F2E21608C002DBAA3 /* CameraModel.swift in Sources */,
+				3AC4E1492EDB435D00A3E09B /* GalleryDetailView.swift in Sources */,
 				1F9DC7E62E3AB90B00D95B79 /* GalleryView.swift in Sources */,
-				1FEDFF2A2E1EA54400E64567 /* FullscreenImageView.swift in Sources */,
 				1FD3D14F2E2102F100A1C9EF /* SettingsView.swift in Sources */,
 				1F64D2E82E1B1457009EA1A8 /* CameraPicker.swift in Sources */,
 				1F0E65D22E85583700C7FD85 /* Extensions.swift in Sources */,
 				1F70B3762E30124B0021DB93 /* ShotSectionView.swift in Sources */,
 				1F64D2E42E1B1362009EA1A8 /* Models.swift in Sources */,
-				3A99F59E2EB9552600BAEBE7 /* ImageDetailView.swift in Sources */,
 				1F2A9A252E41543F00C304FA /* Views.swift in Sources */,
-				3A3BA7102EBF369C00A7CB98 /* GalleryPresentationView.swift in Sources */,
+				3A7723C32EE5A33A00257222 /* CameraRenderer.swift in Sources */,
+				3A7723C52EE5A33A00257222 /* PBRRenderer.swift in Sources */,
+				3A923C4B2EE4A55800911E30 /* ShaderPBRMesh.metal in Sources */,
+				3A923C472EE4599000911E30 /* SharedStorage.swift in Sources */,
+				3AC4E1392ED3764B00A3E09B /* ARPicker.swift in Sources */,
 				1F70B3752E30124B0021DB93 /* ShotDetailView.swift in Sources */,
 				3A06CBD32EB7FFC100984DCA /* TagDetailView.swift in Sources */,
-				1F9DC7EC2E3BC70400D95B79 /* CameraMetalProgram.metal in Sources */,
-				1F0E65D02E84866800C7FD85 /* ShotImageView.swift in Sources */,
-				1F9DC7EA2E3BC42900D95B79 /* CameraMetalRenderer.swift in Sources */,
+				3AC4E14D2EDB570100A3E09B /* TagView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

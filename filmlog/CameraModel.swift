@@ -2,8 +2,18 @@
 // SPDX-License-Identifier: MIT
 // https://github.com/mikaelsundell/filmlog
 
+import ARKit
 import AVFoundation
 import UIKit
+import RealityKit
+
+enum ARState {
+    case idle
+    case scanning
+    case refining
+    case ready
+    case placed
+}
 
 enum LensType: String, CaseIterable {
     case ultraWide = "Ultra Wide"
@@ -34,8 +44,20 @@ enum CameraError: Error, LocalizedError {
 }
 
 class CameraModel: NSObject, ObservableObject {
+    @Published var fieldOfView: CGFloat = 50
+    @Published var lensType: LensType = .wide
+    @Published var aspectRatio: CGFloat = 4.0 / 3.0
+    @Published var isConfigured: Bool = false
+    @Published var arState: ARState = .idle
+    @Published var planeWorldTransform: simd_float4x4?
+    @Published var viewSize: CGSize = .zero
+
+    var currentViewSize: CGSize {
+        renderer.viewportSize
+    }
+
     let session = AVCaptureSession()
-    private let sessionQueue = DispatchQueue(label: "camera.session.queue")
+    let sessionQueue = DispatchQueue(label: "camera.session.queue")
 
     private let videoDataOutput = AVCaptureVideoDataOutput()
     private let videoOutputQueue = DispatchQueue(label: "camera.video.output.queue",
@@ -55,13 +77,7 @@ class CameraModel: NSObject, ObservableObject {
     }
     private var didCapturePhoto = false
     
-    @Published var fieldOfView: CGFloat = 50 // for init
-    @Published var lensType: LensType = .wide
-    @Published var aspectRatio: CGFloat = 4.0 / 3.0
-    
-    @Published var isConfigured: Bool = false
-    
-    public let renderer = CameraMetalRenderer()
+    public let renderer = CameraRenderer()
     
     override init() {
         super.init()
@@ -438,8 +454,7 @@ class CameraModel: NSObject, ObservableObject {
             }
         }
     }
-
-
+    
     private func configureCamera(for lens: LensType, completion: ((Result<Void, CameraError>) -> Void)? = nil) {
         sessionQueue.async {
             self.session.beginConfiguration()
@@ -557,6 +572,104 @@ extension CameraModel: AVCaptureVideoDataOutputSampleBufferDelegate {
                 DispatchQueue.main.async { completion(cgImage) }
                 self.enablePhotoOutput(false)
                 self.photoFrameCounter = 0
+            }
+        }
+    }
+}
+
+extension CameraModel: ARSessionDelegate {
+    private struct AssociatedKeys {
+        static var arSessionKey: UInt8 = 0
+    }
+
+    var arSession: ARSession? {
+        get { objc_getAssociatedObject(self, &AssociatedKeys.arSessionKey) as? ARSession }
+        set { objc_setAssociatedObject(self, &AssociatedKeys.arSessionKey, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+    }
+
+    func startARSession() {
+        sessionQueue.async {
+            if self.session.isRunning {
+                self.session.stopRunning()
+            }
+
+            let config = ARWorldTrackingConfiguration()
+            config.planeDetection = [.horizontal]
+            config.environmentTexturing = .automatic
+            config.isLightEstimationEnabled = true
+
+            let arSession = ARSession()
+            arSession.delegate = self
+            arSession.run(config, options: [.resetTracking, .removeExistingAnchors])
+            self.arSession = arSession
+        
+            DispatchQueue.main.async {
+                self.arState = .scanning
+            }
+        }
+    }
+
+    func stopARSession() {
+        sessionQueue.async {
+            if let ar = self.arSession {
+                ar.pause()
+                self.arSession = nil
+            }
+            self.renderer.clearARCamera()
+            DispatchQueue.main.async {
+                self.arState = .idle
+            }
+        }
+    }
+
+    func placeARModel(from url: URL) {
+        // todo: replace with code for AR, should be full PBR pipeline
+        //print("[placeARModel] Loading model:", url.lastPathComponent)
+        //renderer.loadModel(from: url)
+    }
+    
+    func fovFromIntrinsics(_ intrinsics: simd_float3x3, resolution: CGSize) -> CGFloat {
+        let fy = intrinsics.columns.1.y
+        let fovY = 2 * atan(Float(resolution.height) / (2 * fy))
+        return CGFloat(fovY)
+    }
+    
+    func session(_ session: ARSession, didUpdate frame: ARFrame)
+    {
+        let pixelBuffer = frame.capturedImage
+        renderer.captureAROutput(pixelBuffer: pixelBuffer)
+        if arState == .ready {
+            renderer.updateARCamera(frame.camera)
+        }
+        let intr = frame.camera.intrinsics
+        let res = frame.camera.imageResolution
+        let fov = fovFromIntrinsics(intr, resolution: res)
+        DispatchQueue.main.async {
+            self.fieldOfView = fov
+        }
+    }
+
+    func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
+        for anchor in anchors {
+            guard let plane = anchor as? ARPlaneAnchor else { continue }
+
+            if plane.alignment == .horizontal {
+                DispatchQueue.main.async {
+                    self.planeWorldTransform = plane.transform
+                    self.renderer.updateARPlaneTransform(plane.transform)
+                }
+                if plane.classification == .floor {
+                    if arState == .scanning {
+                        DispatchQueue.main.async {
+                            self.arState = .refining
+                        }
+                    }
+                    if plane.areaXZ > 1.5 {
+                        DispatchQueue.main.async {
+                            self.arState = .ready
+                        }
+                    }
+                }
             }
         }
     }

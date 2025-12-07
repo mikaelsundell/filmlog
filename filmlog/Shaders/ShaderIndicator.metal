@@ -1,11 +1,11 @@
 #include <metal_stdlib>
 using namespace metal;
 
-struct RingUniforms {
+struct IndicatorUniforms {
     float4x4 modelViewProjectionMatrix;
     float    time;
-    float    ringRadius;
-    float    ringThickness;
+    float    radius;
+    float    thickness;
     float3   color;
 };
 
@@ -20,8 +20,8 @@ struct VertexOut {
     float2 uv;
 };
 
-vertex VertexOut ringVertex(VertexIn in [[stage_in]],
-                            constant RingUniforms& uni [[buffer(10)]])
+vertex VertexOut indicatorVS(VertexIn in [[stage_in]],
+                            constant IndicatorUniforms& uni [[buffer(10)]])
 {
     VertexOut out;
     out.position = uni.modelViewProjectionMatrix * float4(in.position, 1.0);
@@ -29,17 +29,17 @@ vertex VertexOut ringVertex(VertexIn in [[stage_in]],
     return out;
 }
 
-fragment float4 ringFragment(VertexOut in               [[stage_in]],
-                             constant RingUniforms& uni [[buffer(10)]])
+fragment float4 indicatorFS(VertexOut in               [[stage_in]],
+                             constant IndicatorUniforms& uni [[buffer(10)]])
 {
     float2 uv = in.uv * 2.0 - 1.0;
     float r = length(uv);
     float pulse = abs(sin(uni.time * 2.0));
-    float radius = mix(uni.ringRadius * 0.5,
-                       uni.ringRadius * 1.0,
+    float radius = mix(uni.radius * 0.5,
+                       uni.radius * 1.0,
                        pulse);
 
-    float halfThickness = uni.ringThickness * 0.5;
+    float halfThickness = uni.thickness * 0.5;
     float inner = radius - halfThickness;
     float outer = radius + halfThickness;
     
