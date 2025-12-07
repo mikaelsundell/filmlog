@@ -215,6 +215,17 @@ extension SIMD4 where Scalar == Float {
     }
 }
 
+extension simd_float3x3 {
+    init(fromModelMatrix m: simd_float4x4) {
+        let upper = simd_float3x3(
+            SIMD3(m.columns.0.x, m.columns.0.y, m.columns.0.z),
+            SIMD3(m.columns.1.x, m.columns.1.y, m.columns.1.z),
+            SIMD3(m.columns.2.x, m.columns.2.y, m.columns.2.z)
+        )
+        self = upper.inverse.transpose
+    }
+}
+
 extension simd_float4x4 {
     var position: SIMD3<Float> {
         SIMD3(columns.3.x, columns.3.y, columns.3.z)

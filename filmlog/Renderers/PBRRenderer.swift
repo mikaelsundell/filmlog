@@ -39,11 +39,17 @@ class PBRRenderer {
     private var meshAllocator: MTKMeshBufferAllocator!
     private var pipeline: MTLRenderPipelineState?
     private var model: PBRModel?
+    private var depthState: MTLDepthStencilState!
     
     init(device: MTLDevice, mtkView: MTKView) {
         self.device = device
         self.mtkView = mtkView
         self.meshAllocator = MTKMeshBufferAllocator(device: device)
+
+        let depthDesc = MTLDepthStencilDescriptor()
+        depthDesc.depthCompareFunction = .less
+        depthDesc.isDepthWriteEnabled = true
+        self.depthState = device.makeDepthStencilState(descriptor: depthDesc)
     }
     
     func draw(with encoder: MTLRenderCommandEncoder, in view: MTKView) {
@@ -56,21 +62,25 @@ class PBRRenderer {
         let projection = float4x4(
             perspectiveFov: .pi / 3,
             aspect: aspect,
-            nearZ: 0.01,
+            nearZ: 0.1,
             farZ: 100.0
         )
 
-        let viewMatrix  = matrix_identity_float4x4
-        let modelMatrix =
-            float4x4(translation: SIMD3<Float>(0, 0, -2.0)) *
-            float4x4(scale: 0.5)
+        let eye    = SIMD3<Float>(0.0, -2.0, 1.0)
+        let target = SIMD3<Float>(0.0,  0.0, 0.65)
+        let up     = SIMD3<Float>(0.0,  0.0, 1.0)
+
+        let viewMatrix = float4x4(lookAt: eye, target: target, up: up)
+        let modelMatrix = float4x4(scale: 0.75)
 
         let mvp = projection * viewMatrix * modelMatrix
         var uniforms = ModelUniforms(
             mvp: mvp,
-            normalMatrix: float3x3(1)
+            normalMatrix: simd_float3x3(fromModelMatrix: modelMatrix)
         )
+        
         encoder.setRenderPipelineState(pipeline)
+        encoder.setDepthStencilState(depthState)
         encoder.setCullMode(.none)
 
         for (i, vtx) in firstMesh.mtkMesh.vertexBuffers.enumerated() {
@@ -93,7 +103,7 @@ class PBRRenderer {
             )
         }
     }
-    
+
     func loadModel(from url: URL) {
         guard let allocator = meshAllocator else {
             return
@@ -195,20 +205,11 @@ class PBRRenderer {
             guard let p = mat.property(with: semantic) else { return value }
             
             switch p.type {
-            case .float:
-                return p.floatValue
-                
-            case .float2:
-                return p.float2Value.x
-                
-            case .float3:
-                return p.float3Value.x
-                
-            case .float4:
-                return p.float4Value.x
-
-            default:
-                return value
+            case .float:  return p.floatValue
+            case .float2: return p.float2Value.x
+            case .float3: return p.float3Value.x
+            case .float4: return p.float4Value.x
+            default:      return value
             }
         }
         
@@ -217,7 +218,6 @@ class PBRRenderer {
             guard let p = mat.property(with: semantic) else { return value }
 
             switch p.type {
-
             case .float3:
                 let c = p.float3Value
                 return SIMD4<Float>(c.x, c.y, c.z, 1.0)
@@ -238,15 +238,9 @@ class PBRRenderer {
         func textureURL(_ semantic: MDLMaterialSemantic) -> URL? {
             guard let p = mat.property(with: semantic) else { return nil }
             switch p.type {
-            case .URL:
-                return p.urlValue
-            case .string:
-                if let s = p.stringValue {
-                    return URL(fileURLWithPath: s)
-                }
-                return nil
-            default:
-                return nil
+            case .URL:    return p.urlValue
+            case .string: return p.stringValue.flatMap { URL(fileURLWithPath: $0) }
+            default:      return nil
             }
         }
 
@@ -275,13 +269,17 @@ class PBRRenderer {
         let ffn = library.makeFunction(name: fragmentFunction)
 
         guard let vfn, let ffn else {
-            throw NSError(domain: "CameraMetalRenderer",
-                          code: -1,
-                          userInfo: [NSLocalizedDescriptionKey:
-                             "Function \(vertexFunction) or \(fragmentFunction) not found in Metal library"])
+            throw NSError(
+                domain: "CameraMetalRenderer",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey:
+                    "Function \(vertexFunction) or \(fragmentFunction) not found in Metal library"]
+            )
         }
 
-        let metalVertexDescriptor = MTKMetalVertexDescriptorFromModelIO(mdlMesh.vertexDescriptor)
+        let metalVertexDescriptor =
+            MTKMetalVertexDescriptorFromModelIO(mdlMesh.vertexDescriptor)
+
         let desc = MTLRenderPipelineDescriptor()
         desc.vertexFunction = vfn
         desc.fragmentFunction = ffn
@@ -297,7 +295,7 @@ class PBRRenderer {
         let alloc = meshAllocator
         let mdl = MDLMesh(
             boxWithExtent: ext,
-            segments: [1,1,1],
+            segments: [1, 1, 1],
             inwardNormals: false,
             geometryType: .triangles,
             allocator: alloc
@@ -307,17 +305,21 @@ class PBRRenderer {
     }
     
     private func modelBounds(_ model: PBRModel) -> (min: SIMD3<Float>, max: SIMD3<Float>)? {
-        var minOut = SIMD3<Float>( .greatestFiniteMagnitude,
-                                   .greatestFiniteMagnitude,
-                                   .greatestFiniteMagnitude )
-        var maxOut = SIMD3<Float>( -.greatestFiniteMagnitude,
-                                   -.greatestFiniteMagnitude,
-                                   -.greatestFiniteMagnitude )
+        var minOut = SIMD3<Float>(
+            .greatestFiniteMagnitude,
+            .greatestFiniteMagnitude,
+            .greatestFiniteMagnitude
+        )
+        var maxOut = SIMD3<Float>(
+            -.greatestFiniteMagnitude,
+            -.greatestFiniteMagnitude,
+            -.greatestFiniteMagnitude
+        )
         var found = false
+
         for mesh in model.meshes {
             if let bounds = mesh.bounds {
                 let t = mesh.transform
-
                 let localMin = bounds.min
                 let localMax = bounds.max
 
@@ -331,14 +333,17 @@ class PBRRenderer {
                     SIMD3(localMin.x, localMax.y, localMax.z),
                     SIMD3(localMax.x, localMax.y, localMax.z)
                 ]
+
                 for c in corners {
                     let wc = (t * SIMD4<Float>(c, 1)).xyz
                     minOut = min(minOut, wc)
                     maxOut = max(maxOut, wc)
                 }
+
                 found = true
             }
         }
+
         return found ? (minOut, maxOut) : nil
     }
     
@@ -376,24 +381,18 @@ class PBRRenderer {
     
     private func printMaterial(_ mat: MDLMaterial, indent: String = "") {
         print(indent + "Material: \(mat.name)")
-        let allMaterialSemantics: [MDLMaterialSemantic] = [
-            .baseColor,
-            .specular,
-            .specularExponent,
-            .roughness,
-            .metallic,
-            .emission,
-            .opacity,
-            .objectSpaceNormal,
-            .tangentSpaceNormal,
-            .ambientOcclusion,
-            .displacement
+        let allSemantics: [MDLMaterialSemantic] = [
+            .baseColor, .specular, .specularExponent, .roughness,
+            .metallic, .emission, .opacity,
+            .objectSpaceNormal, .tangentSpaceNormal,
+            .ambientOcclusion, .displacement
         ]
         
-        for semantic in allMaterialSemantics {
+        for semantic in allSemantics {
             let props = mat.properties(with: semantic)
             for p in props {
-                print(indent + "  • \(semanticName(semantic)) \(p.name)  type=\(p.type.rawValue)")
+                print(indent + "  • \(semanticName(semantic)) \(p.name) type=\(p.type.rawValue)")
+                
                 switch p.type {
                 case .string:
                     print(indent + "      string = \(p.stringValue ?? "<nil>")")
@@ -408,7 +407,7 @@ class PBRRenderer {
                         print(indent + "      texture url = \(url.lastPathComponent)")
                     }
                 default:
-                    print(indent + "      (unhandled type \(p.type.rawValue))")
+                    print(indent + "      (unhandled type)")
                 }
             }
         }
@@ -416,10 +415,8 @@ class PBRRenderer {
 
     private func printModelTree(_ object: MDLObject, indent: String = "") {
         let typeName = String(describing: type(of: object))
-        let name: String = {
-            let n = object.name
-            return n.isEmpty ? "<no name>" : n
-        }()
+        let name = object.name.isEmpty ? "<no name>" : object.name
+        
         print("\(indent)• \(typeName) \"\(name)\"")
 
         if let mesh = object as? MDLMesh {
@@ -431,10 +428,9 @@ class PBRRenderer {
                 for (i, sub) in submeshes.enumerated() {
                     guard let sm = sub as? MDLSubmesh else { continue }
                     print("\(indent)      [Submesh \(i)] indexCount = \(sm.indexCount)")
-
+                    
                     if let mat = sm.material {
-                        let matName = mat.name.isEmpty ? "<no name>" : mat.name
-                        print("\(indent)         material = \(matName)")
+                        print("\(indent)         material = \(mat.name)")
                         for idx in 0..<mat.count {
                             if let prop = mat[idx] {
                                 print("\(indent)            • \(prop.name) : \(prop.type)")

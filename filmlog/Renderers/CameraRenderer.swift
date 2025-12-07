@@ -147,11 +147,11 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         
         // renderers
         if let pbrRenderer = pbrRenderer {
-            //pbrRenderer.draw(with: encoder, in: view)
+            pbrRenderer.draw(with: encoder, in: view)
         }
         
         if let arRenderer = arRenderer {
-            //arRenderer.draw(with: encoder, in: view)
+            arRenderer.draw(with: encoder, in: view)
         }
         
         encoder.endEncoding()
