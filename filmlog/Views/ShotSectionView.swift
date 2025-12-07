@@ -25,12 +25,12 @@ struct ShotSectionView: View {
                         let imageSize = image.size
                         
                         let scale = min(container.width / imageSize.width, container.height / imageSize.height)
-                        let displayedSize = imageSize * scale
+                        let displaySize = imageSize * scale
 
                         let filmSize = CameraUtils.filmSize(for: shot.filmSize)
                         let aspectRatio = CameraUtils.aspectRatio(for: shot.aspectRatio)
                         let aspectFrame = Projection.frameForAspectRatio(
-                            size: displayedSize.toLandscape(), // match camera
+                            size: displaySize.toLandscape(), // match camera
                             aspectRatio: aspectRatio.ratio > 0.0 ? aspectRatio.ratio : filmSize.aspectRatio
                         )
 
@@ -43,8 +43,8 @@ struct ShotSectionView: View {
                                 .onTapGesture { showFullImage = true }
 
                             MaskView(
-                                frameSize: imageSize.isLandscape ? displayedSize : displayedSize.toPortrait(),
-                                aspectSize: imageSize.isLandscape ? aspectFrame : aspectFrame.toPortrait(),
+                                frameSize: displaySize.isLandscape ? displaySize : displaySize.toPortrait(),
+                                aspectSize: displaySize.isLandscape ? aspectFrame : aspectFrame.toPortrait(),
                                 radius: 8,
                                 geometry: geometry
                             )
