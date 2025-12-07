@@ -39,6 +39,7 @@
 		1FD3D14F2E2102F100A1C9EF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FD3D14E2E2102F100A1C9EF /* SettingsView.swift */; };
 		3A0194D72EE449B1001374A1 /* ShaderLut.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3A0194D62EE449A9001374A1 /* ShaderLut.metal */; };
 		3A06CBD32EB7FFC100984DCA /* TagDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A06CBD22EB7FFBD00984DCA /* TagDetailView.swift */; };
+		3A0A42DB2EE5EA760024CB2D /* ShaderPBRModel.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3A0A42DA2EE5EA760024CB2D /* ShaderPBRModel.metal */; };
 		3A43C4F52EAAB5B7001E7080 /* ProjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A43C4F42EAAB5B7001E7080 /* ProjectDetailView.swift */; };
 		3A7723BD2EE59CA600257222 /* ARRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723BC2EE59CA600257222 /* ARRenderer.swift */; };
 		3A7723C32EE5A33A00257222 /* CameraRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723C02EE5A33A00257222 /* CameraRenderer.swift */; };
@@ -49,7 +50,6 @@
 		3A7723D22EE5C5F700257222 /* ShaderIndicator.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723D12EE5C5F700257222 /* ShaderIndicator.metal */; };
 		3A8E95892EBF5ED100884160 /* GalleryPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A8E95882EBF5ED100884160 /* GalleryPicker.swift */; };
 		3A923C472EE4599000911E30 /* SharedStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A923C462EE4599000911E30 /* SharedStorage.swift */; };
-		3A923C4B2EE4A55800911E30 /* ShaderPBRMesh.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3A923C4A2EE4A55800911E30 /* ShaderPBRMesh.metal */; };
 		3AC4E1392ED3764B00A3E09B /* ARPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AC4E1382ED3764200A3E09B /* ARPicker.swift */; };
 		3AC4E1412ED379FF00A3E09B /* FilePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AC4E1402ED379FF00A3E09B /* FilePicker.swift */; };
 		3AC4E1492EDB435D00A3E09B /* GalleryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AC4E1482EDB435D00A3E09B /* GalleryDetailView.swift */; };
@@ -137,6 +137,7 @@
 		1FD3D1502E2108A100A1C9EF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		3A0194D62EE449A9001374A1 /* ShaderLut.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ShaderLut.metal; sourceTree = "<group>"; };
 		3A06CBD22EB7FFBD00984DCA /* TagDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagDetailView.swift; sourceTree = "<group>"; };
+		3A0A42DA2EE5EA760024CB2D /* ShaderPBRModel.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ShaderPBRModel.metal; sourceTree = "<group>"; };
 		3A43C4F42EAAB5B7001E7080 /* ProjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDetailView.swift; sourceTree = "<group>"; };
 		3A7723BC2EE59CA600257222 /* ARRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARRenderer.swift; sourceTree = "<group>"; };
 		3A7723C02EE5A33A00257222 /* CameraRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraRenderer.swift; sourceTree = "<group>"; };
@@ -147,7 +148,6 @@
 		3A7723D12EE5C5F700257222 /* ShaderIndicator.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ShaderIndicator.metal; sourceTree = "<group>"; };
 		3A8E95882EBF5ED100884160 /* GalleryPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryPicker.swift; sourceTree = "<group>"; };
 		3A923C462EE4599000911E30 /* SharedStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedStorage.swift; sourceTree = "<group>"; };
-		3A923C4A2EE4A55800911E30 /* ShaderPBRMesh.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ShaderPBRMesh.metal; sourceTree = "<group>"; };
 		3AC4E1382ED3764200A3E09B /* ARPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARPicker.swift; sourceTree = "<group>"; };
 		3AC4E1402ED379FF00A3E09B /* FilePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePicker.swift; sourceTree = "<group>"; };
 		3AC4E1482EDB435D00A3E09B /* GalleryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryDetailView.swift; sourceTree = "<group>"; };
@@ -318,7 +318,7 @@
 				3A0194D62EE449A9001374A1 /* ShaderLut.metal */,
 				3A7723D12EE5C5F700257222 /* ShaderIndicator.metal */,
 				3A7723CD2EE5B01500257222 /* ShaderModel.metal */,
-				3A923C4A2EE4A55800911E30 /* ShaderPBRMesh.metal */,
+				3A0A42DA2EE5EA760024CB2D /* ShaderPBRModel.metal */,
 				3AE72F682ECD05C7005B35BC /* ShaderNv12ToLinear709.metal */,
 				1F2A9A362E42216600C304FA /* LutExposure.cube */,
 				1F2A9A402E422EF300C304FA /* LutFujiNeutral.cube */,
@@ -537,12 +537,12 @@
 				1F2A9A252E41543F00C304FA /* Views.swift in Sources */,
 				3A7723C32EE5A33A00257222 /* CameraRenderer.swift in Sources */,
 				3A7723C52EE5A33A00257222 /* PBRRenderer.swift in Sources */,
-				3A923C4B2EE4A55800911E30 /* ShaderPBRMesh.metal in Sources */,
 				3A923C472EE4599000911E30 /* SharedStorage.swift in Sources */,
 				3AC4E1392ED3764B00A3E09B /* ARPicker.swift in Sources */,
 				1F70B3752E30124B0021DB93 /* ShotDetailView.swift in Sources */,
 				3A06CBD32EB7FFC100984DCA /* TagDetailView.swift in Sources */,
 				3AC4E14D2EDB570100A3E09B /* TagView.swift in Sources */,
+				3A0A42DB2EE5EA760024CB2D /* ShaderPBRModel.metal in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
