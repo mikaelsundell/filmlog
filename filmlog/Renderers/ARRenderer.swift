@@ -6,6 +6,8 @@ import ARKit
 import Foundation
 import MetalKit
 
+protocol MetalUniform {}
+
 class ARRenderer {
     struct CameraData {
         var resolution: SIMD2<Float>
@@ -14,7 +16,7 @@ class ARRenderer {
         var projection: simd_float4x4   // clip = P * V * M
     }
     
-    struct IndicatorUniforms {
+    struct IndicatorUniforms: MetalUniform {
         var modelViewProjectionMatrix: simd_float4x4
         var time: Float
         var radius: Float
@@ -23,7 +25,7 @@ class ARRenderer {
         var padding: Float = 0 // padding to keep 16-byte alignment
     }
     
-    struct ModelUniforms {
+    struct ModelUniforms: MetalUniform {
         var mvp: simd_float4x4
         var normalMatrix: simd_float3x3
     }
@@ -74,7 +76,7 @@ class ARRenderer {
     }
     
     func draw(with encoder: MTLRenderCommandEncoder, in view: MTKView) {
-        guard let cameraData = self.cameraData,
+        guard let _ = self.cameraData,
               let model = self.model,
               let testCubeModel = self.testCubeModel,
               let testCubePipeline = self.testCubePipeline,
@@ -125,7 +127,7 @@ class ARRenderer {
         )
     }
     
-    func drawMesh<T>(
+    func drawMesh<T: MetalUniform>(
         _ mesh: MTKMesh,
         pipeline: MTLRenderPipelineState,
         modelMatrix: simd_float4x4,
@@ -161,13 +163,20 @@ class ARRenderer {
             encoder.setVertexBuffer(vtx.buffer, offset: vtx.offset, index: i)
         }
 
-        encoder.setVertexBytes(&uniforms,
-                           length: MemoryLayout<T>.stride,
-                           index: uniformIndex)
-        
-        encoder.setFragmentBytes(&uniforms,
-                             length: MemoryLayout<T>.stride,
-                             index: uniformIndex)
+        withUnsafeBytes(of: uniforms) { rawBuffer in
+               guard let baseAddress = rawBuffer.baseAddress else { return }
+               encoder.setVertexBytes(
+                   baseAddress,
+                   length: rawBuffer.count,
+                   index: uniformIndex
+               )
+
+               encoder.setFragmentBytes(
+                   baseAddress,
+                   length: rawBuffer.count,
+                   index: uniformIndex
+               )
+           }
 
         for sub in mesh.submeshes {
             encoder.drawIndexedPrimitives(

@@ -32,8 +32,6 @@ vertex VSOut modelVS(VSIn in [[stage_in]],
 fragment float4 modelFS(VSOut in [[stage_in]],
                         texture3d<float> lutTex [[texture(2)]])
 {
-    constexpr sampler s(address::clamp_to_edge, filter::linear);
-    
     float3 L = normalize(float3(0.4, 0.8, 0.3));
     float N = max(dot(in.normalW, L), 0.0);
     float3 litColor = in.color.rgb * (0.3 + 0.7 * N);

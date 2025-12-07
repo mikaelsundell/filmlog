@@ -50,31 +50,187 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
     private(set) weak var mtkView: MTKView?
     private var device: MTLDevice!
     private var queue:  MTLCommandQueue!
+
+    private var pipeline: MTLRenderPipelineState!
+    private var vertexBuffer: MTLBuffer!
+    private var yTexture: MTLTexture?
+    private var cbcrTexture: MTLTexture?
+    private var offscreenTexture: MTLTexture?
+    private var lutTexture:  MTLTexture?
+    private var depthTexture:  MTLTexture?
+    private var textureCache: CVMetalTextureCache!
+
+    private var captureRawData: [UInt8]? = nil
+    private var pendingCapture: ((CGImage?) -> Void)?
     
     private var arRenderer: ARRenderer!
     private var outputRenderer: OutputRenderer!
     private var pbrRenderer: PBRRenderer!
-
-    private var textureCache: CVMetalTextureCache!
-
-    private var cameraPipeline: MTLRenderPipelineState!
-    private var vertexBuffer: MTLBuffer!
-    private var yTexture:    MTLTexture?
-    private var cbcrTexture: MTLTexture?
-    private var offscreenTexture: MTLTexture?
-    private var lutTexture:  MTLTexture?
-
-    private var depthState:    MTLDepthStencilState!
-    private var depthTexture:  MTLTexture?
-    private var noDepthState: MTLDepthStencilState!
-    
-    private var captureRawData: [UInt8]? = nil
-    private var pendingCapture: ((CGImage?) -> Void)?
     
     // todo: test code
     private var testFileLoaded = false
 
-    // ==============================================================================================================
+    func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
+        viewportSize = size
+        setupDepthTexture(size: size)
+    }
+    
+    func attach(to view: MTKView) {
+        self.mtkView = view
+        guard let device = view.device else { return }
+        self.device = device
+        self.queue  = device.makeCommandQueue()
+        
+        arRenderer = ARRenderer(device: device, mtkView: view)
+        outputRenderer = OutputRenderer(device: device, mtkView: view)
+        pbrRenderer = PBRRenderer(device: device, mtkView: view)
+        if !testFileLoaded {
+            testFileLoaded = true
+            if let firstFile = testLoadFirstFile() {
+                print("loading first AR file:", firstFile.lastPathComponent)
+                pbrRenderer.loadModel(from: firstFile)
+            } else {
+                print("no AR files found in shared storage")
+            }
+        }
+        
+        CVMetalTextureCacheCreate(nil, nil, device, nil, &textureCache)
+
+        try? makePipeline(pixelFormat: view.colorPixelFormat)
+
+        let verts: [Float] = [
+            -1, -1,  0, 1,
+             1, -1,  1, 1,
+            -1,  1,  0, 0,
+             1,  1,  1, 0
+        ]
+        vertexBuffer = device.makeBuffer(bytes: verts, length: verts.count * MemoryLayout<Float>.size)
+        
+        view.depthStencilPixelFormat = .depth32Float
+        view.delegate = self
+
+        loadCurrentLut()
+    }
+
+    func draw(in view: MTKView) {
+        guard let yTexture = yTexture,
+              let cbcrTexture = cbcrTexture,
+              let queue = queue,
+              let pipeline = pipeline,
+              let rpd = view.currentRenderPassDescriptor else { return }
+
+        if depthTexture == nil ||
+            depthTexture!.width  != Int(view.drawableSize.width) ||
+            depthTexture!.height != Int(view.drawableSize.height) {
+            setupDepthTexture(size: view.drawableSize)
+        }
+        rpd.depthAttachment.texture = depthTexture
+        rpd.colorAttachments[0].loadAction = .clear
+        rpd.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
+
+        guard let cmd = queue.makeCommandBuffer(),
+              let encoder = cmd.makeRenderCommandEncoder(descriptor: rpd) else { return }
+
+        var cameraUniforms = CameraUniforms(
+            viewSize: SIMD2(Float(view.drawableSize.width), Float(view.drawableSize.height)),
+            videoSize: SIMD2(Float(yTexture.width), Float(yTexture.height)),
+            isCapture: 0
+        )
+
+        encoder.setRenderPipelineState(pipeline)
+        encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+        encoder.setVertexBytes(&cameraUniforms, length: MemoryLayout<CameraUniforms>.size, index: 1)
+        encoder.setFragmentTexture(yTexture, index: 0)
+        encoder.setFragmentTexture(cbcrTexture, index: 1)
+        encoder.setFragmentTexture(lutTexture, index: 2)
+        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        
+        // renderers
+        if let pbrRenderer = pbrRenderer {
+            //pbrRenderer.draw(with: encoder, in: view)
+        }
+        
+        if let arRenderer = arRenderer {
+            //arRenderer.draw(with: encoder, in: view)
+        }
+        
+        encoder.endEncoding()
+        if let drawable = view.currentDrawable { cmd.present(drawable) }
+        cmd.commit()
+    }
+    
+    func drawImage(pixelBuffer: CVPixelBuffer, completion: @escaping (CGImage?) -> Void) {
+        guard let cache = textureCache,
+              let queue = queue,
+              let _ = pipeline else { completion(nil); return }
+
+        let width  = CVPixelBufferGetWidthOfPlane(pixelBuffer, 0)
+        let height = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0)
+        var yTexRef: CVMetalTexture?
+        var cTexRef: CVMetalTexture?
+
+        CVMetalTextureCacheCreateTextureFromImage(nil, cache, pixelBuffer, nil, .r8Unorm,  width,  height, 0, &yTexRef)
+        CVMetalTextureCacheCreateTextureFromImage(nil, cache, pixelBuffer, nil, .rg8Unorm, width/2, height/2, 1, &cTexRef)
+
+        guard let yTex = yTexRef.flatMap(CVMetalTextureGetTexture),
+              let cbcrTex = cTexRef.flatMap(CVMetalTextureGetTexture) else { completion(nil); return }
+
+        if offscreenTexture == nil ||
+            offscreenTexture!.width  != width ||
+            offscreenTexture!.height != height {
+            setupOffscreenTexture(device: device, size: CGSize(width: width, height: height))
+        }
+
+        var uniforms = CameraUniforms(viewSize: SIMD2(Float(width), Float(height)),
+                                  videoSize: SIMD2(Float(width), Float(height)),
+                                  isCapture: 1)
+
+        guard let cmd = queue.makeCommandBuffer() else { completion(nil); return }
+
+        let rpd = MTLRenderPassDescriptor()
+        rpd.colorAttachments[0].texture    = offscreenTexture
+        rpd.colorAttachments[0].loadAction = .clear
+        rpd.colorAttachments[0].storeAction = .store
+        rpd.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
+
+        if let enc = cmd.makeRenderCommandEncoder(descriptor: rpd) {
+            enc.setRenderPipelineState(pipeline)
+            enc.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+            enc.setVertexBytes(&uniforms, length: MemoryLayout<CameraUniforms>.size, index: 1)
+            enc.setFragmentTexture(yTex, index: 0)
+            enc.setFragmentTexture(cbcrTex, index: 1)
+            enc.setFragmentTexture(lutTexture, index: 2)
+            enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+            enc.endEncoding()
+        }
+
+        cmd.addCompletedHandler { [weak self] _ in
+            guard let self = self, let texture = self.offscreenTexture else {
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+            let w = texture.width, h = texture.height, row = w * 4
+            if captureRawData == nil || captureRawData!.count != row * h {
+                captureRawData = .init(repeating: 0, count: row * h)
+            }
+            captureRawData!.withUnsafeMutableBytes { ptr in
+                texture.getBytes(ptr.baseAddress!, bytesPerRow: row,
+                                 from: MTLRegionMake2D(0, 0, w, h), mipmapLevel: 0)
+            }
+            let cs = CGColorSpace(name: CGColorSpace.sRGB)!
+            let info = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+            if let ctx = captureRawData?.withUnsafeMutableBytes({ ptr -> CGContext? in
+                CGContext(data: ptr.baseAddress, width: w, height: h,
+                          bitsPerComponent: 8, bytesPerRow: row,
+                          space: cs, bitmapInfo: info)
+            }), let cg = ctx.makeImage() {
+                DispatchQueue.main.async { completion(cg) }
+            } else {
+                DispatchQueue.main.async { completion(nil) }
+            }
+        }
+        cmd.commit()
+    }
     
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
@@ -150,190 +306,6 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
     }
     
     func setLutType(_ type: LUTType) { currentLutType = type }
-    
-    // ==============================================================================================================
-    
-    func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
-        viewportSize = size
-        setupDepthTexture(size: size)
-    }
-
-    func draw(in view: MTKView) {
-        guard let yTex = yTexture,
-              let cbcrTex = cbcrTexture,
-              let queue = queue,
-              let cameraPipeline = cameraPipeline,
-              let rpd = view.currentRenderPassDescriptor else { return }
-
-        if depthTexture == nil ||
-            depthTexture!.width  != Int(view.drawableSize.width) ||
-            depthTexture!.height != Int(view.drawableSize.height) {
-            setupDepthTexture(size: view.drawableSize)
-        }
-        rpd.depthAttachment.texture = depthTexture
-        rpd.colorAttachments[0].loadAction = .clear
-        rpd.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
-
-        guard let cmd = queue.makeCommandBuffer(),
-              let enc = cmd.makeRenderCommandEncoder(descriptor: rpd) else { return }
-
-        var bgUniforms = CameraUniforms(
-            viewSize: SIMD2(Float(view.drawableSize.width), Float(view.drawableSize.height)),
-            videoSize: SIMD2(Float(yTex.width), Float(yTex.height)),
-            isCapture: 0
-        )
-
-        enc.setRenderPipelineState(cameraPipeline)
-        enc.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
-        enc.setVertexBytes(&bgUniforms, length: MemoryLayout<CameraUniforms>.size, index: 1)
-        enc.setFragmentTexture(yTex, index: 0)
-        enc.setFragmentTexture(cbcrTex, index: 1)
-        enc.setFragmentTexture(lutTexture, index: 2)
-        
-        
-        // TODO: removed for some reason, keep an eye out
-        
-        //enc.setDepthStencilState(noDepthWriteState)
-        
-        enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-
-
-        
-        if let pbrRenderer = pbrRenderer {
-            //pbrRenderer.draw(with: enc, in: view)
-        }
-        
-        if let arRenderer = arRenderer {
-            arRenderer.draw(with: enc, in: view)
-        }
-        
-        enc.endEncoding()
-
-        if let drawable = view.currentDrawable { cmd.present(drawable) }
-        cmd.commit()
-    }
-    
-    func drawImage(pixelBuffer: CVPixelBuffer, completion: @escaping (CGImage?) -> Void) {
-        guard let cache = textureCache,
-              let queue = queue,
-              let _ = cameraPipeline else { completion(nil); return }
-
-        let width  = CVPixelBufferGetWidthOfPlane(pixelBuffer, 0)
-        let height = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0)
-        var yTexRef: CVMetalTexture?
-        var cTexRef: CVMetalTexture?
-
-        CVMetalTextureCacheCreateTextureFromImage(nil, cache, pixelBuffer, nil, .r8Unorm,  width,  height, 0, &yTexRef)
-        CVMetalTextureCacheCreateTextureFromImage(nil, cache, pixelBuffer, nil, .rg8Unorm, width/2, height/2, 1, &cTexRef)
-
-        guard let yTex = yTexRef.flatMap(CVMetalTextureGetTexture),
-              let cbcrTex = cTexRef.flatMap(CVMetalTextureGetTexture) else { completion(nil); return }
-
-        if offscreenTexture == nil ||
-            offscreenTexture!.width  != width ||
-            offscreenTexture!.height != height {
-            setupOffscreenTexture(device: device, size: CGSize(width: width, height: height))
-        }
-
-        var uniforms = CameraUniforms(viewSize: SIMD2(Float(width), Float(height)),
-                                  videoSize: SIMD2(Float(width), Float(height)),
-                                  isCapture: 1)
-
-        guard let cmd = queue.makeCommandBuffer() else { completion(nil); return }
-
-        let rpd = MTLRenderPassDescriptor()
-        rpd.colorAttachments[0].texture    = offscreenTexture
-        rpd.colorAttachments[0].loadAction = .clear
-        rpd.colorAttachments[0].storeAction = .store
-        rpd.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
-
-        if let enc = cmd.makeRenderCommandEncoder(descriptor: rpd) {
-            enc.setRenderPipelineState(cameraPipeline)
-            enc.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
-            enc.setVertexBytes(&uniforms, length: MemoryLayout<CameraUniforms>.size, index: 1)
-            enc.setFragmentTexture(yTex, index: 0)
-            enc.setFragmentTexture(cbcrTex, index: 1)
-            enc.setFragmentTexture(lutTexture, index: 2)
-            enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-            enc.endEncoding()
-        }
-
-        cmd.addCompletedHandler { [weak self] _ in
-            guard let self = self, let texture = self.offscreenTexture else {
-                DispatchQueue.main.async { completion(nil) }
-                return
-            }
-            let w = texture.width, h = texture.height, row = w * 4
-            if captureRawData == nil || captureRawData!.count != row * h {
-                captureRawData = .init(repeating: 0, count: row * h)
-            }
-            captureRawData!.withUnsafeMutableBytes { ptr in
-                texture.getBytes(ptr.baseAddress!, bytesPerRow: row,
-                                 from: MTLRegionMake2D(0, 0, w, h), mipmapLevel: 0)
-            }
-            let cs = CGColorSpace(name: CGColorSpace.sRGB)!
-            let info = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-            if let ctx = captureRawData?.withUnsafeMutableBytes({ ptr -> CGContext? in
-                CGContext(data: ptr.baseAddress, width: w, height: h,
-                          bitsPerComponent: 8, bytesPerRow: row,
-                          space: cs, bitmapInfo: info)
-            }), let cg = ctx.makeImage() {
-                DispatchQueue.main.async { completion(cg) }
-            } else {
-                DispatchQueue.main.async { completion(nil) }
-            }
-        }
-        cmd.commit()
-    }
-    
-    func attach(to view: MTKView) {
-        self.mtkView = view
-        guard let device = view.device else { return }
-        self.device = device
-        self.queue  = device.makeCommandQueue()
-        
-        arRenderer = ARRenderer(device: device, mtkView: view)
-        outputRenderer = OutputRenderer(device: device, mtkView: view)
-        pbrRenderer = PBRRenderer(device: device, mtkView: view)
-        if !testFileLoaded {
-            testFileLoaded = true
-            if let firstFile = testLoadFirstFile() {
-                print("loading first AR file:", firstFile.lastPathComponent)
-                pbrRenderer.loadModel(from: firstFile)
-            } else {
-                print("no AR files found in shared storage")
-            }
-        }
-    
-        let noDepthDesc = MTLDepthStencilDescriptor()
-        noDepthDesc.depthCompareFunction = .always
-        noDepthDesc.isDepthWriteEnabled = false
-        noDepthState = device.makeDepthStencilState(descriptor: noDepthDesc)
-
-        CVMetalTextureCacheCreate(nil, nil, device, nil, &textureCache)
-
-        let depthDesc = MTLDepthStencilDescriptor()
-        depthDesc.depthCompareFunction = .less
-        depthDesc.isDepthWriteEnabled  = true
-        depthState = device.makeDepthStencilState(descriptor: depthDesc)
-
-        try? cameraPipeline(pixelFormat: view.colorPixelFormat)
-
-        let verts: [Float] = [
-            -1, -1,  0, 1,
-             1, -1,  1, 1,
-            -1,  1,  0, 0,
-             1,  1,  1, 0
-        ]
-        vertexBuffer = device.makeBuffer(bytes: verts, length: verts.count * MemoryLayout<Float>.size)
-        
-        view.depthStencilPixelFormat = .depth32Float
-        view.delegate = self
-
-        loadCurrentLut()
-    }
-    
-    // ==============================================================================================================
     
     private func resetLutType() { currentLutType = .kodakNeutral }
     
@@ -412,7 +384,7 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         return tex
     }
     
-    private func cameraPipeline(pixelFormat: MTLPixelFormat) throws {
+    private func makePipeline(pixelFormat: MTLPixelFormat) throws {
         let lib = try device.makeDefaultLibrary(bundle: .main)
         let vfn = lib.makeFunction(name: "cameraVS")!
         let ffn = lib.makeFunction(name: "nv12ToLinear709FS")!
@@ -423,7 +395,7 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         desc.colorAttachments[0].pixelFormat = pixelFormat
         desc.depthAttachmentPixelFormat = .depth32Float
 
-        cameraPipeline = try device.makeRenderPipelineState(descriptor: desc)
+        pipeline = try device.makeRenderPipelineState(descriptor: desc)
     }
     
     private func setupDepthTexture(size: CGSize) {
