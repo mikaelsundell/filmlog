@@ -6,10 +6,6 @@ import Foundation
 import SwiftUI
 import QuickLookThumbnailing
 
-// -------------------------------------------------------------
-// MARK: - Shared Storage Kind
-// -------------------------------------------------------------
-
 enum SharedStorageKind: String, CaseIterable, Identifiable {
     case ar
     case image
@@ -30,7 +26,7 @@ enum SharedStorageKind: String, CaseIterable, Identifiable {
     var supportedExtensions: [String] {
         switch self {
         case .ar:
-            return ["usdz", "reality", "scn"]
+            return ["usdz"]
 
         case .image:
             return ["jpg", "jpeg", "png", "heic", "tiff"]
@@ -43,10 +39,6 @@ enum SharedStorageKind: String, CaseIterable, Identifiable {
         }
     }
 }
-
-// -------------------------------------------------------------
-// MARK: - Directory Helpers
-// -------------------------------------------------------------
 
 struct SharedStorage {
     static func directory(for kind: SharedStorageKind) -> URL {
@@ -101,10 +93,6 @@ class SharedStorageFile: ObservableObject, Identifiable {
         generateThumbnail()
     }
 
-    // ---------------------------------------------------------
-    // MARK: - Thumbnail Generation
-    // ---------------------------------------------------------
-
     private func generateThumbnail() {
         let request = QLThumbnailGenerator.Request(
             fileAt: url,
@@ -120,10 +108,6 @@ class SharedStorageFile: ObservableObject, Identifiable {
         }
     }
 }
-
-// -------------------------------------------------------------
-// MARK: - Load Files for a Storage Kind
-// -------------------------------------------------------------
 
 func loadSharedStorageFiles(kind: SharedStorageKind) -> [SharedStorageFile] {
     let fm = FileManager.default
@@ -146,10 +130,6 @@ func loadSharedStorageFiles(kind: SharedStorageKind) -> [SharedStorageFile] {
         .compactMap { SharedStorageFile(url: $0, kind: kind) }
         .sorted { $0.modified > $1.modified }
 }
-
-// -------------------------------------------------------------
-// MARK: - Save File to Shared Storage
-// -------------------------------------------------------------
 
 @discardableResult
 func saveToSharedStorage(_ sourceURL: URL, as kind: SharedStorageKind) -> URL? {

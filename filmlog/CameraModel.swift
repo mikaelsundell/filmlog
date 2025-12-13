@@ -651,6 +651,14 @@ extension CameraModel: ARSessionDelegate {
 
     func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
         for anchor in anchors {
+            if let probe = anchor as? AREnvironmentProbeAnchor {
+                if let cubeTexture = probe.environmentTexture {
+                    DispatchQueue.main.async {
+                        self.renderer.updateAREnvironmentTexture(cubeTexture)
+                    }
+                }
+            }
+            
             guard let plane = anchor as? ARPlaneAnchor else { continue }
 
             if plane.alignment == .horizontal {

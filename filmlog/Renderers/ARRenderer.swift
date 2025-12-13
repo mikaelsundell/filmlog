@@ -38,7 +38,6 @@ class ARRenderer {
         }
     }
     public private(set) var planeY: Float = 0
-    
     public var cameraData: CameraData?
 
     private(set) weak var mtkView: MTKView?

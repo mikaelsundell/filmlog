@@ -11,10 +11,11 @@ class PBRRenderer {
         var baseColor: SIMD4<Float>
         var metallic: Float
         var roughness: Float
-        var baseColorTexture: URL?
-        var normalTexture: URL?
-        var metallicTexture: URL?
-        var roughnessTexture: URL?
+        
+        var baseColorTexture: MTLTexture?
+        var normalTexture: MTLTexture?
+        var metallicTexture: MTLTexture?
+        var roughnessTexture: MTLTexture?
     }
     
     struct PBRMesh {
@@ -29,10 +30,24 @@ class PBRRenderer {
         var meshes: [PBRMesh]
     }
     
-    struct ModelUniforms {
+    struct PBRUniforms {
+        var modelMatrix: simd_float4x4
         var mvp: simd_float4x4
         var normalMatrix: simd_float3x3
+        var cameraWorldPos: SIMD3<Float>
+        var _pad0: Float = 0 // 16-byte alignment for Metal
     }
+    
+    struct PBRFragmentUniforms {
+        var baseColorFactor: SIMD4<Float>
+        var metallicFactor: Float
+        var roughnessFactor: Float
+        var hasBaseColorTexture: UInt32
+        var hasMetallicTexture: UInt32
+        var hasRoughnessTexture: UInt32
+        var hasNormalTexture: UInt32
+    }
+    public var environmentTexture: MTLTexture?
     
     private(set) weak var mtkView: MTKView?
     private var device: MTLDevice!
@@ -41,21 +56,35 @@ class PBRRenderer {
     private var model: PBRModel?
     private var depthState: MTLDepthStencilState!
     
+    private var textureLoader: MTKTextureLoader!
+    private var textureCache: [URL: MTLTexture] = [:]
+    private var samplerState: MTLSamplerState!
+    
     init(device: MTLDevice, mtkView: MTKView) {
         self.device = device
         self.mtkView = mtkView
         self.meshAllocator = MTKMeshBufferAllocator(device: device)
+        self.textureLoader = MTKTextureLoader(device: device)
 
         let depthDesc = MTLDepthStencilDescriptor()
         depthDesc.depthCompareFunction = .less
         depthDesc.isDepthWriteEnabled = true
         self.depthState = device.makeDepthStencilState(descriptor: depthDesc)
+        
+        let samplerDesc = MTLSamplerDescriptor()
+        samplerDesc.minFilter = .linear
+        samplerDesc.magFilter = .linear
+        samplerDesc.mipFilter = .linear
+        samplerDesc.sAddressMode = .repeat
+        samplerDesc.tAddressMode = .repeat
+        self.samplerState = device.makeSamplerState(descriptor: samplerDesc)
     }
-    
+
     func draw(with encoder: MTLRenderCommandEncoder, in view: MTKView) {
         guard let model = self.model,
-              let firstMesh = model.meshes.first,
-              let pipeline = self.pipeline else { return }
+              let pipeline = self.pipeline else {
+            return
+        }
 
         let aspect = Float(view.drawableSize.width / max(view.drawableSize.height, 1))
 
@@ -71,52 +100,122 @@ class PBRRenderer {
         let up     = SIMD3<Float>(0.0,  0.0, 1.0)
 
         let viewMatrix = float4x4(lookAt: eye, target: target, up: up)
-        let modelMatrix = float4x4(scale: 0.75)
+        let globalModelScale = float4x4(scale: 0.75)
 
-        let mvp = projection * viewMatrix * modelMatrix
-        var uniforms = ModelUniforms(
-            mvp: mvp,
-            normalMatrix: simd_float3x3(fromModelMatrix: modelMatrix)
-        )
-        
         encoder.setRenderPipelineState(pipeline)
         encoder.setDepthStencilState(depthState)
         encoder.setCullMode(.none)
-
-        for (i, vtx) in firstMesh.mtkMesh.vertexBuffers.enumerated() {
-            encoder.setVertexBuffer(vtx.buffer, offset: vtx.offset, index: i)
+        encoder.setFragmentSamplerState(samplerState, index: 0)
+        
+        if let env = environmentTexture {
+            encoder.setFragmentTexture(env, index: 9)
         }
+        
+        for mesh in model.meshes {
+            let modelMatrix = globalModelScale * mesh.transform
+            let mvp = projection * viewMatrix * modelMatrix
+            var uniforms = PBRUniforms(
+                modelMatrix: modelMatrix,
+                mvp: mvp,
+                normalMatrix: simd_float3x3(fromModelMatrix: modelMatrix),
+                cameraWorldPos: eye
+            )
+            
+            for (i, vtx) in mesh.mtkMesh.vertexBuffers.enumerated() {
+                encoder.setVertexBuffer(vtx.buffer, offset: vtx.offset, index: i)
+            }
 
-        encoder.setVertexBytes(
-            &uniforms,
-            length: MemoryLayout<ModelUniforms>.stride,
-            index: 10
+            encoder.setVertexBytes(
+                &uniforms,
+                length: MemoryLayout<PBRUniforms>.stride,
+                index: 10
+            )
+            
+            encoder.setFragmentBytes(
+                &uniforms,
+                length: MemoryLayout<PBRUniforms>.stride,
+                index: 10
+            )
+            
+            var fragUniforms = PBRFragmentUniforms(
+                baseColorFactor: mesh.material.baseColor,
+                metallicFactor: mesh.material.metallic,
+                roughnessFactor: mesh.material.roughness,
+                hasBaseColorTexture: mesh.material.baseColorTexture != nil ? 1 : 0,
+                hasMetallicTexture: mesh.material.metallicTexture != nil ? 1 : 0,
+                hasRoughnessTexture: mesh.material.roughnessTexture != nil ? 1 : 0,
+                hasNormalTexture: mesh.material.normalTexture != nil ? 1 : 0
+            )
+            
+            encoder.setFragmentBytes(
+                &fragUniforms,
+                length: MemoryLayout<PBRFragmentUniforms>.stride,
+                index: 0
+            )
+            
+            encoder.setFragmentTexture(mesh.material.baseColorTexture, index: 0)
+            encoder.setFragmentTexture(mesh.material.metallicTexture,  index: 1)
+            encoder.setFragmentTexture(mesh.material.roughnessTexture, index: 2)
+            encoder.setFragmentTexture(mesh.material.normalTexture,    index: 3)
+
+            for sub in mesh.mtkMesh.submeshes {
+                encoder.drawIndexedPrimitives(
+                    type: sub.primitiveType,
+                    indexCount: sub.indexCount,
+                    indexType: sub.indexType,
+                    indexBuffer: sub.indexBuffer.buffer,
+                    indexBufferOffset: sub.indexBuffer.offset
+                )
+            }
+        }
+    }
+    
+    private func makePBRVertexDescriptor() -> MDLVertexDescriptor {
+        let vd = MDLVertexDescriptor()
+
+        vd.attributes[0] = MDLVertexAttribute(
+            name: MDLVertexAttributePosition,
+            format: .float3,
+            offset: 0,
+            bufferIndex: 0
         )
 
-        for sub in firstMesh.mtkMesh.submeshes {
-            encoder.drawIndexedPrimitives(
-                type: sub.primitiveType,
-                indexCount: sub.indexCount,
-                indexType: sub.indexType,
-                indexBuffer: sub.indexBuffer.buffer,
-                indexBufferOffset: sub.indexBuffer.offset
-            )
-        }
+        vd.attributes[1] = MDLVertexAttribute(
+            name: MDLVertexAttributeNormal,
+            format: .float3,
+            offset: 12,
+            bufferIndex: 0
+        )
+
+        vd.attributes[2] = MDLVertexAttribute(
+            name: MDLVertexAttributeTangent,
+            format: .float4,
+            offset: 24,
+            bufferIndex: 0
+        )
+
+        vd.attributes[3] = MDLVertexAttribute(
+            name: MDLVertexAttributeTextureCoordinate,
+            format: .float2,
+            offset: 40,
+            bufferIndex: 0
+        )
+
+        vd.layouts[0] = MDLVertexBufferLayout(stride: 48)
+        return vd
     }
 
     func loadModel(from url: URL) {
         guard let allocator = meshAllocator else {
             return
         }
-
-        let asset = MDLAsset(url: url,
-                             vertexDescriptor: nil,
-                             bufferAllocator: allocator)
-
-        for i in 0..<asset.count {
-            let obj = asset.object(at: i)
-            printModelTree(obj, indent: "   ")
-        }
+        
+        let asset = MDLAsset(
+            url: url,
+            vertexDescriptor: nil,
+            bufferAllocator: allocator
+        )
+        asset.loadTextures()
 
         var pbrMeshes: [PBRMesh] = []
         var firstMDLMesh: MDLMesh? = nil
@@ -124,70 +223,107 @@ class PBRRenderer {
         func worldTransform(for object: MDLObject, parent: float4x4) -> float4x4 {
             if let t = object.transform as? MDLTransform {
                 return parent * t.matrix
-            } else {
-                return parent
             }
+            return parent
         }
 
         func process(object: MDLObject, parentTransform: float4x4) {
             let world = worldTransform(for: object, parent: parentTransform)
             if let mesh = object as? MDLMesh {
-                mesh.addNormals(withAttributeNamed: MDLVertexAttributeNormal,
-                                creaseThreshold: 0)
+                if mesh.vertexAttributeData(forAttributeNamed: MDLVertexAttributeNormal) == nil {
+                    mesh.addNormals(withAttributeNamed: MDLVertexAttributeNormal,
+                                    creaseThreshold: 0.0)
+                }
 
-                if firstMDLMesh == nil { firstMDLMesh = mesh }
-                do {
-                    let mtkMesh = try MTKMesh(mesh: mesh, device: device)
-
-                    let mdlSub = (mesh.submeshes?.first as? MDLSubmesh)
-                    let material = makeMaterial(from: mdlSub?.material)
-
-                    let bb = mesh.boundingBox
-                    let localMin = SIMD3<Float>(bb.minBounds)
-                    let localMax = SIMD3<Float>(bb.maxBounds)
-
-                    let bounds = (min: localMin, max: localMax)
-
-                    let pbr = PBRMesh(
-                        mtkMesh: mtkMesh,
-                        transform: world,
-                        material: material,
-                        bounds: bounds
+                if mesh.vertexAttributeData(forAttributeNamed: MDLVertexAttributeTangent) == nil {
+                    mesh.addOrthTanBasis(
+                        forTextureCoordinateAttributeNamed: MDLVertexAttributeTextureCoordinate,
+                        normalAttributeNamed: MDLVertexAttributeNormal,
+                        tangentAttributeNamed: MDLVertexAttributeTangent
                     )
-                    pbrMeshes.append(pbr)
+                }
+
+                var originalMaterials: [MDLMaterial?] = []
+
+                if let subs = mesh.submeshes as? [MDLSubmesh] {
+                    for (_, sm) in subs.enumerated() {
+                        originalMaterials.append(sm.material)
+                    }
+                } else {
+                    print("mesh has no MDLSubmesh array")
+                }
+
+                if firstMDLMesh == nil {
+                    firstMDLMesh = mesh
+                }
+
+                do {
+                    mesh.vertexDescriptor = makePBRVertexDescriptor()
+
+                    let mtkMesh = try MTKMesh(mesh: mesh, device: device)
+                    var chosenMat: MDLMaterial? = nil
+                    if let subs = mesh.submeshes as? [MDLSubmesh] {
+                        for sm in subs {
+                            if let m = sm.material {
+                                chosenMat = m
+                                break
+                            }
+                        }
+                    }
+
+                    if chosenMat == nil {
+                        chosenMat = originalMaterials.first ?? nil
+                    }
+
+                    if chosenMat == nil {
+                        print("no material available for mesh \"\(mesh.name)\" using default PBR")
+                    }
+
+                    let pbrMaterial = makeMaterial(from: chosenMat)
+                    let bb = mesh.boundingBox
+                    let bounds = (
+                        min: SIMD3<Float>(bb.minBounds),
+                        max: SIMD3<Float>(bb.maxBounds)
+                    )
+                    pbrMeshes.append(
+                        PBRMesh(
+                            mtkMesh: mtkMesh,
+                            transform: world,
+                            material: pbrMaterial,
+                            bounds: bounds
+                        )
+                    )
                 }
                 catch {
-                    print("mdl to mdk conversion failed:", error)
+                    print("MDL to MTK conversion failed for mesh \(mesh.name): \(error)")
                 }
             }
-
             for child in object.children.objects {
                 process(object: child, parentTransform: world)
             }
         }
 
         for i in 0..<asset.count {
-            let obj = asset.object(at: i)
-            process(object: obj, parentTransform: matrix_identity_float4x4)
+            process(object: asset.object(at: i), parentTransform: matrix_identity_float4x4)
         }
-
         if let mdl = firstMDLMesh {
             do {
                 self.pipeline = try makePipeline(
                     mdlMesh: mdl,
                     vertexFunction: "modelPBRVS",
-                    fragmentFunction: "modelPBRFS"
+                    fragmentFunction: "modelPBRFS",
                 )
             }
             catch {
-                print("failed to build PBR pipeline:", error)
+                print("failed to build PBR pipeline: \(error)")
             }
         } else {
             print("no MDLMesh found, pipeline not built.")
         }
+
         self.model = PBRModel(meshes: pbrMeshes)
     }
-    
+
     func makeMaterial(from mdlMaterial: MDLMaterial?) -> PBRMaterial {
         guard let mat = mdlMaterial else {
             return PBRMaterial(
@@ -200,65 +336,146 @@ class PBRRenderer {
                 roughnessTexture: nil
             )
         }
-
         func floatFrom(_ semantic: MDLMaterialSemantic, default value: Float) -> Float {
-            guard let p = mat.property(with: semantic) else { return value }
-            
-            switch p.type {
-            case .float:  return p.floatValue
-            case .float2: return p.float2Value.x
-            case .float3: return p.float3Value.x
-            case .float4: return p.float4Value.x
-            default:      return value
+            guard let p = mat.property(with: semantic) else {
+                return value
             }
+
+            let result: Float
+            switch p.type {
+            case .float:  result = p.floatValue
+            case .float2: result = p.float2Value.x
+            case .float3: result = p.float3Value.x
+            case .float4: result = p.float4Value.x
+            default:
+                result = value
+            }
+            return result
         }
-        
+
         func colorFrom(_ semantic: MDLMaterialSemantic,
                        default value: SIMD4<Float>) -> SIMD4<Float> {
-            guard let p = mat.property(with: semantic) else { return value }
+            guard let p = mat.property(with: semantic) else {
+                return value
+            }
 
             switch p.type {
             case .float3:
                 let c = p.float3Value
-                return SIMD4<Float>(c.x, c.y, c.z, 1.0)
+                let v = SIMD4<Float>(c.x, c.y, c.z, 1.0)
+                return v
 
             case .float4:
                 let c = p.float4Value
-                return SIMD4<Float>(c.x, c.y, c.z, c.w)
+                let v = SIMD4<Float>(c.x, c.y, c.z, c.w)
+                return v
 
             case .float:
                 let g = p.floatValue
-                return SIMD4<Float>(g, g, g, 1.0)
+                let v = SIMD4<Float>(g, g, g, 1.0)
+                return v
+
+            case .color:
+                if let cg = p.color {
+                    let comps = cg.components ?? [0, 0, 0, 1]
+                    let r = Float(comps[0])
+                    let g = Float(comps.count > 1 ? comps[1] : comps[0])
+                    let b = Float(comps.count > 2 ? comps[2] : comps[0])
+                    let a = Float(comps.count > 3 ? comps[3] : 1.0)
+                    let v = SIMD4<Float>(r, g, b, a)
+                    return v
+                }
+                return value
 
             default:
                 return value
             }
         }
-        
-        func textureURL(_ semantic: MDLMaterialSemantic) -> URL? {
-            guard let p = mat.property(with: semantic) else { return nil }
-            switch p.type {
-            case .URL:    return p.urlValue
-            case .string: return p.stringValue.flatMap { URL(fileURLWithPath: $0) }
-            default:      return nil
+
+        func loadTexture(_ semantic: MDLMaterialSemantic, sRGB: Bool) -> MTLTexture? {
+            guard let prop = mat.property(with: semantic) else {
+                return nil
+            }
+            if prop.type == .texture {
+                if let sampler = prop.textureSamplerValue,
+                   let mdlTex = sampler.texture {
+                    do {
+                        let tex = try textureLoader.newTexture(
+                            texture: mdlTex,
+                            options: [
+                                MTKTextureLoader.Option.SRGB : sRGB,
+                                MTKTextureLoader.Option.generateMipmaps : true
+                            ]
+                        )
+                        return tex
+                        
+                    } catch {
+                        print("failed to create Metal texture from MDLTexture: \(error)")
+                    }
+                } else {
+                    print("texture semantic had no sampler/texture")
+                }
+            }
+            var url: URL?
+            switch prop.type {
+            case .URL:
+                url = prop.urlValue
+                let name = url?.lastPathComponent ?? "nil"
+
+            case .string:
+                if let s = prop.stringValue {
+                    url = URL(fileURLWithPath: s)
+                } else {
+                    print("\(semanticName(semantic)) had no stringValue")
+                }
+
+            default:
+                break
+            }
+
+            guard let finalURL = url else {
+                return nil
+            }
+
+            if let cached = textureCache[finalURL] {
+                return cached
+            }
+            
+            do {
+                let tex = try textureLoader.newTexture(
+                    URL: finalURL,
+                    options: [
+                        MTKTextureLoader.Option.SRGB : sRGB,
+                        MTKTextureLoader.Option.generateMipmaps : true
+                    ]
+                )
+                textureCache[finalURL] = tex
+                return tex
+            } catch {
+                print("failed to load URL texture for \(semanticName(semantic)) from \(finalURL): \(error)")
+                return nil
             }
         }
-
         let baseColor = colorFrom(.baseColor, default: SIMD4<Float>(0.8, 0.8, 0.8, 1.0))
-        let metallic  = floatFrom(.metallic, default: 0.0)
+        let metallic  = floatFrom(.metallic,  default: 0.0)
         let roughness = floatFrom(.roughness, default: 0.5)
+        let baseColorTex = loadTexture(.baseColor,          sRGB: true)
+        
+        let metallicTex  = loadTexture(.metallic,           sRGB: false)
+        let roughnessTex = loadTexture(.roughness,          sRGB: false)
+        let normalTex    = loadTexture(.tangentSpaceNormal, sRGB: false)
 
         return PBRMaterial(
             baseColor: baseColor,
             metallic: metallic,
             roughness: roughness,
-            baseColorTexture: textureURL(.baseColor),
-            normalTexture: textureURL(.tangentSpaceNormal),
-            metallicTexture: textureURL(.metallic),
-            roughnessTexture: textureURL(.roughness)
+            baseColorTexture: baseColorTex,
+            normalTexture: normalTex,
+            metallicTexture: metallicTex,
+            roughnessTexture: roughnessTex
         )
     }
-    
+
     private func makePipeline(
         mdlMesh: MDLMesh,
         vertexFunction: String,
@@ -284,10 +501,11 @@ class PBRRenderer {
         desc.vertexFunction = vfn
         desc.fragmentFunction = ffn
         desc.vertexDescriptor = metalVertexDescriptor
-        desc.colorAttachments[0].pixelFormat = mtkView?.colorPixelFormat ?? .bgra8Unorm
+        desc.colorAttachments[0].pixelFormat = mtkView?.colorPixelFormat ?? .bgra8Unorm_srgb
         desc.depthAttachmentPixelFormat = .depth32Float
 
-        return try device.makeRenderPipelineState(descriptor: desc)
+        let pipeline = try device.makeRenderPipelineState(descriptor: desc)
+        return pipeline
     }
     
     private func boundignBox(min: SIMD3<Float>, max: SIMD3<Float>) -> MTKMesh? {
@@ -343,7 +561,6 @@ class PBRRenderer {
                 found = true
             }
         }
-
         return found ? (minOut, maxOut) : nil
     }
     
@@ -376,84 +593,6 @@ class PBRRenderer {
         case .none: return "none"
         case .userDefined: return "userDefined"
         @unknown default: return "unknown"
-        }
-    }
-    
-    private func printMaterial(_ mat: MDLMaterial, indent: String = "") {
-        print(indent + "Material: \(mat.name)")
-        let allSemantics: [MDLMaterialSemantic] = [
-            .baseColor, .specular, .specularExponent, .roughness,
-            .metallic, .emission, .opacity,
-            .objectSpaceNormal, .tangentSpaceNormal,
-            .ambientOcclusion, .displacement
-        ]
-        
-        for semantic in allSemantics {
-            let props = mat.properties(with: semantic)
-            for p in props {
-                print(indent + "  • \(semanticName(semantic)) \(p.name) type=\(p.type.rawValue)")
-                
-                switch p.type {
-                case .string:
-                    print(indent + "      string = \(p.stringValue ?? "<nil>")")
-                case .float:
-                    print(indent + "      float = \(p.floatValue)")
-                case .color:
-                    if let cg = p.color {
-                        print(indent + "      color = \(cg)")
-                    }
-                case .URL:
-                    if let url = p.urlValue {
-                        print(indent + "      texture url = \(url.lastPathComponent)")
-                    }
-                default:
-                    print(indent + "      (unhandled type)")
-                }
-            }
-        }
-    }
-
-    private func printModelTree(_ object: MDLObject, indent: String = "") {
-        let typeName = String(describing: type(of: object))
-        let name = object.name.isEmpty ? "<no name>" : object.name
-        
-        print("\(indent)• \(typeName) \"\(name)\"")
-
-        if let mesh = object as? MDLMesh {
-            print("\(indent)   ↳ MDLMesh:")
-            print("\(indent)      vertexCount = \(mesh.vertexCount)")
-            print("\(indent)      submeshes  = \(mesh.submeshes?.count ?? 0)")
-
-            if let submeshes = mesh.submeshes {
-                for (i, sub) in submeshes.enumerated() {
-                    guard let sm = sub as? MDLSubmesh else { continue }
-                    print("\(indent)      [Submesh \(i)] indexCount = \(sm.indexCount)")
-                    
-                    if let mat = sm.material {
-                        print("\(indent)         material = \(mat.name)")
-                        for idx in 0..<mat.count {
-                            if let prop = mat[idx] {
-                                print("\(indent)            • \(prop.name) : \(prop.type)")
-                            }
-                        }
-                    } else {
-                        print("\(indent)         material = NONE")
-                    }
-                }
-            }
-        }
-
-        if let xform = object.transform {
-            let m = xform.matrix
-            print("\(indent)   ↳ Transform:")
-            print("\(indent)      [\(m.columns.0)]")
-            print("\(indent)      [\(m.columns.1)]")
-            print("\(indent)      [\(m.columns.2)]")
-            print("\(indent)      [\(m.columns.3)]")
-        }
-
-        for child in object.children.objects {
-            printModelTree(child, indent: indent + "   ")
         }
     }
 }

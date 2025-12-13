@@ -269,6 +269,11 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         }
     }
     
+    func updateAREnvironmentTexture(_ texture: MTLTexture) {
+        guard let renderer = pbrRenderer else { return }
+        renderer.environmentTexture = texture
+    }
+    
     func updateARPlaneTransform(_ transform: simd_float4x4) {
         guard let renderer = arRenderer else { return }
         renderer.planeTransform = transform

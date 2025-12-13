@@ -98,6 +98,11 @@ Documentation
 * Metal Feature Set Tables          
 https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf
 
+* Rendering Physically-Based ModelIO Materials
+https://github.com/metal-by-example/modelio-materials
+
+* Learn OpenGL
+https://learnopengl.com/PBR/Theory
 
 Project
 -------
