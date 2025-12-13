@@ -60,10 +60,6 @@ struct SharedStorage {
     }
 }
 
-// -------------------------------------------------------------
-// MARK: - File Entry Model
-// -------------------------------------------------------------
-
 class SharedStorageFile: ObservableObject, Identifiable {
     let id = UUID()
     let name: String
