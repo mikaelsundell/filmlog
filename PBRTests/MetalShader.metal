@@ -1,9 +1,9 @@
+// Copyright (c) 2025 Mikael Sundell
+// SPDX-License-Identifier: MIT
+// https://github.com/mikaelsundell/filmlog
+
 #include <metal_stdlib>
 using namespace metal;
-
-// ============================================================
-// Uniforms
-// ============================================================
 
 struct ModelUniforms {
     float4x4 modelMatrix;
@@ -30,9 +30,18 @@ struct PBRShaderControls {
     float roughnessBias;
 };
 
-// ============================================================
-// Vertex IO
-// ============================================================
+struct ShadowDepthUniforms {
+    float4x4 lightMVP;
+};
+
+struct GroundUniforms {
+    float4x4 mvp;
+    float4x4 modelMatrix;
+    float4x4 lightVP;
+    float4   baseColor;
+    float    shadowStrength;
+    float3   _pad0;
+};
 
 struct VSIn {
     float3 position [[attribute(0)]];
@@ -49,10 +58,6 @@ struct VSOut {
     float3 bitangentW;
     float2 uv;
 };
-
-// ============================================================
-// Vertex shaders
-// ============================================================
 
 vertex VSOut modelPBRVS(
     VSIn in [[stage_in]],
@@ -74,10 +79,6 @@ vertex VSOut modelPBRVS(
 
     return out;
 }
-
-// ============================================================
-// Cook–Torrance helpers
-// ============================================================
 
 float DistributionGGX(float3 N, float3 H, float roughness)
 {
@@ -106,10 +107,6 @@ float3 fresnelSchlick(float cosTheta, float3 F0)
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
-// ============================================================
-// Fragment shader
-// ============================================================
-
 fragment float4 modelPBRFS(
     VSOut in [[stage_in]],
     constant ModelUniforms& U [[buffer(10)]],
@@ -123,8 +120,6 @@ fragment float4 modelPBRFS(
     sampler s [[sampler(0)]]
 ) {
     float2 uv = float2(in.uv.x, 1.0 - in.uv.y);
-
-    // --- Base color ---
     float3 albedo = P.baseColorFactor.rgb;
     if (P.hasBaseColorTexture != 0 && baseColorTex.get_width() > 0) {
         float3 texColor = baseColorTex.sample(s, uv).rgb;
@@ -132,7 +127,6 @@ fragment float4 modelPBRFS(
         albedo *= texColor;
     }
 
-    // --- Metallic / roughness ---
     float metallic = P.metallicFactor;
     if (P.hasMetallicTexture != 0)
         metallic *= metallicTex.sample(s, uv).r;
@@ -141,10 +135,8 @@ fragment float4 modelPBRFS(
     if (P.hasRoughnessTexture != 0)
         roughness *= roughnessTex.sample(s, uv).g;
 
-    // Apply user bias
     roughness = clamp(roughness + C.roughnessBias, 0.04, 1.0);
 
-    // --- Normal mapping ---
     float3 N = normalize(in.normalW);
     if (P.hasNormalTexture != 0 && normalTex.get_width() > 0) {
         float3 nTS = normalTex.sample(s, uv).xyz * 2.0 - 1.0;
@@ -156,15 +148,13 @@ fragment float4 modelPBRFS(
         N = normalize(TBN * nTS);
     }
 
-    // --- Lighting vectors ---
     float3 V = normalize(U.worldPosition - in.worldPos);
-    float3 L = normalize(V); // headlight
+    float3 L = normalize(V);
     float3 H = normalize(V + L);
 
     float NdotL = max(dot(N, L), 0.0);
     float NdotV = max(dot(N, V), 0.0);
 
-    // --- BRDF ---
     float3 F0 = mix(float3(0.04), albedo, metallic);
     float3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
     float  D  = DistributionGGX(N, H, roughness);
@@ -181,29 +171,129 @@ fragment float4 modelPBRFS(
     float3 Lo = (kD * diffuse + specular) * NdotL;
     Lo *= C.keyIntensity;
 
-    // --- Environment ---
     float3 R = reflect(-V, N);
     float mip = roughness * float(environmentTex.get_num_mip_levels() - 1);
     float3 envSpec = environmentTex.sample(s, R, level(mip)).rgb;
 
-    //float3 ambient =
-    //    (0.03 * albedo + envSpec * (0.2 + 0.8 * metallic))
-    //    * C.ambientIntensity;
+    float3 ambient =
+        (0.03 * albedo + envSpec * (0.2 + 0.8 * metallic))
+        * C.ambientIntensity;
 
-    // Diffuse ambient (artist-controlled fill)
-    float3 ambientDiffuse = albedo * C.ambientIntensity;
-
-    // Specular ambient (environment)
-    float3 ambientSpecular =
-        envSpec * (0.04 + 0.96 * metallic);
-
-    // Combine
-    float3 ambient = ambientDiffuse + ambientSpecular;
-    
     float3 color = ambient + Lo;
-
-    // --- Tone mapping ---
     color = color / (color + 1.0);
-
     return float4(color, P.baseColorFactor.a);
+}
+
+struct ShadowDepthOut { float4 pos [[position]]; };
+
+vertex ShadowDepthOut shadowDepthVS(
+    VSIn in [[stage_in]],
+    constant ShadowDepthUniforms& S [[buffer(1)]]
+) {
+    ShadowDepthOut o;
+    o.pos = S.lightMVP * float4(in.position, 1.0);
+    return o;
+}
+
+fragment void shadowDepthFS() {}
+
+struct GroundVSOut {
+    float4 pos [[position]];
+    float4 worldPos;
+    float4 lightPos;
+};
+
+vertex GroundVSOut groundVS(
+    uint vid [[vertex_id]],
+    const device float3* verts [[buffer(0)]],
+    constant GroundUniforms& G [[buffer(1)]]
+) {
+    GroundVSOut o;
+
+    float3 p = verts[vid];
+    float4 wp = G.modelMatrix * float4(p, 1.0);
+
+    o.worldPos = wp;
+    o.pos = G.mvp * float4(p, 1.0);          // already includes modelMatrix in G.mvp
+    o.lightPos = G.lightVP * wp;
+
+    return o;
+}
+
+static inline float sampleShadow(
+    float4 lightPos,
+    depth2d<float> shadowMap,
+    sampler s
+) {
+    // project to NDC (must divide by w)
+    float3 ndc = lightPos.xyz / max(lightPos.w, 1e-6);
+
+    // NDC -> UV
+    float2 uv = ndc.xy * 0.5 + 0.5;
+
+    // metal textures have (0,0) at top-left for normalized sampling coords,
+    // while NDC y is +up. Flip Y so the shadow map isn't vertically mirrored.
+    
+    uv.y = 1.0 - uv.y;
+    
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+        return 1.0;
+    }
+
+    float bias = 0.002;
+    float current = ndc.z - bias;
+
+    float closest = shadowMap.sample(s, uv);
+    return (current > closest) ? 0.0 : 1.0;
+}
+
+static inline float sampleShadowPCF(
+    float4 lightPos,
+    depth2d<float> shadowMap,
+    sampler s
+) {
+    float3 ndc = lightPos.xyz / max(lightPos.w, 1e-6);
+    float2 uv = ndc.xy * 0.5 + 0.5;
+    uv.y = 1.0 - uv.y;
+
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+        return 1.0;
+    }
+
+    float bias = 0.002;
+    float currentDepth = ndc.z - bias;
+
+    float2 texelSize = 1.0 / float2(
+        shadowMap.get_width(),
+        shadowMap.get_height()
+    );
+    float filterRadius = 2.5;
+    float shadow = 0.0;
+    float samples = 0.0;
+    for (int y = -3; y <= 3; ++y) {
+        for (int x = -3; x <= 3; ++x) {
+            float2 offset = float2(x, y) * texelSize * filterRadius;
+            float closestDepth = shadowMap.sample(s, uv + offset);
+            shadow += (currentDepth > closestDepth) ? 0.0 : 1.0;
+            samples += 1.0;
+        }
+    }
+    return shadow / samples;
+}
+
+
+
+fragment float4 groundFS(
+    GroundVSOut in [[stage_in]],
+    constant GroundUniforms& G [[buffer(1)]],
+    depth2d<float> shadowMap [[texture(0)]],
+    sampler ss [[sampler(0)]]
+) {
+    float lit = sampleShadowPCF(in.lightPos, shadowMap, ss);
+    float shadowAmount = 1.0 - lit;
+    if (shadowAmount <= 0.001) {
+        discard_fragment();
+    }
+    float shadow = shadowAmount * G.shadowStrength;
+    return float4(0.0, 0.0, 0.0, shadow);
 }
