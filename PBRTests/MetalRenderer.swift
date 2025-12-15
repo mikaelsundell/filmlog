@@ -29,7 +29,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate {
         super.init()
 
         mtkView.sampleCount = 1
-        mtkView.clearColor = MTLClearColor(red: 0.05, green: 0.05, blue: 0.05, alpha: 1.0)
+        mtkView.clearColor = MTLClearColor(red: 0.05, green: 0.00, blue: 0.00, alpha: 1.0)
         mtkView.colorPixelFormat = .bgra8Unorm_srgb
 
         (mtkView as? MetalView)?.camera = camera

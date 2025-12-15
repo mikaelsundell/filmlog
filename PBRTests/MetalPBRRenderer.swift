@@ -43,6 +43,7 @@ final class MetalPBRRenderer {
         var lightVP: simd_float4x4
         var baseColor: SIMD4<Float>
         var shadowStrength: Float
+        var maxHeight: Float
         var _pad0: SIMD3<Float> = .zero
     }
 
@@ -140,7 +141,7 @@ final class MetalPBRRenderer {
             let shadowDepthPipeline
         else { return }
 
-        let (heightVP, _, _, _) = computeHeightViewProjection(
+        let (heightVP, _, _, _) = computeHeightVP(
             model: model
         )
 
@@ -194,8 +195,8 @@ final class MetalPBRRenderer {
         let cameraWorldPos = worldPosition ?? SIMD3<Float>(0, 0, 0)
         let globalModelScale = simd_float4x4(scale: 1.00)
 
-        let (heightVP, modelCenter, footprint, _) =
-            computeHeightViewProjection(model: model)
+        let (heightVP, modelCenter, footprint, maxHeight) =
+            computeHeightVP(model: model)
 
         drawGroundReceiver(
             with: encoder,
@@ -203,7 +204,8 @@ final class MetalPBRRenderer {
             viewMatrix: localViewMatrix,
             lightVP: heightVP,
             center: modelCenter,
-            footprintRadius: footprint
+            footprintRadius: footprint,
+            maxHeight: maxHeight
         )
 
         encoder.setRenderPipelineState(pbrPipeline)
@@ -304,7 +306,8 @@ final class MetalPBRRenderer {
         viewMatrix: simd_float4x4,
         lightVP: simd_float4x4,
         center: SIMD3<Float>,
-        footprintRadius: Float
+        footprintRadius: Float,
+        maxHeight: Float
     ) {
         guard let groundPipeline,
               let groundVertexBuffer,
@@ -323,7 +326,8 @@ final class MetalPBRRenderer {
             modelMatrix: groundModel,
             lightVP: lightVP,
             baseColor: SIMD4<Float>(1, 1, 1, 1),
-            shadowStrength: 1.0
+            shadowStrength: 1.0,
+            maxHeight: maxHeight
         )
 
         encoder.setRenderPipelineState(groundPipeline)
@@ -340,7 +344,7 @@ final class MetalPBRRenderer {
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
     }
     
-    private func computeHeightViewProjection(
+    private func computeHeightVP(
         model: MetalPBRLoader.PBRModel,
     ) -> (simd_float4x4, SIMD3<Float>, Float, Float) {
         let b = modelBoundsWorld(model)
@@ -351,7 +355,7 @@ final class MetalPBRRenderer {
         let ext = (maxB - minB)
         let footprint = 0.5 * max(ext.x, ext.z)
 
-        let maxHeight = max(ext.y, 0.1) + 0.01
+        let maxHeight = max(ext.y, 0.1) * 2.0 + 0.1
         let view = simd_float4x4(
             lookAt:
                 SIMD3<Float>(center.x, center.y, shadowPlaneZ),

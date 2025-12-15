@@ -40,6 +40,7 @@ struct GroundUniforms {
     float4x4 lightVP;
     float4   baseColor;
     float    shadowStrength;
+    float    maxHeight;
     float3   _pad0;
 };
 
@@ -227,16 +228,28 @@ fragment float4 groundFS(
     float2 uv  = ndc.xy * 0.5 + 0.5;
     uv.y = 1.0 - uv.y;
 
+    // Outside shadow footprint → fully transparent
     if (any(uv < 0.0) || any(uv > 1.0)) {
         discard_fragment();
     }
 
-    float h = heightMap.sample(s, uv);
-    float alpha = exp(-h * 2.0);
+    float d = heightMap.sample(s, uv);
+
+    // Convert depth to contact strength
+    // 0 = touching plane → strongest shadow
+    // 1 = far → no shadow
+    float alpha = 1.0 - d;
+
+    // Optional artistic shaping
+    alpha = saturate(alpha);
+    alpha = pow(alpha, 1.5);              // softer falloff
     alpha *= G.shadowStrength;
 
-    if (alpha < 0.15) {
+    // Kill pixels with no visible shadow
+    if (alpha < 0.01) {
         discard_fragment();
     }
+
+    // Black shadow, alpha-only
     return float4(0.0, 0.0, 0.0, alpha);
 }
