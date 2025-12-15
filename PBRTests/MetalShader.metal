@@ -209,91 +209,34 @@ vertex GroundVSOut groundVS(
     constant GroundUniforms& G [[buffer(1)]]
 ) {
     GroundVSOut o;
-
     float3 p = verts[vid];
     float4 wp = G.modelMatrix * float4(p, 1.0);
-
+    o.pos      = G.mvp * float4(p, 1.0);
     o.worldPos = wp;
-    o.pos = G.mvp * float4(p, 1.0);          // already includes modelMatrix in G.mvp
     o.lightPos = G.lightVP * wp;
-
     return o;
 }
-
-static inline float sampleShadow(
-    float4 lightPos,
-    depth2d<float> shadowMap,
-    sampler s
-) {
-    // project to NDC (must divide by w)
-    float3 ndc = lightPos.xyz / max(lightPos.w, 1e-6);
-
-    // NDC -> UV
-    float2 uv = ndc.xy * 0.5 + 0.5;
-
-    // metal textures have (0,0) at top-left for normalized sampling coords,
-    // while NDC y is +up. Flip Y so the shadow map isn't vertically mirrored.
-    
-    uv.y = 1.0 - uv.y;
-    
-    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
-        return 1.0;
-    }
-
-    float bias = 0.002;
-    float current = ndc.z - bias;
-
-    float closest = shadowMap.sample(s, uv);
-    return (current > closest) ? 0.0 : 1.0;
-}
-
-static inline float sampleShadowPCF(
-    float4 lightPos,
-    depth2d<float> shadowMap,
-    sampler s
-) {
-    float3 ndc = lightPos.xyz / max(lightPos.w, 1e-6);
-    float2 uv = ndc.xy * 0.5 + 0.5;
-    uv.y = 1.0 - uv.y;
-
-    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
-        return 1.0;
-    }
-
-    float bias = 0.002;
-    float currentDepth = ndc.z - bias;
-
-    float2 texelSize = 1.0 / float2(
-        shadowMap.get_width(),
-        shadowMap.get_height()
-    );
-    float filterRadius = 2.5;
-    float shadow = 0.0;
-    float samples = 0.0;
-    for (int y = -3; y <= 3; ++y) {
-        for (int x = -3; x <= 3; ++x) {
-            float2 offset = float2(x, y) * texelSize * filterRadius;
-            float closestDepth = shadowMap.sample(s, uv + offset);
-            shadow += (currentDepth > closestDepth) ? 0.0 : 1.0;
-            samples += 1.0;
-        }
-    }
-    return shadow / samples;
-}
-
-
 
 fragment float4 groundFS(
     GroundVSOut in [[stage_in]],
     constant GroundUniforms& G [[buffer(1)]],
-    depth2d<float> shadowMap [[texture(0)]],
-    sampler ss [[sampler(0)]]
+    depth2d<float> heightMap [[texture(0)]],
+    sampler s [[sampler(0)]]
 ) {
-    float lit = sampleShadowPCF(in.lightPos, shadowMap, ss);
-    float shadowAmount = 1.0 - lit;
-    if (shadowAmount <= 0.001) {
+    float3 ndc = in.lightPos.xyz / max(in.lightPos.w, 1e-6);
+    float2 uv  = ndc.xy * 0.5 + 0.5;
+    uv.y = 1.0 - uv.y;
+
+    if (any(uv < 0.0) || any(uv > 1.0)) {
         discard_fragment();
     }
-    float shadow = shadowAmount * G.shadowStrength;
-    return float4(0.0, 0.0, 0.0, shadow);
+
+    float h = heightMap.sample(s, uv);
+    float alpha = exp(-h * 2.0);
+    alpha *= G.shadowStrength;
+
+    if (alpha < 0.15) {
+        discard_fragment();
+    }
+    return float4(0.0, 0.0, 0.0, alpha);
 }

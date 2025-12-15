@@ -104,6 +104,9 @@ https://github.com/metal-by-example/modelio-materials
 * Learn OpenGL
 https://learnopengl.com/PBR/Theory
 
+* Three.js Contact Shadows
+https://threejs.org/examples/webgl_shadow_contact.html
+
 Project
 -------
 * GitHub page   

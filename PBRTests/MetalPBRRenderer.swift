@@ -8,28 +8,6 @@ import ModelIO
 import simd
 
 final class MetalPBRRenderer {
-    struct PBRMaterial {
-        var baseColor: SIMD4<Float>
-        var metallic: Float
-        var roughness: Float
-
-        var baseColorTexture: MTLTexture?
-        var normalTexture: MTLTexture?
-        var metallicTexture: MTLTexture?
-        var roughnessTexture: MTLTexture?
-    }
-
-    struct PBRMesh {
-        var mtkMesh: MTKMesh
-        var transform: simd_float4x4
-        var material: PBRMaterial
-        var bounds: (min: SIMD3<Float>, max: SIMD3<Float>)?
-    }
-
-    struct PBRModel {
-        var meshes: [PBRMesh]
-    }
-
     struct PBRUniforms {
         var modelMatrix: simd_float4x4
         var mvp: simd_float4x4
@@ -75,7 +53,7 @@ final class MetalPBRRenderer {
 
     var shadowPlaneZ: Float = 0.0
     var shadowStrength: Float = 0.50
-    var groundSizeMultiplier: Float = 2.0
+    var groundSizeMultiplier: Float = 1.0
     
     var lightDirection = normalize(SIMD3<Float>(0.0, 0.0001, -1.0))
 
@@ -83,17 +61,16 @@ final class MetalPBRRenderer {
 
     private var device: MTLDevice
     private var meshAllocator: MTKMeshBufferAllocator
-
-    private var model: PBRModel?
+    private var model: MetalPBRLoader.PBRModel?
+    private let loader: MetalPBRLoader
 
     private var pbrPipeline: MTLRenderPipelineState?
     private var shadowDepthPipeline: MTLRenderPipelineState?
     private var groundPipeline: MTLRenderPipelineState?
 
-    private var modelDepthState: MTLDepthStencilState
-    private var groundDepthState: MTLDepthStencilState
-    private var shadowDepthState: MTLDepthStencilState
-
+    private let depthWriteState: MTLDepthStencilState
+    private let noDepthState: MTLDepthStencilState
+    
     private var textureLoader: MTKTextureLoader
     private var textureCache: [URL: MTLTexture] = [:]
     private var samplerState: MTLSamplerState
@@ -110,22 +87,18 @@ final class MetalPBRRenderer {
         self.mtkView = mtkView
         self.meshAllocator = MTKMeshBufferAllocator(device: device)
         self.textureLoader = MTKTextureLoader(device: device)
-
+        self.loader = MetalPBRLoader(device: device)
+        
         let depthDesc = MTLDepthStencilDescriptor()
         depthDesc.depthCompareFunction = .less
         depthDesc.isDepthWriteEnabled = true
-        self.modelDepthState = device.makeDepthStencilState(descriptor: depthDesc)!
-
-        let groundDepthDesc = MTLDepthStencilDescriptor()
-        groundDepthDesc.depthCompareFunction = .less
-        groundDepthDesc.isDepthWriteEnabled = true
-        self.groundDepthState = device.makeDepthStencilState(descriptor: groundDepthDesc)!
-
-        let shadowDepthDesc = MTLDepthStencilDescriptor()
-        shadowDepthDesc.depthCompareFunction = .less
-        shadowDepthDesc.isDepthWriteEnabled = true
-        self.shadowDepthState = device.makeDepthStencilState(descriptor: shadowDepthDesc)!
-
+        self.depthWriteState = device.makeDepthStencilState(descriptor: depthDesc)!
+        
+        let noDepthDesc = MTLDepthStencilDescriptor()
+        noDepthDesc.depthCompareFunction = .always
+        noDepthDesc.isDepthWriteEnabled = false
+        self.noDepthState = device.makeDepthStencilState(descriptor: noDepthDesc)!
+        
         let samplerDesc = MTLSamplerDescriptor()
         samplerDesc.minFilter = .linear
         samplerDesc.magFilter = .linear
@@ -157,9 +130,9 @@ final class MetalPBRRenderer {
             options: .storageModeShared
         )
         self.groundVertexBuffer?.label = "GroundQuadVB"
-        rebuildShadowMapResources()
+        makeShadowMapResources()
     }
-
+    
     func renderShadowMap(commandBuffer: MTLCommandBuffer) {
         guard
             let model,
@@ -167,28 +140,22 @@ final class MetalPBRRenderer {
             let shadowDepthPipeline
         else { return }
 
-        let globalModelScale = simd_float4x4(scale: 1.00)
-
-        let (lightVP, _, _) = computeLightVP(
-            model: model,
-            globalModelScale: globalModelScale
+        let (heightVP, _, _, _) = computeHeightViewProjection(
+            model: model
         )
 
         let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: shadowPassDesc)!
-        encoder.label = "ShadowDepthEncoder"
-
         encoder.setRenderPipelineState(shadowDepthPipeline)
-        encoder.setDepthStencilState(shadowDepthState)
-        encoder.setCullMode(.back)
+        encoder.setDepthStencilState(depthWriteState)
+        encoder.setCullMode(.none)
 
         for mesh in model.meshes {
-            let modelMatrix = globalModelScale * mesh.transform
-            var su = ShadowDepthUniforms(lightMVP: lightVP * modelMatrix)
+            let modelMatrix = mesh.transform
+            var su = ShadowDepthUniforms(lightMVP: heightVP * modelMatrix)
 
             if let vb0 = mesh.mtkMesh.vertexBuffers.first {
                 encoder.setVertexBuffer(vb0.buffer, offset: vb0.offset, index: 0)
             }
-
             encoder.setVertexBytes(
                 &su,
                 length: MemoryLayout<ShadowDepthUniforms>.stride,
@@ -209,7 +176,7 @@ final class MetalPBRRenderer {
         encoder.endEncoding()
     }
 
-    func drawMainPass(
+    func draw(
         with encoder: MTLRenderCommandEncoder,
         in view: MTKView
     ) {
@@ -225,22 +192,22 @@ final class MetalPBRRenderer {
 
         let localViewMatrix = viewMatrix ?? matrix_identity_float4x4
         let cameraWorldPos = worldPosition ?? SIMD3<Float>(0, 0, 0)
-        let globalModelScale = simd_float4x4(scale: 0.75)
+        let globalModelScale = simd_float4x4(scale: 1.00)
 
-        let (lightVP, modelCenter, footprint) =
-            computeLightVP(model: model, globalModelScale: globalModelScale)
+        let (heightVP, modelCenter, footprint, _) =
+            computeHeightViewProjection(model: model)
 
         drawGroundReceiver(
             with: encoder,
             projection: projection,
             viewMatrix: localViewMatrix,
-            lightVP: lightVP,
+            lightVP: heightVP,
             center: modelCenter,
             footprintRadius: footprint
         )
 
         encoder.setRenderPipelineState(pbrPipeline)
-        encoder.setDepthStencilState(modelDepthState)
+        encoder.setDepthStencilState(depthWriteState)
         encoder.setCullMode(.none)
         encoder.setFragmentSamplerState(samplerState, index: 0)
 
@@ -302,71 +269,33 @@ final class MetalPBRRenderer {
         }
     }
 
-    private func rebuildShadowMapResources() {
-        let size = shadowMapSize
+    func loadModel(from url: URL) {
+        do {
+            let result = try loader.loadModel(from: url)
+            self.model = result.model
 
-        let depthDesc = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .depth32Float,
-            width: size,
-            height: size,
-            mipmapped: false
-        )
-        depthDesc.usage = [.renderTarget, .shaderRead]
-        depthDesc.storageMode = .private
-
-        shadowDepthTexture = device.makeTexture(descriptor: depthDesc)
-        shadowDepthTexture?.label = "ShadowDepthMap"
-
-        let pass = MTLRenderPassDescriptor()
-        pass.depthAttachment.texture = shadowDepthTexture
-        pass.depthAttachment.loadAction = .clear
-        pass.depthAttachment.storeAction = .store
-        pass.depthAttachment.clearDepth = 1.0
-        shadowPassDesc = pass
-    }
-
-    private func renderShadowMap(
-        commandBuffer: MTLCommandBuffer,
-        model: PBRModel,
-        globalModelScale: simd_float4x4,
-        lightVP: simd_float4x4
-    ) {
-        guard let shadowPassDesc,
-              let shadowDepthPipeline,
-              let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: shadowPassDesc)
-        else { return }
-
-        encoder.label = "ShadowDepthPass"
-        encoder.setRenderPipelineState(shadowDepthPipeline)
-        encoder.setDepthStencilState(shadowDepthState)
-        encoder.setCullMode(.back)
-
-        for mesh in model.meshes {
-            // IMPORTANT: use same model scale so silhouette matches main pass
-            let modelMatrix = globalModelScale * mesh.transform
-            var su = ShadowDepthUniforms(lightMVP: lightVP * modelMatrix)
-
-            // position attribute must be attribute(0) => buffer(0) layout for our shadow VS
-            // MTKMesh vertex buffers contain interleaved attributes. We reuse the same vertex buffer 0.
-            
-            if let vb0 = mesh.mtkMesh.vertexBuffers.first {
-                encoder.setVertexBuffer(vb0.buffer, offset: vb0.offset, index: 0)
-            }
-
-            encoder.setVertexBytes(&su, length: MemoryLayout<ShadowDepthUniforms>.stride, index: 1)
-
-            for sub in mesh.mtkMesh.submeshes {
-                encoder.drawIndexedPrimitives(
-                    type: sub.primitiveType,
-                    indexCount: sub.indexCount,
-                    indexType: sub.indexType,
-                    indexBuffer: sub.indexBuffer.buffer,
-                    indexBufferOffset: sub.indexBuffer.offset
+            self.pbrPipeline =
+                try makePBRPipeline(
+                    mdlMesh: result.referenceMesh,
+                    vertexFunction: "modelPBRVS",
+                    fragmentFunction: "modelPBRFS"
                 )
-            }
+            
+            self.groundPipeline =
+                try makeGroundPipeline(
+                    vertexFunction: "groundVS",
+                    fragmentFunction: "groundFS"
+                )
+            
+            self.shadowDepthPipeline =
+                try makeShadowDepthPipeline(
+                    mdlMesh: result.referenceMesh,
+                    vertexFunction: "shadowDepthVS",
+                    fragmentFunction: "shadowDepthFS"
+                )
+        } catch {
+            print("Model load failed:", error)
         }
-
-        encoder.endEncoding()
     }
     
     private func drawGroundReceiver(
@@ -393,12 +322,12 @@ final class MetalPBRRenderer {
             mvp: mvp,
             modelMatrix: groundModel,
             lightVP: lightVP,
-            baseColor: SIMD4<Float>(0.08, 0.08, 0.08, 1.0),
-            shadowStrength: shadowStrength
+            baseColor: SIMD4<Float>(1, 1, 1, 1),
+            shadowStrength: 1.0
         )
 
         encoder.setRenderPipelineState(groundPipeline)
-        encoder.setDepthStencilState(groundDepthState)
+        encoder.setDepthStencilState(depthWriteState)
         encoder.setCullMode(.none)
 
         encoder.setVertexBuffer(groundVertexBuffer, offset: 0, index: 0)
@@ -410,11 +339,11 @@ final class MetalPBRRenderer {
 
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
     }
-
-    private func computeLightVP(model: PBRModel, globalModelScale: simd_float4x4)
-        -> (simd_float4x4, SIMD3<Float>, Float)
-    {
-        let b = modelBoundsWorld(model, globalModelScale: globalModelScale)
+    
+    private func computeHeightViewProjection(
+        model: MetalPBRLoader.PBRModel,
+    ) -> (simd_float4x4, SIMD3<Float>, Float, Float) {
+        let b = modelBoundsWorld(model)
         let minB = b?.min ?? SIMD3<Float>(-0.5, 0.0, -0.5)
         let maxB = b?.max ?? SIMD3<Float>( 0.5, 1.0,  0.5)
 
@@ -422,38 +351,24 @@ final class MetalPBRRenderer {
         let ext = (maxB - minB)
         let footprint = 0.5 * max(ext.x, ext.z)
 
-        // build a directional light “camera”
-        // position the light a fixed distance away along -lightDirection.
-        
-        let lightDir = normalize(lightDirection)
-        let distance: Float = max(ext.y, max(ext.x, ext.z)) * 2.5 + 2.0
-        let lightPos = center - lightDir * distance
-
-        let lightView = simd_float4x4(
-            lookAt: lightPos,
-            target: center,
-            up: SIMD3<Float>(0, 0, 1)
+        let maxHeight = max(ext.y, 0.1) + 0.01
+        let view = simd_float4x4(
+            lookAt:
+                SIMD3<Float>(center.x, center.y, shadowPlaneZ),
+                SIMD3<Float>(center.x, center.y, shadowPlaneZ + 1.0),
+                SIMD3<Float>(0, 1, 0)
         )
-
-        // ortho extents: include footprint + padding
-        let pad: Float = max(footprint, 0.5) * 1.5
-        let halfW = max(ext.x, ext.z) * 0.5 + pad
-        let halfH = max(ext.x, ext.z) * 0.5 + pad
-
-        // near/far along light view direction; keep generous
-        let nearZ: Float = 0.1
-        let farZ: Float = distance * 3.0 + ext.y * 2.0
-
-        let lightProj = simd_float4x4(
-            orthoLeft: -halfW, right: halfW,
-            bottom: -halfH, top: halfH,
-            nearZ: nearZ, farZ: farZ
+        let pad = max(footprint, 0.25) * 1.5
+        let proj = simd_float4x4(
+            orthoLeft: -pad, right: pad,
+            bottom: -pad, top: pad,
+            nearZ: 0.0,
+            farZ: maxHeight
         )
-
-        return (lightProj * lightView, center, footprint)
+        return (proj * view, center, footprint, maxHeight)
     }
-
-    private func modelBoundsWorld(_ model: PBRModel, globalModelScale: simd_float4x4)
+    
+    private func modelBoundsWorld(_ model: MetalPBRLoader.PBRModel)
         -> (min: SIMD3<Float>, max: SIMD3<Float>)?
     {
         var minOut = SIMD3<Float>(.greatestFiniteMagnitude, .greatestFiniteMagnitude, .greatestFiniteMagnitude)
@@ -463,7 +378,7 @@ final class MetalPBRRenderer {
         for mesh in model.meshes {
             guard let bounds = mesh.bounds else { continue }
 
-            let t = globalModelScale * mesh.transform
+            let modelMatrix = mesh.transform
             let localMin = bounds.min
             let localMax = bounds.max
 
@@ -479,276 +394,39 @@ final class MetalPBRRenderer {
             ]
 
             for c in corners {
-                let wc = (t * SIMD4<Float>(c, 1)).xyz
+                let wc = (modelMatrix * SIMD4<Float>(c, 1)).xyz
                 minOut = simd.min(minOut, wc)
                 maxOut = simd.max(maxOut, wc)
             }
-
             found = true
         }
 
         return found ? (minOut, maxOut) : nil
     }
 
-    private func makePBRVertexDescriptor() -> MDLVertexDescriptor {
-        let vd = MDLVertexDescriptor()
-
-        vd.attributes[0] = MDLVertexAttribute(
-            name: MDLVertexAttributePosition,
-            format: .float3,
-            offset: 0,
-            bufferIndex: 0
+    private func makeShadowMapResources() {
+        let size = shadowMapSize
+        let depthDesc = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .depth32Float,
+            width: size,
+            height: size,
+            mipmapped: false
         )
 
-        vd.attributes[1] = MDLVertexAttribute(
-            name: MDLVertexAttributeNormal,
-            format: .float3,
-            offset: 12,
-            bufferIndex: 0
-        )
+        depthDesc.sampleCount = 1
+        depthDesc.textureType = .type2D
+        depthDesc.storageMode = .private
+        depthDesc.usage = [.renderTarget, .shaderRead]
 
-        vd.attributes[2] = MDLVertexAttribute(
-            name: MDLVertexAttributeTangent,
-            format: .float4,
-            offset: 24,
-            bufferIndex: 0
-        )
+        shadowDepthTexture = device.makeTexture(descriptor: depthDesc)
+        shadowDepthTexture?.label = "ShadowDepthMap"
 
-        vd.attributes[3] = MDLVertexAttribute(
-            name: MDLVertexAttributeTextureCoordinate,
-            format: .float2,
-            offset: 40,
-            bufferIndex: 0
-        )
-
-        vd.layouts[0] = MDLVertexBufferLayout(stride: 48)
-        return vd
-    }
-
-    func loadModel(from url: URL) {
-        let asset = MDLAsset(url: url, vertexDescriptor: nil, bufferAllocator: meshAllocator)
-        asset.loadTextures()
-
-        var pbrMeshes: [PBRMesh] = []
-        var firstMDLMesh: MDLMesh?
-
-        func worldTransform(for object: MDLObject, parent: simd_float4x4) -> simd_float4x4 {
-            if let t = object.transform as? MDLTransform { return parent * t.matrix }
-            return parent
-        }
-
-        func process(object: MDLObject, parentTransform: simd_float4x4) {
-            let world = worldTransform(for: object, parent: parentTransform)
-
-            if let mesh = object as? MDLMesh {
-                if mesh.vertexAttributeData(forAttributeNamed: MDLVertexAttributeNormal) == nil {
-                    mesh.addNormals(withAttributeNamed: MDLVertexAttributeNormal, creaseThreshold: 0.0)
-                }
-                if mesh.vertexAttributeData(forAttributeNamed: MDLVertexAttributeTangent) == nil {
-                    mesh.addOrthTanBasis(
-                        forTextureCoordinateAttributeNamed: MDLVertexAttributeTextureCoordinate,
-                        normalAttributeNamed: MDLVertexAttributeNormal,
-                        tangentAttributeNamed: MDLVertexAttributeTangent
-                    )
-                }
-
-                if firstMDLMesh == nil { firstMDLMesh = mesh }
-
-                do {
-                    mesh.vertexDescriptor = makePBRVertexDescriptor()
-                    let mtkMesh = try MTKMesh(mesh: mesh, device: device)
-
-                    var chosenMat: MDLMaterial?
-                    if let subs = mesh.submeshes as? [MDLSubmesh] {
-                        chosenMat = subs.compactMap { $0.material }.first
-                    }
-
-                    let pbrMaterial = makeMaterial(from: chosenMat)
-
-                    let bb = mesh.boundingBox
-                    let bounds = (
-                        min: SIMD3<Float>(bb.minBounds),
-                        max: SIMD3<Float>(bb.maxBounds)
-                    )
-
-                    pbrMeshes.append(PBRMesh(
-                        mtkMesh: mtkMesh,
-                        transform: world,
-                        material: pbrMaterial,
-                        bounds: bounds
-                    ))
-
-                } catch {
-                    print("warning: MDL→MTK conversion failed for mesh \(mesh.name): \(error)")
-                }
-            }
-
-            for child in object.children.objects {
-                process(object: child, parentTransform: world)
-            }
-        }
-
-        for i in 0..<asset.count {
-            process(object: asset.object(at: i), parentTransform: matrix_identity_float4x4)
-        }
-        self.model = PBRModel(meshes: pbrMeshes)
-        
-        guard let mdl = firstMDLMesh else {
-            print("warning: no MDLMesh found, pipeline not built.")
-            return
-        }
-
-        do {
-            self.pbrPipeline = try makePBRPipeline(mdlMesh: mdl, vertexFunction: "modelPBRVS", fragmentFunction: "modelPBRFS")
-            self.shadowDepthPipeline =
-                try makeShadowDepthPipeline(
-                    mdlMesh: mdl,
-                    vertexFunction: "shadowDepthVS",
-                    fragmentFunction: "shadowDepthFS"
-                )
-            self.groundPipeline = try makeGroundPipeline(vertexFunction: "groundVS", fragmentFunction: "groundFS")
-        } catch {
-            print("warning: pipeline build failed: \(error)")
-        }
-    }
-
-    func makeMaterial(from mdlMaterial: MDLMaterial?) -> PBRMaterial {
-        guard let mat = mdlMaterial else {
-            return PBRMaterial(
-                baseColor: SIMD4<Float>(0.8, 0.8, 0.8, 1.0),
-                metallic: 0.0,
-                roughness: 0.5,
-                baseColorTexture: nil,
-                normalTexture: nil,
-                metallicTexture: nil,
-                roughnessTexture: nil
-            )
-        }
-
-        func floatFrom(_ semantic: MDLMaterialSemantic, default value: Float) -> Float {
-            guard let p = mat.property(with: semantic) else { return value }
-            switch p.type {
-            case .float:  return p.floatValue
-            case .float2: return p.float2Value.x
-            case .float3: return p.float3Value.x
-            case .float4: return p.float4Value.x
-            default:      return value
-            }
-        }
-
-        func colorFrom(_ semantic: MDLMaterialSemantic, default value: SIMD4<Float>) -> SIMD4<Float> {
-            guard let p = mat.property(with: semantic) else { return value }
-            switch p.type {
-            case .float3:
-                let c = p.float3Value
-                return SIMD4<Float>(c.x, c.y, c.z, 1.0)
-            case .float4:
-                let c = p.float4Value
-                return SIMD4<Float>(c.x, c.y, c.z, c.w)
-            case .float:
-                let g = p.floatValue
-                return SIMD4<Float>(g, g, g, 1.0)
-            case .color:
-                if let cg = p.color {
-                    let comps = cg.components ?? [0, 0, 0, 1]
-                    let r = Float(comps[0])
-                    let g = Float(comps.count > 1 ? comps[1] : comps[0])
-                    let b = Float(comps.count > 2 ? comps[2] : comps[0])
-                    let a = Float(comps.count > 3 ? comps[3] : 1.0)
-                    return SIMD4<Float>(r, g, b, a)
-                }
-                return value
-            default:
-                return value
-            }
-        }
-
-        func loadTexture(_ semantic: MDLMaterialSemantic, sRGB: Bool) -> MTLTexture? {
-            guard let prop = mat.property(with: semantic) else { return nil }
-
-            // Embedded (USDZ)
-            if prop.type == .texture,
-               let sampler = prop.textureSamplerValue,
-               let mdlTex = sampler.texture {
-                do {
-                    return try textureLoader.newTexture(
-                        texture: mdlTex,
-                        options: [
-                            .SRGB: sRGB,
-                            .generateMipmaps: true
-                        ]
-                    )
-                } catch {
-                    print("warning: embedded texture load failed: \(error)")
-                }
-            }
-            var url: URL?
-            switch prop.type {
-            case .URL:    url = prop.urlValue
-            case .string: url = prop.stringValue.map { URL(fileURLWithPath: $0) }
-            default:      break
-            }
-            guard let finalURL = url else { return nil }
-
-            if let cached = textureCache[finalURL] { return cached }
-
-            do {
-                let tex = try textureLoader.newTexture(
-                    URL: finalURL,
-                    options: [
-                        .SRGB: sRGB,
-                        .generateMipmaps: true
-                    ]
-                )
-                textureCache[finalURL] = tex
-                return tex
-            } catch {
-                print("warning: URL texture load failed for \(finalURL): \(error)")
-                return nil
-            }
-        }
-
-        let baseColor = colorFrom(.baseColor, default: SIMD4<Float>(0.8, 0.8, 0.8, 1.0))
-        let metallic  = floatFrom(.metallic,  default: 0.0)
-        let roughness = floatFrom(.roughness, default: 0.5)
-
-        let baseColorTex = loadTexture(.baseColor,          sRGB: true)
-        let metallicTex  = loadTexture(.metallic,           sRGB: false)
-        let roughnessTex = loadTexture(.roughness,          sRGB: false)
-        let normalTex    = loadTexture(.tangentSpaceNormal, sRGB: false)
-
-        return PBRMaterial(
-            baseColor: baseColor,
-            metallic: metallic,
-            roughness: roughness,
-            baseColorTexture: baseColorTex,
-            normalTexture: normalTex,
-            metallicTexture: metallicTex,
-            roughnessTexture: roughnessTex
-        )
-    }
-
-    private func makePBRPipeline(mdlMesh: MDLMesh, vertexFunction: String, fragmentFunction: String) throws -> MTLRenderPipelineState {
-        let library = try device.makeDefaultLibrary(bundle: .main)
-
-        guard let vfn = library.makeFunction(name: vertexFunction),
-              let ffn = library.makeFunction(name: fragmentFunction)
-        else {
-            throw NSError(domain: "MetalPBRRenderer", code: -1,
-                          userInfo: [NSLocalizedDescriptionKey: "Missing shader functions \(vertexFunction)/\(fragmentFunction)"])
-        }
-
-        let metalVertexDescriptor = MTKMetalVertexDescriptorFromModelIO(mdlMesh.vertexDescriptor)
-
-        let desc = MTLRenderPipelineDescriptor()
-        desc.vertexFunction = vfn
-        desc.fragmentFunction = ffn
-        desc.vertexDescriptor = metalVertexDescriptor
-        desc.rasterSampleCount = mtkView?.sampleCount ?? 1
-        desc.colorAttachments[0].pixelFormat = mtkView?.colorPixelFormat ?? .bgra8Unorm_srgb
-        desc.depthAttachmentPixelFormat = mtkView?.depthStencilPixelFormat ?? .depth32Float
-
-        return try device.makeRenderPipelineState(descriptor: desc)
+        let pass = MTLRenderPassDescriptor()
+        pass.depthAttachment.texture = shadowDepthTexture
+        pass.depthAttachment.loadAction = .clear
+        pass.depthAttachment.storeAction = .store
+        pass.depthAttachment.clearDepth = 1.0
+        shadowPassDesc = pass
     }
 
     private func makeShadowDepthPipeline(
@@ -776,39 +454,61 @@ final class MetalPBRRenderer {
         let desc = MTLRenderPipelineDescriptor()
         desc.vertexFunction = vfn
         desc.fragmentFunction = ffn
-        desc.vertexDescriptor = metalVertexDescriptor   // ✅ REQUIRED
+        desc.vertexDescriptor = metalVertexDescriptor
         desc.depthAttachmentPixelFormat = .depth32Float
-        desc.rasterSampleCount = 1
-
+        desc.rasterSampleCount = mtkView?.sampleCount ?? 1
+        
         return try device.makeRenderPipelineState(descriptor: desc)
     }
-
-    private func makeGroundPipeline(vertexFunction: String, fragmentFunction: String) throws -> MTLRenderPipelineState {
+    
+    private func makePBRPipeline(mdlMesh: MDLMesh, vertexFunction: String, fragmentFunction: String) throws -> MTLRenderPipelineState {
         let library = try device.makeDefaultLibrary(bundle: .main)
 
         guard let vfn = library.makeFunction(name: vertexFunction),
               let ffn = library.makeFunction(name: fragmentFunction)
         else {
-            throw NSError(domain: "MetalPBRRenderer", code: -3,
-                          userInfo: [NSLocalizedDescriptionKey: "Missing ground shader functions \(vertexFunction)/\(fragmentFunction)"])
+            throw NSError(domain: "MetalPBRRenderer", code: -1,
+                          userInfo: [NSLocalizedDescriptionKey: "Missing shader functions \(vertexFunction)/\(fragmentFunction)"])
         }
+
+        let metalVertexDescriptor = MTKMetalVertexDescriptorFromModelIO(mdlMesh.vertexDescriptor)
 
         let desc = MTLRenderPipelineDescriptor()
         desc.vertexFunction = vfn
         desc.fragmentFunction = ffn
+        desc.vertexDescriptor = metalVertexDescriptor
         desc.rasterSampleCount = mtkView?.sampleCount ?? 1
         desc.colorAttachments[0].pixelFormat = mtkView?.colorPixelFormat ?? .bgra8Unorm_srgb
         desc.depthAttachmentPixelFormat = mtkView?.depthStencilPixelFormat ?? .depth32Float
-        
-        let attachment = desc.colorAttachments[0]!
-        attachment.isBlendingEnabled = true
-        attachment.rgbBlendOperation = .add
-        attachment.alphaBlendOperation = .add
-        attachment.sourceRGBBlendFactor = .sourceAlpha
-        attachment.destinationRGBBlendFactor = .oneMinusSourceAlpha
-        attachment.sourceAlphaBlendFactor = .one
-        attachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
 
+        return try device.makeRenderPipelineState(descriptor: desc)
+    }
+
+    private func makeGroundPipeline(
+        vertexFunction: String,
+        fragmentFunction: String
+    ) throws -> MTLRenderPipelineState {
+
+        let library = try device.makeDefaultLibrary(bundle: .main)
+
+        let desc = MTLRenderPipelineDescriptor()
+        desc.vertexFunction = library.makeFunction(name: vertexFunction)
+        desc.fragmentFunction = library.makeFunction(name: fragmentFunction)
+       
+        desc.colorAttachments[0].pixelFormat =
+            mtkView?.colorPixelFormat ?? .bgra8Unorm_srgb
+        desc.depthAttachmentPixelFormat =
+            mtkView?.depthStencilPixelFormat ?? .depth32Float
+
+        desc.colorAttachments[0].isBlendingEnabled = true
+        desc.colorAttachments[0].rgbBlendOperation = .add
+        desc.colorAttachments[0].alphaBlendOperation = .add
+        desc.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+        desc.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+        desc.colorAttachments[0].sourceAlphaBlendFactor = .one
+        desc.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+        desc.rasterSampleCount = mtkView?.sampleCount ?? 1
+        
         return try device.makeRenderPipelineState(descriptor: desc)
     }
 }

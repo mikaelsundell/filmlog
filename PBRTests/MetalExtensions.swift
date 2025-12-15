@@ -144,13 +144,29 @@ extension SIMD4 where Scalar == Float {
 }
 
 extension simd_float4x4 {
+    init(lookAt eye: SIMD3<Float>,
+         _ center: SIMD3<Float>,
+         _ up: SIMD3<Float>) {
+        let f = normalize(center - eye)
+        let r = normalize(cross(f, up))
+        let u = cross(r, f)
+        let t = SIMD3<Float>(
+            -dot(r, eye),
+            -dot(u, eye),
+             dot(f, eye)
+        )
+        self.init(
+            SIMD4<Float>( r.x,  u.x, -f.x, 0),
+            SIMD4<Float>( r.y,  u.y, -f.y, 0),
+            SIMD4<Float>( r.z,  u.z, -f.z, 0),
+            SIMD4<Float>( t.x,  t.y,  t.z, 1)
+        )
+    }
 
-    /// World-space position (translation)
     var position: SIMD3<Float> {
         SIMD3(columns.3.x, columns.3.y, columns.3.z)
     }
 
-    /// Forward vector assuming right-handed camera (−Z)
     var forward: SIMD3<Float> {
         -SIMD3(columns.2.x, columns.2.y, columns.2.z)
     }

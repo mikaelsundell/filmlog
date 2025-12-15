@@ -28,9 +28,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate {
 
         super.init()
 
-        mtkView.sampleCount = 4
+        mtkView.sampleCount = 1
         mtkView.clearColor = MTLClearColor(red: 0.05, green: 0.05, blue: 0.05, alpha: 1.0)
-        mtkView.depthStencilPixelFormat = .depth32Float
         mtkView.colorPixelFormat = .bgra8Unorm_srgb
 
         (mtkView as? MetalView)?.camera = camera
@@ -56,31 +55,16 @@ final class MetalRenderer: NSObject, MTKViewDelegate {
         else { return }
 
         let commandBuffer = commandQueue.makeCommandBuffer()!
-        commandBuffer.label = "MainCommandBuffer"
-
-        // --------------------------------------------------
-        // 1) SHADOW PASS (no active render encoder)
-        // --------------------------------------------------
         if let pbrRenderer {
             pbrRenderer.viewMatrix = camera.viewMatrix
             pbrRenderer.worldPosition = camera.position
-
-            pbrRenderer.renderShadowMap(commandBuffer: commandBuffer)
-        }
-
-        // --------------------------------------------------
-        // 2) MAIN PASS
-        // --------------------------------------------------
-        let mainEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)!
-        mainEncoder.label = "MainRenderEncoder"
-
-        if let pbrRenderer {
             pbrRenderer.shaderControls = shaderControls
-            pbrRenderer.drawMainPass(with: mainEncoder, in: view)
+            pbrRenderer.renderShadowMap(commandBuffer: commandBuffer)
+            
+            let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)!
+            pbrRenderer.draw(with: encoder, in: view)
+            encoder.endEncoding()
         }
-
-        mainEncoder.endEncoding()
-
         commandBuffer.present(drawable)
         commandBuffer.commit()
     }
