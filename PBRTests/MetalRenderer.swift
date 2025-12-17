@@ -39,14 +39,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate {
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
         pbrRenderer = MetalPBRRenderer(device: device, mtkView: view)
         
-        guard let url = Bundle.main.url(
-            forResource: "elf_basic_pbr",
-            withExtension: "usdz"
-        ) else {
-            fatalError("base_basic_pbr.usdz not found in app bundle")
-        }
-
-        pbrRenderer.loadModel(from: url)
+        loadModel(named: "elf")
     }
 
     func draw(in view: MTKView) {
@@ -68,6 +61,19 @@ final class MetalRenderer: NSObject, MTKViewDelegate {
 
         commandBuffer.present(drawable)
         commandBuffer.commit()
+    }
+    
+    func loadModel(named name: String) {
+        guard let pbrRenderer else { return }
+
+        guard let url = Bundle.main.url(
+            forResource: "\(name)_basic_pbr",
+            withExtension: "usdz"
+        ) else {
+            fatalError("\(name)_basic_pbr.usdz not found in app bundle")
+        }
+
+        pbrRenderer.loadModel(from: url)
     }
 
 }

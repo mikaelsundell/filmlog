@@ -476,45 +476,45 @@ final class MetalPBRRenderer {
         }
     }
 
-
     func loadModel(from url: URL) {
         do {
             let result = try loader.loadModel(from: url)
             self.model = result.model
+            if pbrPipeline == nil {
+                self.pbrPipeline =
+                    try makePBRPipeline(
+                        mdlMesh: result.referenceMesh,
+                        vertexFunction: "modelPBRVS",
+                        fragmentFunction: "modelPBRFS"
+                    )
 
-            self.pbrPipeline =
-                try makePBRPipeline(
-                    mdlMesh: result.referenceMesh,
-                    vertexFunction: "modelPBRVS",
-                    fragmentFunction: "modelPBRFS"
-                )
-            
-            self.blurPipeline =
-                try makeBlurPipeline(fragmentFunction: "blurFS")
-            
-            self.shadowDepthPipeline =
-                try makeShadowDepthPipeline(
-                    mdlMesh: result.referenceMesh,
-                    vertexFunction: "shadowDepthVS",
-                    fragmentFunction: "shadowDepthFS"
-                )
-            
-            self.contactShadowMaskPipeline =
-                try makeContactShadowMaskPipeline(
-                    vertexFunction: "groundVS",
-                    fragmentFunction: "contactShadowMaskFS"
-            )
-            
-            self.groundPipeline =
-                try makeGroundPipeline(
-                    vertexFunction: "groundVS",
-                    fragmentFunction: "groundFS"
-                )
+                self.blurPipeline =
+                    try makeBlurPipeline(fragmentFunction: "blurFS")
+
+                self.shadowDepthPipeline =
+                    try makeShadowDepthPipeline(
+                        mdlMesh: result.referenceMesh,
+                        vertexFunction: "shadowDepthVS",
+                        fragmentFunction: "shadowDepthFS"
+                    )
+
+                self.contactShadowMaskPipeline =
+                    try makeContactShadowMaskPipeline(
+                        vertexFunction: "groundVS",
+                        fragmentFunction: "contactShadowMaskFS"
+                    )
+
+                self.groundPipeline =
+                    try makeGroundPipeline(
+                        vertexFunction: "groundVS",
+                        fragmentFunction: "groundFS"
+                    )
+            }
         } catch {
-            print("Model load failed:", error)
+            print("model load failed:", error)
         }
     }
-    
+
     private func drawGround(
         with encoder: MTLRenderCommandEncoder,
         projection: simd_float4x4,
