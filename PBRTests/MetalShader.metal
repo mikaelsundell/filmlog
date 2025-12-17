@@ -47,6 +47,7 @@ struct GroundUniforms {
     float4   baseColor;
     float    shadowStrength;
     float    maxHeight;
+    float3   cameraWorldPos;
     float3   _pad0;
 };
 
@@ -288,6 +289,12 @@ fragment float4 groundFS(
     texture2d<float> shadowMask [[texture(0)]],
     sampler s [[sampler(0)]]
 ) {
+    float3 viewDir = normalize(G.cameraWorldPos - in.worldPos.xyz);
+    float3 planeNormalW = float3(0.0, 0.0, 1.0);
+
+    if (dot(planeNormalW, viewDir) <= 0.0)
+        discard_fragment();
+    
     float3 ndc = in.lightPos.xyz / max(in.lightPos.w, 1e-6);
     float2 uv  = ndc.xy * 0.5 + 0.5;
     uv.y = 1.0 - uv.y;
@@ -296,10 +303,7 @@ fragment float4 groundFS(
         discard_fragment();
 
     float alpha = shadowMask.sample(s, uv).r;
-    alpha = alpha * 0.8;
-
-    if (alpha < 0.01)
-        discard_fragment();
-
+    alpha = alpha * 0.5;
+    
     return float4(0.0, 0.0, 0.0, alpha);
 }

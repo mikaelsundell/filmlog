@@ -50,6 +50,7 @@ final class MetalPBRRenderer {
         var baseColor: SIMD4<Float>
         var shadowStrength: Float
         var maxHeight: Float
+        var cameraWorldPos: SIMD3<Float>
         var _pad0: SIMD3<Float> = .zero
     }
 
@@ -375,13 +376,15 @@ final class MetalPBRRenderer {
             simd_float4x4(scale: SIMD3<Float>(r, r, 1.0))
 
         let mvp = lightVP * groundModel
+        let cameraWorldPos  = worldPosition ?? SIMD3<Float>(0, 0, 0)
         var gu = GroundUniforms(
             mvp: mvp,
             modelMatrix: groundModel,
             lightVP: lightVP,
             baseColor: SIMD4<Float>(1, 1, 1, 1),
             shadowStrength: shadowStrength,
-            maxHeight: maxHeight
+            maxHeight: maxHeight,
+            cameraWorldPos: cameraWorldPos
         )
 
         let pass = MTLRenderPassDescriptor()
@@ -529,13 +532,15 @@ final class MetalPBRRenderer {
             simd_float4x4(scale: SIMD3<Float>(r, r, 1.0))
 
         let mvp = projection * viewMatrix * groundModel
+        let cameraWorldPos  = worldPosition ?? SIMD3<Float>(0, 0, 0)
         var gu = GroundUniforms(
             mvp: mvp,
             modelMatrix: groundModel,
             lightVP: lightVP,
             baseColor: SIMD4<Float>(1, 1, 1, 1),
             shadowStrength: 1.0,
-            maxHeight: maxHeight
+            maxHeight: maxHeight,
+            cameraWorldPos: cameraWorldPos
         )
 
         encoder.setRenderPipelineState(groundPipeline)
