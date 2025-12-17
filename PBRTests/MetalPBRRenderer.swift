@@ -36,6 +36,12 @@ final class MetalPBRRenderer {
     struct ShadowDepthUniforms {
         var lightMVP: simd_float4x4
     }
+    
+    struct BlurUniforms {
+        var direction: SIMD2<Float>
+        var radius: Float
+        var _pad: Float = 0
+    }
 
     struct GroundUniforms {
         var mvp: simd_float4x4
@@ -55,28 +61,30 @@ final class MetalPBRRenderer {
     var shadowPlaneZ: Float = 0.0
     var shadowStrength: Float = 0.50
     var groundSizeMultiplier: Float = 1.0
-    
-    var lightDirection = normalize(SIMD3<Float>(0.0, 0.0001, -1.0))
 
     private(set) weak var mtkView: MTKView?
 
     private var device: MTLDevice
-    private var meshAllocator: MTKMeshBufferAllocator
     private var model: MetalPBRLoader.PBRModel?
     private let loader: MetalPBRLoader
 
     private var pbrPipeline: MTLRenderPipelineState?
     private var shadowDepthPipeline: MTLRenderPipelineState?
+    private var contactShadowMaskPipeline: MTLRenderPipelineState!
+    private var blurPipeline: MTLRenderPipelineState!
     private var groundPipeline: MTLRenderPipelineState?
 
     private let depthWriteState: MTLDepthStencilState
     private let noDepthState: MTLDepthStencilState
     
     private var textureLoader: MTKTextureLoader
-    private var textureCache: [URL: MTLTexture] = [:]
     private var samplerState: MTLSamplerState
     private var shadowSamplerState: MTLSamplerState
 
+    private var contactShadowTexture: MTLTexture!
+    private var contactShadowBlurTemp: MTLTexture!
+    private var contactShadowBlurred: MTLTexture!
+    
     private var shadowDepthTexture: MTLTexture?
     private var shadowPassDesc: MTLRenderPassDescriptor?
     private var shadowMapSize: Int = 1024
@@ -86,7 +94,6 @@ final class MetalPBRRenderer {
     init(device: MTLDevice, mtkView: MTKView) {
         self.device = device
         self.mtkView = mtkView
-        self.meshAllocator = MTKMeshBufferAllocator(device: device)
         self.textureLoader = MTKTextureLoader(device: device)
         self.loader = MetalPBRLoader(device: device)
         
@@ -178,10 +185,17 @@ final class MetalPBRRenderer {
     }
 
     func draw(
-        with encoder: MTLRenderCommandEncoder,
+        commandBuffer: MTLCommandBuffer,
         in view: MTKView
     ) {
         guard let model, let pbrPipeline else { return }
+
+        // Ensure offscreen textures exist and match drawable size
+        if contactShadowTexture == nil ||
+            contactShadowTexture.width  != Int(view.drawableSize.width) ||
+            contactShadowTexture.height != Int(view.drawableSize.height) {
+            makeContactShadowTextures(size: view.drawableSize)
+        }
 
         let aspect = Float(view.drawableSize.width / max(view.drawableSize.height, 1))
         let projection = simd_float4x4(
@@ -192,13 +206,85 @@ final class MetalPBRRenderer {
         )
 
         let localViewMatrix = viewMatrix ?? matrix_identity_float4x4
-        let cameraWorldPos = worldPosition ?? SIMD3<Float>(0, 0, 0)
+        let cameraWorldPos  = worldPosition ?? SIMD3<Float>(0, 0, 0)
         let globalModelScale = simd_float4x4(scale: 1.00)
 
         let (heightVP, modelCenter, footprint, maxHeight) =
             computeHeightVP(model: model)
 
-        drawGroundReceiver(
+        // ------------------------------------------------------------------
+        // PASS 1: Contact shadow mask into contactShadowTexture (r16Float)
+        // ------------------------------------------------------------------
+        renderContactShadowMask(
+            commandBuffer: commandBuffer,
+            projection: projection,
+            viewMatrix: localViewMatrix,
+            lightVP: heightVP,
+            center: modelCenter,
+            footprintRadius: footprint,
+            maxHeight: maxHeight
+        )
+
+        // ------------------------------------------------------------------
+        // PASS 2-3: Blur mask (horizontal + vertical)
+        // ------------------------------------------------------------------
+        let blurRadius: Float = 4.0   // try 4, 8, 16
+        
+        
+        
+        if blurPipeline != nil {
+            
+            let r0: Float = blurRadius
+            let r1: Float = blurRadius * 0.4
+
+            // First blur
+            renderBlur(
+                commandBuffer: commandBuffer,
+                src: contactShadowTexture,
+                dst: contactShadowBlurTemp,
+                direction: SIMD2<Float>(1, 0),
+                radius: r0
+            )
+            renderBlur(
+                commandBuffer: commandBuffer,
+                src: contactShadowBlurTemp,
+                dst: contactShadowBlurred,
+                direction: SIMD2<Float>(0, 1),
+                radius: r0
+            )
+
+            // Second blur (artifact killer)
+            renderBlur(
+                commandBuffer: commandBuffer,
+                src: contactShadowBlurred,
+                dst: contactShadowBlurTemp,
+                direction: SIMD2<Float>(1, 0),
+                radius: r1
+            )
+            renderBlur(
+                commandBuffer: commandBuffer,
+                src: contactShadowBlurTemp,
+                dst: contactShadowBlurred,
+                direction: SIMD2<Float>(0, 1),
+                radius: r1
+            )
+
+        }
+
+        
+        
+        // ------------------------------------------------------------------
+        // PASS 4: Main scene (drawable)
+        // ------------------------------------------------------------------
+        guard let rpd = view.currentRenderPassDescriptor else { return }
+
+        let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: rpd)!
+        encoder.setDepthStencilState(depthWriteState)
+        encoder.setCullMode(.none)
+
+        // Ground composite pass should now sample blurred mask (contactShadowBlurred).
+        // NOTE: Your groundFS currently still samples shadow depth; see note below.
+        drawGround(
             with: encoder,
             projection: projection,
             viewMatrix: localViewMatrix,
@@ -208,18 +294,131 @@ final class MetalPBRRenderer {
             maxHeight: maxHeight
         )
 
+        // PBR meshes
         encoder.setRenderPipelineState(pbrPipeline)
-        encoder.setDepthStencilState(depthWriteState)
-        encoder.setCullMode(.none)
         encoder.setFragmentSamplerState(samplerState, index: 0)
 
         if let env = environmentTexture {
             encoder.setFragmentTexture(env, index: 9)
         }
 
+        renderMeshes(
+            encoder: encoder,
+            model: model,
+            projection: projection,
+            viewMatrix: localViewMatrix,
+            globalModelScale: globalModelScale,
+            cameraWorldPos: cameraWorldPos
+        )
+
+        encoder.endEncoding()
+    }
+
+    
+    private func renderBlur(
+        commandBuffer: MTLCommandBuffer,
+        src: MTLTexture,
+        dst: MTLTexture,
+        direction: SIMD2<Float>,
+        radius: Float
+    ) {
+        guard let blurPipeline else { return }
+
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = dst
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].storeAction = .store
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+
+        let enc = commandBuffer.makeRenderCommandEncoder(descriptor: pass)!
+        
+
+        
+        // If your Metal BlurUniforms is { float2 direction; float radius; }
+        // you should pass a properly laid out struct instead. See note below.
+
+
+        enc.setRenderPipelineState(blurPipeline)
+        enc.setFragmentTexture(src, index: 0)
+        enc.setFragmentSamplerState(samplerState, index: 0)
+
+        // Prefer a Swift struct that matches BlurUniforms exactly:
+        // struct BlurUniforms { var direction: SIMD2<Float>; var radius: Float; var _pad: Float = 0 }
+        // For now, keep it minimal:
+        var bu = BlurUniforms(direction: direction, radius: radius)
+        enc.setFragmentBytes(&bu,
+            length: MemoryLayout<BlurUniforms>.stride,
+            index: 0)
+
+        enc.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
+        enc.endEncoding()
+    }
+    
+    private func renderContactShadowMask(
+        commandBuffer: MTLCommandBuffer,
+        projection: simd_float4x4,
+        viewMatrix: simd_float4x4,
+        lightVP: simd_float4x4,
+        center: SIMD3<Float>,
+        footprintRadius: Float,
+        maxHeight: Float
+    ) {
+        guard
+            let contactShadowMaskPipeline,
+            let groundVertexBuffer,
+            let shadowDepthTexture
+        else { return }
+
+        let r = max(footprintRadius, 0.25) * groundSizeMultiplier
+        let groundModel =
+            simd_float4x4(translation: SIMD3<Float>(center.x, center.y, shadowPlaneZ)) *
+            simd_float4x4(scale: SIMD3<Float>(r, r, 1.0))
+
+        let mvp = lightVP * groundModel
+        var gu = GroundUniforms(
+            mvp: mvp,
+            modelMatrix: groundModel,
+            lightVP: lightVP,
+            baseColor: SIMD4<Float>(1, 1, 1, 1),
+            shadowStrength: shadowStrength,
+            maxHeight: maxHeight
+        )
+
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = contactShadowTexture
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].storeAction = .store
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+
+        let enc = commandBuffer.makeRenderCommandEncoder(descriptor: pass)!
+        enc.setRenderPipelineState(contactShadowMaskPipeline)
+        enc.setCullMode(.none)
+        enc.setDepthStencilState(noDepthState)
+
+        enc.setVertexBuffer(groundVertexBuffer, offset: 0, index: 0)
+        enc.setVertexBytes(&gu, length: MemoryLayout<GroundUniforms>.stride, index: 1)
+
+        enc.setFragmentTexture(shadowDepthTexture, index: 0)
+        enc.setFragmentSamplerState(shadowSamplerState, index: 0)
+        enc.setFragmentBytes(&gu, length: MemoryLayout<GroundUniforms>.stride, index: 1)
+
+        enc.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
+        enc.endEncoding()
+    }
+
+
+    
+    private func renderMeshes(
+        encoder: MTLRenderCommandEncoder,
+        model: MetalPBRLoader.PBRModel,
+        projection: simd_float4x4,
+        viewMatrix: simd_float4x4,
+        globalModelScale: simd_float4x4,
+        cameraWorldPos: SIMD3<Float>
+    ) {
         for mesh in model.meshes {
             let modelMatrix = globalModelScale * mesh.transform
-            let mvp = projection * localViewMatrix * modelMatrix
+            let mvp = projection * viewMatrix * modelMatrix
 
             var uniforms = PBRUniforms(
                 modelMatrix: modelMatrix,
@@ -271,6 +470,7 @@ final class MetalPBRRenderer {
         }
     }
 
+
     func loadModel(from url: URL) {
         do {
             let result = try loader.loadModel(from: url)
@@ -283,11 +483,8 @@ final class MetalPBRRenderer {
                     fragmentFunction: "modelPBRFS"
                 )
             
-            self.groundPipeline =
-                try makeGroundPipeline(
-                    vertexFunction: "groundVS",
-                    fragmentFunction: "groundFS"
-                )
+            self.blurPipeline =
+                try makeBlurPipeline(fragmentFunction: "blurFS")
             
             self.shadowDepthPipeline =
                 try makeShadowDepthPipeline(
@@ -295,12 +492,24 @@ final class MetalPBRRenderer {
                     vertexFunction: "shadowDepthVS",
                     fragmentFunction: "shadowDepthFS"
                 )
+            
+            self.contactShadowMaskPipeline =
+                try makeContactShadowMaskPipeline(
+                    vertexFunction: "groundVS",
+                    fragmentFunction: "contactShadowMaskFS"
+            )
+            
+            self.groundPipeline =
+                try makeGroundPipeline(
+                    vertexFunction: "groundVS",
+                    fragmentFunction: "groundFS"
+                )
         } catch {
             print("Model load failed:", error)
         }
     }
     
-    private func drawGroundReceiver(
+    private func drawGround(
         with encoder: MTLRenderCommandEncoder,
         projection: simd_float4x4,
         viewMatrix: simd_float4x4,
@@ -310,8 +519,7 @@ final class MetalPBRRenderer {
         maxHeight: Float
     ) {
         guard let groundPipeline,
-              let groundVertexBuffer,
-              let shadowDepthTexture
+              let groundVertexBuffer
         else { return }
 
         let r = max(footprintRadius, 0.25) * groundSizeMultiplier
@@ -337,7 +545,7 @@ final class MetalPBRRenderer {
         encoder.setVertexBuffer(groundVertexBuffer, offset: 0, index: 0)
         encoder.setVertexBytes(&gu, length: MemoryLayout<GroundUniforms>.stride, index: 1)
 
-        encoder.setFragmentTexture(shadowDepthTexture, index: 0)
+        encoder.setFragmentTexture(contactShadowBlurred, index: 0)
         encoder.setFragmentSamplerState(shadowSamplerState, index: 0)
         encoder.setFragmentBytes(&gu, length: MemoryLayout<GroundUniforms>.stride, index: 1)
 
@@ -408,6 +616,27 @@ final class MetalPBRRenderer {
         return found ? (minOut, maxOut) : nil
     }
 
+    private func makeContactShadowTextures(size: CGSize) {
+        let w = Int(size.width  * 0.5)
+        let h = Int(size.height * 0.5)
+
+        let desc = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .r16Float,
+            width: w,
+            height: h,
+            mipmapped: false
+        )
+        desc.usage = [.renderTarget, .shaderRead]
+        desc.storageMode = .private
+
+        contactShadowTexture    = device.makeTexture(descriptor: desc)
+        contactShadowBlurTemp   = device.makeTexture(descriptor: desc)
+        contactShadowBlurred    = device.makeTexture(descriptor: desc)
+
+        contactShadowTexture.label  = "ContactShadowMask"
+        contactShadowBlurred.label  = "ContactShadowBlurred"
+    }
+    
     private func makeShadowMapResources() {
         let size = shadowMapSize
         let depthDesc = MTLTextureDescriptor.texture2DDescriptor(
@@ -423,14 +652,33 @@ final class MetalPBRRenderer {
         depthDesc.usage = [.renderTarget, .shaderRead]
 
         shadowDepthTexture = device.makeTexture(descriptor: depthDesc)
-        shadowDepthTexture?.label = "ShadowDepthMap"
-
+        
         let pass = MTLRenderPassDescriptor()
         pass.depthAttachment.texture = shadowDepthTexture
         pass.depthAttachment.loadAction = .clear
         pass.depthAttachment.storeAction = .store
         pass.depthAttachment.clearDepth = 1.0
         shadowPassDesc = pass
+    }
+    
+    private func makeBlurPipeline(
+        fragmentFunction: String
+    ) throws -> MTLRenderPipelineState {
+
+        let library = try device.makeDefaultLibrary(bundle: .main)
+
+        let desc = MTLRenderPipelineDescriptor()
+        desc.vertexFunction   = library.makeFunction(name: "fullscreenVS")
+        desc.fragmentFunction = library.makeFunction(name: fragmentFunction)
+
+        // Single-channel blur target
+        desc.colorAttachments[0].pixelFormat = .r16Float
+        desc.colorAttachments[0].isBlendingEnabled = false
+
+        desc.depthAttachmentPixelFormat = .invalid
+        desc.rasterSampleCount = 1
+
+        return try device.makeRenderPipelineState(descriptor: desc)
     }
 
     private func makeShadowDepthPipeline(
@@ -459,12 +707,34 @@ final class MetalPBRRenderer {
         desc.vertexFunction = vfn
         desc.fragmentFunction = ffn
         desc.vertexDescriptor = metalVertexDescriptor
+
+        // Depth-only pass
+        desc.colorAttachments[0].pixelFormat = .invalid
         desc.depthAttachmentPixelFormat = .depth32Float
-        desc.rasterSampleCount = mtkView?.sampleCount ?? 1
-        
+
+        // Shadow map is single-sampled
+        desc.rasterSampleCount = 1
+
         return try device.makeRenderPipelineState(descriptor: desc)
     }
+
     
+    private func makeContactShadowMaskPipeline(
+        vertexFunction: String,
+        fragmentFunction: String
+    ) throws -> MTLRenderPipelineState {
+
+        let library = try device.makeDefaultLibrary(bundle: .main)
+        let desc = MTLRenderPipelineDescriptor()
+        desc.vertexFunction = library.makeFunction(name: vertexFunction)
+        desc.fragmentFunction = library.makeFunction(name: fragmentFunction)
+        desc.colorAttachments[0].pixelFormat = .r16Float
+        desc.colorAttachments[0].isBlendingEnabled = false
+        desc.depthAttachmentPixelFormat = .invalid
+        desc.rasterSampleCount = 1
+        return try device.makeRenderPipelineState(descriptor: desc)
+    }
+
     private func makePBRPipeline(mdlMesh: MDLMesh, vertexFunction: String, fragmentFunction: String) throws -> MTLRenderPipelineState {
         let library = try device.makeDefaultLibrary(bundle: .main)
 
@@ -498,7 +768,8 @@ final class MetalPBRRenderer {
         let desc = MTLRenderPipelineDescriptor()
         desc.vertexFunction = library.makeFunction(name: vertexFunction)
         desc.fragmentFunction = library.makeFunction(name: fragmentFunction)
-       
+        desc.rasterSampleCount = mtkView?.sampleCount ?? 1
+        
         desc.colorAttachments[0].pixelFormat =
             mtkView?.colorPixelFormat ?? .bgra8Unorm_srgb
         desc.depthAttachmentPixelFormat =

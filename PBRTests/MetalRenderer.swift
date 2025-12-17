@@ -28,10 +28,11 @@ final class MetalRenderer: NSObject, MTKViewDelegate {
 
         super.init()
 
-        mtkView.sampleCount = 1
-        mtkView.clearColor = MTLClearColor(red: 0.05, green: 0.00, blue: 0.00, alpha: 1.0)
+        mtkView.sampleCount = 4
+        mtkView.clearColor = MTLClearColor(red: 0.05, green: 0.05, blue: 0.05, alpha: 1.0)
         mtkView.colorPixelFormat = .bgra8Unorm_srgb
-
+        mtkView.depthStencilPixelFormat = .depth32Float
+        
         (mtkView as? MetalView)?.camera = camera
     }
 
@@ -51,20 +52,20 @@ final class MetalRenderer: NSObject, MTKViewDelegate {
     func draw(in view: MTKView) {
         guard
             let drawable = view.currentDrawable,
-            let descriptor = view.currentRenderPassDescriptor
+            let _ = view.currentRenderPassDescriptor
         else { return }
 
         let commandBuffer = commandQueue.makeCommandBuffer()!
+
         if let pbrRenderer {
             pbrRenderer.viewMatrix = camera.viewMatrix
             pbrRenderer.worldPosition = camera.position
             pbrRenderer.shaderControls = shaderControls
             pbrRenderer.renderShadowMap(commandBuffer: commandBuffer)
-            
-            let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)!
-            pbrRenderer.draw(with: encoder, in: view)
-            encoder.endEncoding()
+
+            pbrRenderer.draw(commandBuffer: commandBuffer, in: view)
         }
+
         commandBuffer.present(drawable)
         commandBuffer.commit()
     }

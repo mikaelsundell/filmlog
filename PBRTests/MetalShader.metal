@@ -13,6 +13,12 @@ struct ModelUniforms {
     float    _pad0;
 };
 
+struct BlurUniforms {
+    float2 direction;
+    float  radius;
+    float  _pad;
+};
+
 struct PBRFragmentUniforms {
     float4 baseColorFactor;
     float  metallicFactor;
@@ -44,6 +50,28 @@ struct GroundUniforms {
     float3   _pad0;
 };
 
+struct FullscreenVSOut {
+    float4 position [[position]];
+    float2 uv;
+};
+
+vertex FullscreenVSOut fullscreenVS(uint vid [[vertex_id]])
+{
+    float2 pos[6] = {
+        float2(-1.0, -1.0),
+        float2( 1.0, -1.0),
+        float2(-1.0,  1.0),
+        float2( 1.0, -1.0),
+        float2( 1.0,  1.0),
+        float2(-1.0,  1.0)
+    };
+
+    FullscreenVSOut out;
+    out.position = float4(pos[vid], 0.0, 1.0);
+    out.uv = pos[vid] * 0.5 + 0.5;
+    return out;
+}
+
 struct VSIn {
     float3 position [[attribute(0)]];
     float3 normal   [[attribute(1)]];
@@ -65,7 +93,6 @@ vertex VSOut modelPBRVS(
     constant ModelUniforms& U [[buffer(10)]]
 ) {
     VSOut out;
-
     out.position = U.mvp * float4(in.position, 1.0);
     out.worldPos = (U.modelMatrix * float4(in.position, 1.0)).xyz;
 
@@ -77,7 +104,6 @@ vertex VSOut modelPBRVS(
     out.tangentW   = T;
     out.bitangentW = B;
     out.uv         = in.uv;
-
     return out;
 }
 
@@ -218,7 +244,7 @@ vertex GroundVSOut groundVS(
     return o;
 }
 
-fragment float4 groundFS(
+fragment float contactShadowMaskFS(
     GroundVSOut in [[stage_in]],
     constant GroundUniforms& G [[buffer(1)]],
     depth2d<float> heightMap [[texture(0)]],
@@ -228,28 +254,52 @@ fragment float4 groundFS(
     float2 uv  = ndc.xy * 0.5 + 0.5;
     uv.y = 1.0 - uv.y;
 
-    // Outside shadow footprint → fully transparent
-    if (any(uv < 0.0) || any(uv > 1.0)) {
-        discard_fragment();
-    }
+    if (any(uv < 0.0) || any(uv > 1.0))
+        return 0.0;
 
     float d = heightMap.sample(s, uv);
+    return saturate(1.0 - d);
+}
 
-    // Convert depth to contact strength
-    // 0 = touching plane → strongest shadow
-    // 1 = far → no shadow
-    float alpha = 1.0 - d;
+fragment float blurFS(
+    FullscreenVSOut in [[stage_in]],
+    constant BlurUniforms& B [[buffer(0)]],
+    texture2d<float> src [[texture(0)]],
+    sampler s [[sampler(0)]]
+){
+    float2 texel = B.direction / float2(src.get_width(), src.get_height());
 
-    // Optional artistic shaping
-    alpha = saturate(alpha);
-    alpha = pow(alpha, 1.5);              // softer falloff
-    alpha *= G.shadowStrength;
+    float w0 = 0.227027;
+    float w1 = 0.316216;
+    float w2 = 0.070270;
+    float2 uv = in.uv;
+    float sum = src.sample(s, uv).r * w0;
+    sum += src.sample(s, uv + texel * 1.3846 * B.radius).r * w1;
+    sum += src.sample(s, uv - texel * 1.3846 * B.radius).r * w1;
+    sum += src.sample(s, uv + texel * 3.2308 * B.radius).r * w2;
+    sum += src.sample(s, uv - texel * 3.2308 * B.radius).r * w2;
 
-    // Kill pixels with no visible shadow
-    if (alpha < 0.01) {
+    return sum;
+}
+
+fragment float4 groundFS(
+    GroundVSOut in [[stage_in]],
+    constant GroundUniforms& G [[buffer(1)]],
+    texture2d<float> shadowMask [[texture(0)]],
+    sampler s [[sampler(0)]]
+) {
+    float3 ndc = in.lightPos.xyz / max(in.lightPos.w, 1e-6);
+    float2 uv  = ndc.xy * 0.5 + 0.5;
+    uv.y = 1.0 - uv.y;
+
+    if (any(uv < 0.0) || any(uv > 1.0))
         discard_fragment();
-    }
 
-    // Black shadow, alpha-only
+    float alpha = shadowMask.sample(s, uv).r;
+    alpha = alpha * 0.8;
+
+    if (alpha < 0.01)
+        discard_fragment();
+
     return float4(0.0, 0.0, 0.0, alpha);
 }
