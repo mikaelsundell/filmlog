@@ -40,7 +40,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate {
         pbrRenderer = MetalPBRRenderer(device: device, mtkView: view)
         
         guard let url = Bundle.main.url(
-            forResource: "sonic_basic_pbr",
+            forResource: "elf_basic_pbr",
             withExtension: "usdz"
         ) else {
             fatalError("base_basic_pbr.usdz not found in app bundle")
