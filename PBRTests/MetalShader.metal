@@ -34,6 +34,7 @@ struct PBRShaderControls {
     float ambientIntensity;
     float specularIntensity;
     float roughnessBias;
+    float topLightIntensity;
 };
 
 struct ShadowDepthUniforms {
@@ -108,6 +109,8 @@ vertex VSOut modelPBRVS(
     return out;
 }
 
+constant float3 TOP_LIGHT_DIR = float3(0.0, 0.2425356, 0.9701425);
+
 float DistributionGGX(float3 N, float3 H, float roughness)
 {
     float a  = roughness * roughness;
@@ -148,10 +151,11 @@ fragment float4 modelPBRFS(
     sampler s [[sampler(0)]]
 ) {
     float2 uv = float2(in.uv.x, 1.0 - in.uv.y);
+
     float3 albedo = P.baseColorFactor.rgb;
     if (P.hasBaseColorTexture != 0 && baseColorTex.get_width() > 0) {
         float3 texColor = baseColorTex.sample(s, uv).rgb;
-        texColor = pow(texColor, float3(2.2));
+        texColor = pow(texColor, float3(2.2)); // sRGB → linear
         albedo *= texColor;
     }
 
@@ -183,6 +187,7 @@ fragment float4 modelPBRFS(
     float NdotL = max(dot(N, L), 0.0);
     float NdotV = max(dot(N, V), 0.0);
 
+    // cok–Torrance direct lighting
     float3 F0 = mix(float3(0.04), albedo, metallic);
     float3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
     float  D  = DistributionGGX(N, H, roughness);
@@ -194,23 +199,52 @@ fragment float4 modelPBRFS(
     float3 kS = F;
     float3 kD = (1.0 - kS) * (1.0 - metallic);
 
-    float3 diffuse = (albedo / 3.14159265) * NdotL;
+    float3 diffuse = albedo / 3.14159265;
 
-    float3 Lo = (kD * diffuse + specular) * NdotL;
-    Lo *= C.keyIntensity;
+    float3 Lo =
+        (kD * diffuse + specular) *
+        NdotL *
+        C.keyIntensity;
+
+    // generic top light - z-up, separation
+    float3 Lt = TOP_LIGHT_DIR;
+    float NdotLt = max(dot(N, Lt), 0.0);
+
+    float3 topDiffuse =
+        albedo *
+        NdotLt *
+        (1.0 - metallic);
+
+    float3 Ht = normalize(V + Lt);
+    float specTop =
+        pow(max(dot(N, Ht), 0.0), 32.0) *
+        (1.0 - roughness);
+
+    float3 topSpecular =
+        specTop *
+        F0 *
+        0.25;
+
+    float3 topLight =
+        (topDiffuse + topSpecular) *
+        C.topLightIntensity;
 
     float3 R = reflect(-V, N);
     float mip = roughness * float(environmentTex.get_num_mip_levels() - 1);
+
     float3 envSpec = environmentTex.sample(s, R, level(mip)).rgb;
+    float3 envDiff = environmentTex.sample(s, N).rgb;
 
     float3 ambient =
-        (0.03 * albedo + envSpec * (0.2 + 0.8 * metallic))
-        * C.ambientIntensity;
+        envDiff * albedo * (1.0 - metallic) +
+        envSpec * metallic;
 
-    float3 color = ambient + Lo;
-    color = color / (color + 1.0);
+    ambient *= C.ambientIntensity;
+    
+    float3 color = ambient + Lo + topLight;
     return float4(color, P.baseColorFactor.a);
 }
+
 
 struct ShadowDepthOut { float4 pos [[position]]; };
 

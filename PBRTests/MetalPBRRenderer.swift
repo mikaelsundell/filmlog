@@ -31,6 +31,7 @@ final class MetalPBRRenderer {
         var ambientIntensity: Float
         var specularIntensity: Float
         var roughnessBias: Float
+        var topLightIntensity: Float   
     }
 
     struct ShadowDepthUniforms {
@@ -140,6 +141,7 @@ final class MetalPBRRenderer {
         )
         self.groundVertexBuffer?.label = "GroundQuadVB"
         makeShadowMapResources()
+        makeSkyEnvironmentTexture()
     }
     
     func renderShadowMap(commandBuffer: MTLCommandBuffer) {
@@ -441,7 +443,8 @@ final class MetalPBRRenderer {
                 keyIntensity: shaderControls.keyIntensity,
                 ambientIntensity: shaderControls.ambientIntensity,
                 specularIntensity: shaderControls.specularIntensity,
-                roughnessBias: shaderControls.roughnessBias
+                roughnessBias: shaderControls.roughnessBias,
+                topLightIntensity: shaderControls.topLightIntensity
             )
             encoder.setFragmentBytes(&controls, length: MemoryLayout<PBRShaderControls>.stride, index: 1)
 
@@ -739,6 +742,39 @@ final class MetalPBRRenderer {
         desc.rasterSampleCount = 1
         return try device.makeRenderPipelineState(descriptor: desc)
     }
+    
+    private func makeSkyEnvironmentTexture() {
+        let sky = MDLSkyCubeTexture(
+            name: "ProceduralSky",
+            channelEncoding: .float16,
+            textureDimensions: [512, 512],
+            turbidity: 0.8,
+            sunElevation: 0.8,
+            upperAtmosphereScattering: 0.5,
+            groundAlbedo: 0.3
+        )
+
+        let loader = MTKTextureLoader(device: device)
+
+        do {
+            let tex = try loader.newTexture(
+                texture: sky,
+                options: [
+                    .textureUsage: NSNumber(value: MTLTextureUsage.shaderRead.rawValue),
+                    .textureStorageMode: NSNumber(value: MTLStorageMode.private.rawValue),
+                    .generateMipmaps: true
+                ]
+            )
+
+            tex.label = "EnvironmentSkyCubemap"
+            self.environmentTexture = tex
+
+        } catch {
+            print("Failed to create sky cubemap:", error)
+        }
+    }
+
+
 
     private func makePBRPipeline(mdlMesh: MDLMesh, vertexFunction: String, fragmentFunction: String) throws -> MTLRenderPipelineState {
         let library = try device.makeDefaultLibrary(bundle: .main)

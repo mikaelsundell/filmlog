@@ -50,6 +50,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
             ambientIntensity  = \(controls.ambientIntensity)
             specularIntensity = \(controls.specularIntensity)
             roughnessBias     = \(controls.roughnessBias)
+            topLightIntensity = \(controls.topLightIntensity)
         """)
         
         renderer.shaderControls = controls
@@ -80,6 +81,9 @@ struct ContentView: View {
                 }
                 Slider(value: $controls.roughnessBias, in: -0.5...0.5) {
                     Text("Roughness Bias")
+                }
+                Slider(value: $controls.topLightIntensity, in: 0.0...1.0) {
+                    Text("Top light Intensity")
                 }
             }
             .padding()
