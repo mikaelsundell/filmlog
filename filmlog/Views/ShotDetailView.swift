@@ -54,8 +54,11 @@ struct ShotDetailView: View {
         case name, note, locationElevation, locationColorTemperature, focusDistance
     }
     @FocusState private var activeField: ActiveField?
-    @State private var showDeleteAlert = false
-    @State private var showDialog = false
+    @State private var showCamera = false
+    @State private var showCopy = false
+    @State private var showDeleteImage = false
+    @State private var showFullImage = false
+    @State private var showDelete = false
     @State private var requestingLocation = false
     @StateObject private var locationManager = LocationManager()
     
@@ -156,11 +159,24 @@ struct ShotDetailView: View {
                     requestingLocation = false
                 }
             }
+            .fullScreenCover(isPresented: $showCamera) {
+                ShotViewfinderView(shot: shot) { image in
+                    saveImage(image)
+                }
+            }
+            .fullScreenCover(isPresented: $showFullImage) {
+                ImagePresentationView(
+                    images: [shot.imageData!],
+                    startIndex: 0
+                ) {
+                    showFullImage = false
+                }
+            }
             
             if activeField == nil {
                 HStack {
                     Button {
-                        showDeleteAlert = true
+                        showDelete = true
                     } label: {
                         Image(systemName: "trash")
                             .font(.system(size: 18, weight: .semibold))
@@ -171,7 +187,7 @@ struct ShotDetailView: View {
                     .buttonStyle(.plain)
                     .foregroundColor(.blue)
                     .help("Delete shot?")
-                    .alert("Are you sure?", isPresented: $showDeleteAlert) {
+                    .alert("Are you sure?", isPresented: $showDelete) {
                         Button("Delete", role: .destructive) {
                             withAnimation {
                                 onDelete?()
@@ -198,7 +214,7 @@ struct ShotDetailView: View {
                     Spacer()
                     
                     Button {
-                        showDialog = true
+                        showCopy = true
                     } label: {
                         Image(systemName: "film.stack")
                             .font(.system(size: 18, weight: .semibold))
@@ -209,7 +225,7 @@ struct ShotDetailView: View {
                     .buttonStyle(.plain)
                     .foregroundColor(.blue)
                     .help("Add new shot(s)")
-                    .confirmationDialog("Choose an option", isPresented: $showDialog) {
+                    .confirmationDialog("Choose an option", isPresented: $showCopy) {
                         Button("Copy shot") { copyShot(count: 1) }
                         Button("Copy to 2 shots") { copyShot(count: 2) }
                         Button("Copy to 5 shots") { copyShot(count: 5) }
@@ -228,55 +244,108 @@ struct ShotDetailView: View {
     
     private var viewfinderSection: some View {
         Section(header: Text("Viewfinder")) {
-            ShotSectionView(
-                    shot: shot,
-                    isLocked: shot.isLocked
-                ) { newUIImage in
-                    var metadata: [String: DataValue] = [:]
-                    metadata["name"] = .string(shot.name)
-                    metadata["timestamp"] = .double(shot.timestamp.timeIntervalSince1970)
-                    metadata["camera"] = .string(project.camera)
-                    metadata["note"] = .string(shot.note)
-                    metadata["filmStock"] = .string(shot.filmStock)
-                    metadata["filmSize"] = .string(shot.filmSize)
-                    metadata["aspectRatio"] = .string(shot.aspectRatio)
-                    metadata["aperture"] = .string(shot.aperture)
-                    metadata["shutter"] = .string(shot.shutter)
-                    metadata["exposureCompensation"] = .string(shot.exposureCompensation)
-                    metadata["lens"] = .string(shot.lens)
-                    metadata["focalLength"] = .string(shot.focalLength)
-                    metadata["colorFilter"] = .string(shot.colorFilter)
-                    metadata["ndFilter"] = .string(shot.ndFilter)
-                    metadata["exposureSky"] = .string(shot.exposureSky)
-                    metadata["exposureFoliage"] = .string(shot.exposureFoliage)
-                    metadata["exposureHighlights"] = .string(shot.exposureHighlights)
-                    metadata["exposureMidGray"] = .string(shot.exposureMidGray)
-                    metadata["exposureShadows"] = .string(shot.exposureShadows)
-                    metadata["exposureSkinKey"] = .string(shot.exposureSkinKey)
-                    metadata["exposureSkinFill"] = .string(shot.exposureSkinFill)
-                    metadata["focusDistance"] = .double(shot.focusDistance)
-                    metadata["focusDepthOfField"] = .double(shot.focusDepthOfField)
-                    metadata["focusNearLimit"] = .double(shot.focusNearLimit)
-                    metadata["focusFarLimit"] = .double(shot.focusFarLimit)
-                    metadata["focusHyperfocalDistance"] = .double(shot.focusHyperfocalDistance)
-                    metadata["focusHyperfocalNearLimit"] = .double(shot.focusHyperfocalNearLimit)
-                    if let loc = shot.location {
-                        metadata["latitude"] = .double(loc.latitude)
-                        metadata["longitude"] = .double(loc.longitude)
-                        if let alt = loc.altitude { metadata["altitude"] = .double(alt) }
-                    }
-                    metadata["locationElevation"] = .double(shot.locationElevation ?? 0.0)
-                    metadata["locationColorTemperature"] = .double(Double(shot.locationColorTemperature ?? 0))
-                    metadata["locationTimestamp"] = .double(shot.locationTimestamp?.timeIntervalSince1970 ?? 0.0)
-                    metadata["deviceRoll"] = .double(shot.deviceRoll)
-                    metadata["deviceTilt"] = .double(shot.deviceTilt)
-                    metadata["deviceLens"] = .string(shot.deviceLens)
+            VStack(spacing: 16) {
+                ZStack {
+                    Color.black
+                    if let image = shot.imageData?.thumbnail {
+                        GeometryReader { geometry in
+                            let container = geometry.size
+                            let imageSize = image.size
+                            
+                            let scale = min(container.width / imageSize.width, container.height / imageSize.height)
+                            let displaySize = imageSize * scale
 
-                    let newImage = ImageData(metadata: metadata)
-                    if newImage.updateFile(to: newUIImage) {
-                        shot.updateImage(to: newImage, context: modelContext)
+                            let filmSize = CameraUtils.filmSize(for: shot.filmSize)
+                            let aspectRatio = CameraUtils.aspectRatio(for: shot.aspectRatio)
+                            let aspectFrame = Projection.frameForAspectRatio(
+                                size: displaySize.toLandscape(), // match camera
+                                aspectRatio: aspectRatio.ratio > 0.0 ? aspectRatio.ratio : filmSize.aspectRatio
+                            )
+
+                            ZStack {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { showFullImage = true }
+
+                                MaskView(
+                                    frameSize: displaySize.isLandscape ? displaySize : displaySize.toPortrait(),
+                                    aspectSize: displaySize.isLandscape ? aspectFrame : aspectFrame.toPortrait(),
+                                    radius: 8,
+                                    geometry: geometry
+                                )
+                            }
+                        }
+                        .id(shot.id)
+                        .padding(3)
+                    } else {
+                        Rectangle()
+                        .fill(Color(red: 0.05, green: 0.05, blue: 0.05))
+                        .overlay(
+                            Text("No image")
+                                .foregroundColor(.secondary)
+                        )
+                        .cornerRadius(4)
+                            
                     }
                 }
+                .frame(maxWidth: .infinity)
+                .aspectRatio(shot.imageData?.original.map { $0.size.width / $0.size.height } ?? 3/2,
+                             contentMode: .fit)
+                .clipped()
+
+                if let metadata = shot.imageData?.metadata, !metadata.isEmpty {
+                    MetadataView(imageData: shot.imageData)
+                        .padding(-4)
+                }
+
+                if !shot.isLocked {
+                    HStack(spacing: 16) {
+                        Button {
+                            showCamera = true
+                        } label: {
+                            Circle()
+                                .fill(Color(red: 0.1, green: 0.1, blue: 0.1))
+                                .frame(width: 56, height: 56)
+                                .overlay(
+                                    Image(systemName: "camera.fill")
+                                        .font(.system(size: 24, weight: .medium))
+                                        .foregroundColor(.accentColor)
+                                        .offset(y: -1)
+                                )
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            showDeleteImage = true
+                        } label: {
+                            Circle()
+                                .fill(Color(red: 0.1, green: 0.1, blue: 0.1))
+                                .frame(width: 56, height: 56)
+                                .overlay(
+                                    Image(systemName: "trash.fill")
+                                        .font(.system(size: 24, weight: .medium))
+                                        .foregroundColor(.accentColor)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(shot.imageData == nil)
+                        .alert("Delete this image?", isPresented: $showDeleteImage) {
+                            Button("Delete", role: .destructive) {
+                                shot.deleteImage(context: modelContext)
+                                try? modelContext.save()
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("This action cannot be undone.")
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 8)
+                }
+            }
             .padding(.horizontal, 0)
             .padding(.vertical, 6)
             .listRowInsets(EdgeInsets())
@@ -621,6 +690,53 @@ struct ShotDetailView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .frame(width: 50, alignment: .trailing)
+        }
+    }
+    
+    private func saveImage(_ newUIImage: UIImage) {
+        var metadata: [String: DataValue] = [:]
+        metadata["name"] = .string(shot.name)
+        metadata["timestamp"] = .double(shot.timestamp.timeIntervalSince1970)
+        metadata["camera"] = .string(project.camera)
+        metadata["note"] = .string(shot.note)
+        metadata["filmStock"] = .string(shot.filmStock)
+        metadata["filmSize"] = .string(shot.filmSize)
+        metadata["aspectRatio"] = .string(shot.aspectRatio)
+        metadata["aperture"] = .string(shot.aperture)
+        metadata["shutter"] = .string(shot.shutter)
+        metadata["exposureCompensation"] = .string(shot.exposureCompensation)
+        metadata["lens"] = .string(shot.lens)
+        metadata["focalLength"] = .string(shot.focalLength)
+        metadata["colorFilter"] = .string(shot.colorFilter)
+        metadata["ndFilter"] = .string(shot.ndFilter)
+        metadata["exposureSky"] = .string(shot.exposureSky)
+        metadata["exposureFoliage"] = .string(shot.exposureFoliage)
+        metadata["exposureHighlights"] = .string(shot.exposureHighlights)
+        metadata["exposureMidGray"] = .string(shot.exposureMidGray)
+        metadata["exposureShadows"] = .string(shot.exposureShadows)
+        metadata["exposureSkinKey"] = .string(shot.exposureSkinKey)
+        metadata["exposureSkinFill"] = .string(shot.exposureSkinFill)
+        metadata["focusDistance"] = .double(shot.focusDistance)
+        metadata["focusDepthOfField"] = .double(shot.focusDepthOfField)
+        metadata["focusNearLimit"] = .double(shot.focusNearLimit)
+        metadata["focusFarLimit"] = .double(shot.focusFarLimit)
+        metadata["focusHyperfocalDistance"] = .double(shot.focusHyperfocalDistance)
+        metadata["focusHyperfocalNearLimit"] = .double(shot.focusHyperfocalNearLimit)
+        if let loc = shot.location {
+            metadata["latitude"] = .double(loc.latitude)
+            metadata["longitude"] = .double(loc.longitude)
+            if let alt = loc.altitude { metadata["altitude"] = .double(alt) }
+        }
+        metadata["locationElevation"] = .double(shot.locationElevation ?? 0.0)
+        metadata["locationColorTemperature"] = .double(Double(shot.locationColorTemperature ?? 0))
+        metadata["locationTimestamp"] = .double(shot.locationTimestamp?.timeIntervalSince1970 ?? 0.0)
+        metadata["deviceRoll"] = .double(shot.deviceRoll)
+        metadata["deviceTilt"] = .double(shot.deviceTilt)
+        metadata["deviceLens"] = .string(shot.deviceLens)
+
+        let newImage = ImageData(metadata: metadata)
+        if newImage.updateFile(to: newUIImage) {
+            shot.updateImage(to: newImage, context: modelContext)
         }
     }
 

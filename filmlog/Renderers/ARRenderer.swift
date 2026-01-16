@@ -74,7 +74,7 @@ class ARRenderer {
         makeIndicatorModel()
     }
     
-    func draw(with encoder: MTLRenderCommandEncoder, in view: MTKView) {
+    func draw(with encoder: MTLRenderCommandEncoder, drawableSize: CGSize) {
         guard let _ = self.cameraData,
               let model = self.model,
               let testCubeModel = self.testCubeModel,
@@ -95,10 +95,14 @@ class ARRenderer {
             encoder: encoder
         )
         
-        let center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
+        let center = CGPoint(
+                x: drawableSize.width  * 0.5,
+                y: drawableSize.height * 0.5
+            )
+        
         let modelMatrix = makeFloorHitMatrix(
             screenPoint: center,
-            viewSize: view.bounds.size,
+            viewSize: drawableSize,
             planeY: planeY
         ) ?? makeInitialMatrix()
         
@@ -287,10 +291,7 @@ class ARRenderer {
             geometryType: .triangles,
             allocator: allocator
         )
-
         plane.addNormals(withAttributeNamed: MDLVertexAttributeNormal, creaseThreshold: 0)
-        
-        print(plane.vertexDescriptor)
 
         do {
             model = try MTKMesh(mesh: plane, device: device)

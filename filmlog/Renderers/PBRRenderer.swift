@@ -80,13 +80,13 @@ class PBRRenderer {
         self.samplerState = device.makeSamplerState(descriptor: samplerDesc)
     }
 
-    func draw(with encoder: MTLRenderCommandEncoder, in view: MTKView) {
+    func draw(with encoder: MTLRenderCommandEncoder, drawableSize: CGSize) {
         guard let model = self.model,
               let pipeline = self.pipeline else {
             return
         }
 
-        let aspect = Float(view.drawableSize.width / max(view.drawableSize.height, 1))
+        let aspect = Float(drawableSize.width / max(drawableSize.height, 1))
 
         let projection = float4x4(
             perspectiveFov: .pi / 3,
@@ -420,7 +420,6 @@ class PBRRenderer {
             switch prop.type {
             case .URL:
                 url = prop.urlValue
-                let name = url?.lastPathComponent ?? "nil"
 
             case .string:
                 if let s = prop.stringValue {

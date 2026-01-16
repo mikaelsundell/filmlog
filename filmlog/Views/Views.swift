@@ -337,6 +337,7 @@ struct ControlsView<Overlay: View>: View {
                                         .animation(.easeInOut(duration: 0.25), value: button.background)
                                     }
                                     .frame(width: 52)
+                                    .contentShape(Circle())  
                                     .rotationEffect(button.rotation)
                                 }
                                 .buttonStyle(.plain)
@@ -1265,8 +1266,7 @@ struct ZoomableScrollView: UIViewRepresentable {
         weak var imageView: UIImageView?
 
         var hasInitialFit: Bool = false
-        
-        let onInitialSize: (CGSize) -> Void  // <-- store callback here
+        let onInitialSize: (CGSize) -> Void
 
         init(pageIndex: Int,
              showControls: Binding<Bool>,
