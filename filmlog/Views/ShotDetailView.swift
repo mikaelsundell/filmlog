@@ -213,25 +213,30 @@ struct ShotDetailView: View {
                     
                     Spacer()
                     
-                    Button {
-                        showCopy = true
-                    } label: {
-                        Image(systemName: "film.stack")
-                            .font(.system(size: 18, weight: .semibold))
+                    let imageData = shot.imageData
+                    let uiImage = imageData?.original ?? imageData?.thumbnail
+                    let enabled = uiImage != nil
+
+                    ShareLink(
+                        item: Image(uiImage: uiImage ?? UIImage()),
+                        preview: SharePreview(imageData?.name ?? "Filmlog image")
+                    ) {
+                        Circle()
+                            .fill(Color(red: 0.1, green: 0.1, blue: 0.1))
                             .frame(width: 40, height: 40)
-                            .background(.ultraThinMaterial)
-                            .clipShape(Circle())
+                            .overlay(
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundColor(
+                                        enabled ? .accentColor : .secondary
+                                    )
+                                    .offset(y: -2)
+                            )
+                            .opacity(enabled ? 1.0 : 0.4)
                     }
                     .buttonStyle(.plain)
-                    .foregroundColor(.blue)
-                    .help("Add new shot(s)")
-                    .confirmationDialog("Choose an option", isPresented: $showCopy) {
-                        Button("Copy shot") { copyShot(count: 1) }
-                        Button("Copy to 2 shots") { copyShot(count: 2) }
-                        Button("Copy to 5 shots") { copyShot(count: 5) }
-                        Button("Copy to 10 shots") { copyShot(count: 10) }
-                        Button("Cancel", role: .cancel) {}
-                    }
+                    .allowsHitTesting(enabled)
+                    .help(enabled ? "Share image" : "No image to share")
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 8)
@@ -317,7 +322,31 @@ struct ShotDetailView: View {
                                 )
                         }
                         .buttonStyle(.plain)
-
+                        
+                        Button {
+                            showCopy = true
+                        } label: {
+                            Circle()
+                                .fill(Color(red: 0.1, green: 0.1, blue: 0.1))
+                                .frame(width: 56, height: 56)
+                                .overlay(
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.system(size: 24, weight: .medium))
+                                        .foregroundColor(.accentColor)
+                                        .offset(y: 0)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(.blue)
+                        .help("Add new shot(s)")
+                        .confirmationDialog("Choose an option", isPresented: $showCopy) {
+                            Button("Copy shot") { copyShot(count: 1) }
+                            Button("Copy to 2 shots") { copyShot(count: 2) }
+                            Button("Copy to 5 shots") { copyShot(count: 5) }
+                            Button("Copy to 10 shots") { copyShot(count: 10) }
+                            Button("Cancel", role: .cancel) {}
+                        }
+                        
                         Button {
                             showDeleteImage = true
                         } label: {
