@@ -293,7 +293,6 @@ struct ShotDetailView: View {
                                 .foregroundColor(.secondary)
                         )
                         .cornerRadius(4)
-                            
                     }
                 }
                 .frame(maxWidth: .infinity)

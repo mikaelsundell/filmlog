@@ -19,7 +19,7 @@ struct VSOut {
     float4 color;
 };
 
-vertex VSOut modelVS(VSIn in [[stage_in]],
+vertex VSOut modelARVS(VSIn in [[stage_in]],
                      constant ModelUniforms& U [[buffer(10)]])
 {
     VSOut out;
@@ -29,7 +29,7 @@ vertex VSOut modelVS(VSIn in [[stage_in]],
     return out;
 }
 
-fragment float4 modelFS(VSOut in [[stage_in]],
+fragment float4 modelARFS(VSOut in [[stage_in]],
                         texture3d<float> lutTex [[texture(2)]])
 {
     float3 L = normalize(float3(0.4, 0.8, 0.3));

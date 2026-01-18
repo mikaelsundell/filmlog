@@ -12,6 +12,7 @@ struct ShotViewfinderView: View {
     @State private var captureOrientation: UIDeviceOrientation? = nil
     @State private var captureLevel: OrientationUtils.Level? = nil
     @State private var capturedImage: UIImage? = nil
+    @State private var capturedFieldOfView: Double = 0.0
     @State private var isCaptured = false
     @State private var focusPoint: CGPoint? = nil
     @State private var showGalleryPicker = false
@@ -102,12 +103,16 @@ struct ShotViewfinderView: View {
                     // projected frame as it would appear through the lens. This uses the focal length,
                     // film/sensor physical width, and the camera’s current field of view.
 
+                    let fieldOfView = isCaptured
+                        ? capturedFieldOfView
+                        : cameraModel.viewFov
+                    
                     let projectedFrame = Projection.projectedFrame(
                         size: container.toLandscape(), // match camera
                         focalLength: CameraUtils.focalLength(for: shot.focalLength).length,
                         aspectRatio: filmSize.aspectRatio,
                         width: filmSize.width,
-                        fieldOfView: cameraModel.fieldOfView
+                        fieldOfView: fieldOfView
                     )
 
                     let projectedAspectRatio = Projection.frameForAspectRatio(
@@ -186,8 +191,8 @@ struct ShotViewfinderView: View {
                                     // that it visually matches the sensor framing behind the live preview.
                                     
                                     let displayRatio = 1.0 / container.landscapeRatio
-                                    let photoRatio = 1.0 / cameraModel.aspectRatio
-                                    let scaleRatio = photoRatio / displayRatio
+                                    let offscreenRatio = 1.0 / cameraModel.offscreenAspectRatio
+                                    let scaleRatio = offscreenRatio / displayRatio
                                     
                                     Rectangle()
                                         .fill(Color.gray.opacity(0.25))
@@ -199,9 +204,14 @@ struct ShotViewfinderView: View {
                                         .scaleEffect(x: scaleRatio)
                                         .animation(.easeOut(duration: 0.3), value: scaleRatio)
                                     
-                                    CameraPreview(renderer: cameraModel.renderer)
+                                    GeometryReader { geo in
+                                        CameraPreview(renderer: cameraModel.renderer)
+                                    }
                                 }
-                                .scaleEffect((arMode && cameraModel.arState != .placed) ? 1.0 : scale)
+                                .scaleEffect(scale)
+                                
+                                // todo: add back later
+                                //.scaleEffect((arMode && cameraModel.arState != .placed) ? 1.0 : scale)
                             }
                             .position(x: width / 2, y: height / 2)
                             .ignoresSafeArea()
@@ -765,10 +775,11 @@ struct ShotViewfinderView: View {
                         } else {
                             captureOrientation = motionObserver.orientation
                             captureLevel = motionObserver.level
-                            cameraModel.capturePhoto { cgImage in
+                            cameraModel.captureOffscreen { cgImage in
                                 if let cgImage = cgImage {
                                     let image = UIImage(cgImage: cgImage)
                                     capturedImage = image
+                                    capturedFieldOfView = cameraModel.offscreenFov
                                     isCaptured = true
                                 }
                             }
@@ -800,8 +811,9 @@ struct ShotViewfinderView: View {
                             }
                         }
                     }
-                    .disabled(arActive)
-                    .opacity(arActive ? 0.4 : 1.0)
+                    // todo: fix this later
+                    //.disabled(arActive)
+                    //.opacity(arActive ? 0.4 : 1.0)
                     .frame(width: 60)
                     
                     aspectRatioControls()
@@ -1101,9 +1113,9 @@ struct ShotViewfinderView: View {
             focalLength: CameraUtils.focalLength(for: shot.focalLength).length,
             aspectRatio: filmSize.aspectRatio,
             width: filmSize.width,
-            fieldOfView: cameraModel.fieldOfView
+            fieldOfView: cameraModel.offscreenFov
         )
-        
+
         // if the projected frame is larger than the captured image,
         // scale it down to fit within the container while preserving aspect ratio.
         // The image is then rescaled and composited onto a black canvas to ensure
@@ -1124,14 +1136,15 @@ struct ShotViewfinderView: View {
             containerSize: containerSize,
             orientation: captureOrientation ?? .portrait
         )
-
+        shot.deviceFieldOfView = cameraModel.offscreenFov
+        shot.deviceLens = cameraModel.lensType.rawValue
         if let captureLevel {
             let normalized = OrientationUtils.normalizeLevel(from: captureLevel)
             shot.deviceRoll = normalized.roll
             shot.deviceTilt = normalized.tilt
         }
         
-        shot.deviceLens = cameraModel.lensType.rawValue
+
         onCapture(croppedImage)
     }
 

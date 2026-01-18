@@ -275,8 +275,8 @@ class ARRenderer {
         do {
             testCubePipeline = try makePipeline(
                 mdlMesh: box,
-                vertexFunction: "modelVS",
-                fragmentFunction: "modelFS"
+                vertexFunction: "modelARVS",
+                fragmentFunction: "modelARFS"
             )
         } catch {
             print("failed to build test pipeline:", error.localizedDescription)

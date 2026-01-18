@@ -85,9 +85,7 @@ class PBRRenderer {
               let pipeline = self.pipeline else {
             return
         }
-
         let aspect = Float(drawableSize.width / max(drawableSize.height, 1))
-
         let projection = float4x4(
             perspectiveFov: .pi / 3,
             aspect: aspect,

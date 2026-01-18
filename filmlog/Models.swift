@@ -1210,12 +1210,11 @@ class Shot: Codable {
     var exposureShadows: String
     var exposureSkinKey: String
     var exposureSkinFill: String
+    var deviceFieldOfView: Double
+    var deviceLens: String
     var deviceRoll: Double
     var deviceTilt: Double
-    var deviceCameraMode: String
-    var deviceLens: String
     var isLocked: Bool
-    
     var lastModified: Date {
         return timestamp
     }
@@ -1276,10 +1275,10 @@ class Shot: Codable {
          exposureShadows: String = "0",
          exposureSkinKey: String = "0",
          exposureSkinFill: String = "0",
+         deviceFieldOfView: Double = 0.0,
+         deviceLens: String = "",
          deviceRoll: Double = 0.0,
          deviceTilt: Double = 0.0,
-         deviceCameraMode: String = "",
-         deviceLens: String = "",
          image: ImageData? = nil,
          isLocked: Bool = false) {
         self.filmSize = filmSize
@@ -1311,10 +1310,10 @@ class Shot: Codable {
         self.exposureShadows = exposureShadows
         self.exposureSkinKey = exposureSkinKey
         self.exposureSkinFill = exposureSkinFill
+        self.deviceFieldOfView = deviceFieldOfView
+        self.deviceLens = deviceLens
         self.deviceRoll = deviceRoll
         self.deviceTilt = deviceTilt
-        self.deviceCameraMode = deviceCameraMode
-        self.deviceLens = deviceLens
         self.image = image
         self.isLocked = isLocked
     }
@@ -1355,10 +1354,10 @@ class Shot: Codable {
         newShot.exposureShadows = self.exposureShadows
         newShot.exposureSkinKey = self.exposureSkinKey
         newShot.exposureSkinFill = self.exposureSkinFill
+        newShot.deviceFieldOfView = self.deviceFieldOfView
+        newShot.deviceLens = self.deviceLens
         newShot.deviceRoll = self.deviceRoll
         newShot.deviceTilt = self.deviceTilt
-        newShot.deviceCameraMode = self.deviceCameraMode
-        newShot.deviceLens = self.deviceLens
 
         newShot.updateImage(to: self.image, context: context)
 
@@ -1371,7 +1370,7 @@ class Shot: Codable {
              aperture, shutter, exposureCompensation, lens, colorFilter, ndFilter, focalLength,
              focusDistance, focusDepthOfField, focusNearLimit, focusFarLimit, focusHyperfocalDistance, focusHyperfocalNearLimit,
              exposureSky, exposureFoliage, exposureHighlights, exposureMidGray, exposureShadows, exposureSkinKey, exposureSkinFill,
-             deviceRoll, deviceTilt, deviceCameraMode, deviceLens,
+             deviceFieldOfView, deviceCameraMode, deviceLens, deviceRoll, deviceTilt,
              image, isLocked
     }
 
@@ -1409,10 +1408,10 @@ class Shot: Codable {
         exposureShadows = try container.decode(String.self, forKey: .exposureShadows)
         exposureSkinKey = try container.decode(String.self, forKey: .exposureSkinKey)
         exposureSkinFill = try container.decode(String.self, forKey: .exposureSkinFill)
+        deviceFieldOfView = try container.decode(Double.self, forKey: .deviceFieldOfView)
+        deviceLens = try container.decode(String.self, forKey: .deviceLens)
         deviceRoll = try container.decode(Double.self, forKey: .deviceRoll)
         deviceTilt = try container.decode(Double.self, forKey: .deviceTilt)
-        deviceCameraMode = try container.decode(String.self, forKey: .deviceCameraMode)
-        deviceLens = try container.decode(String.self, forKey: .deviceLens)
         image = try container.decodeIfPresent(ImageData.self, forKey: .image)
         isLocked = try container.decode(Bool.self, forKey: .isLocked)
     }
@@ -1451,10 +1450,10 @@ class Shot: Codable {
         try container.encode(exposureShadows, forKey: .exposureShadows)
         try container.encode(exposureSkinKey, forKey: .exposureSkinKey)
         try container.encode(exposureSkinFill, forKey: .exposureSkinFill)
+        try container.encode(deviceFieldOfView, forKey: .deviceFieldOfView)
+        try container.encode(deviceLens, forKey: .deviceLens)
         try container.encode(deviceRoll, forKey: .deviceRoll)
         try container.encode(deviceTilt, forKey: .deviceTilt)
-        try container.encode(deviceCameraMode, forKey: .deviceCameraMode)
-        try container.encode(deviceLens, forKey: .deviceLens)
         try container.encodeIfPresent(image, forKey: .image)
         try container.encode(isLocked, forKey: .isLocked)
     }

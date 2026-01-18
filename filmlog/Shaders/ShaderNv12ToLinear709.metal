@@ -29,6 +29,7 @@ vertex VSOut cameraVS(uint vid [[vertex_id]],
         float viewRatio = U.viewSize.y / U.viewSize.x; // to native
         float videoRatio = U.videoSize.x / U.videoSize.y;
         float scaleX = videoRatio / viewRatio;
+        
         texCoord = (texCoord - 0.5) * float2(scaleX, 1.0) + 0.5;
         texCoord = float2(texCoord.y, 1.0 - texCoord.x); // portrait
         o.uv = texCoord;

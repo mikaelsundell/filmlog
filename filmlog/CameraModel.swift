@@ -36,46 +36,62 @@ enum CameraError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .configurationFailed(let reason): return "Camera configuration failed: \(reason)"
-        case .captureFailed(let reason): return "Photo capture failed: \(reason)"
-        case .saveFailed(let reason): return "Photo save failed: \(reason)"
+        case .captureFailed(let reason): return "Offscreen capture failed: \(reason)"
+        case .saveFailed(let reason): return "Offscreen save failed: \(reason)"
         case .permissionDenied: return "Camera permission denied. Please enable it in Settings."
         }
     }
 }
 
+private struct CameraFormat {
+    let format: AVCaptureDevice.Format
+    let dimensions: CMVideoDimensions
+    let pixelCount: Int
+    let fov: Float
+    let minFps: Double
+    let maxFps: Double
+    let isHDR: Bool
+}
+
 class CameraModel: NSObject, ObservableObject {
-    @Published var fieldOfView: CGFloat = 50
+    @Published var viewFov: CGFloat = 50
+    @Published var offscreenFov: CGFloat = 50
+    @Published var offscreenAspectRatio: CGFloat = 4.0 / 3.0
     @Published var lensType: LensType = .wide
-    @Published var aspectRatio: CGFloat = 4.0 / 3.0
-    @Published var isConfigured: Bool = false
     @Published var arState: ARState = .idle
     @Published var planeWorldTransform: simd_float4x4?
     @Published var viewSize: CGSize = .zero
-
+    @Published var captureAR = false
+    
     var currentViewSize: CGSize {
         renderer.viewportSize
     }
 
-    let session = AVCaptureSession()
+    let captureSession = AVCaptureSession()
     let sessionQueue = DispatchQueue(label: "camera.session.queue")
 
+    private var cameraFormats: [LensType: [CameraFormat]] = [:]
+    private var viewFormat: CameraFormat?
+    private var offscreenFormat: CameraFormat?
+    private var restoreFormat: AVCaptureDevice.Format?
+    
     private let videoDataOutput = AVCaptureVideoDataOutput()
     private let videoOutputQueue = DispatchQueue(label: "camera.video.output.queue",
                                                  qos: .userInitiated)
     
-    private let photoDataOutput = AVCaptureVideoDataOutput()
-    private let photoOutputQueue = DispatchQueue(label: "camera.photo.output.queue",
+    private let offscreenDataOutput = AVCaptureVideoDataOutput()
+    private let offscreenOutputQueue = DispatchQueue(label: "camera.offscreen.output.queue",
                                                  qos: .userInitiated)
     
-    private var photoCaptureCompletion: ((CGImage?) -> Void)?
-    
-    private let photoCounterQueue = DispatchQueue(label: "photo.counter.queue")
-    private var _photoFrameCounter = 0
-    private var photoFrameCounter: Int {
-        get { photoCounterQueue.sync { _photoFrameCounter } }
-        set { photoCounterQueue.sync { _photoFrameCounter = newValue } }
+    private var drawOffscreenCompletion: ((CGImage?) -> Void)?
+    private let offscreenCounterQueue = DispatchQueue(label: "offscreen.counter.queue")
+    private var _offscreenFrameCounter = 0
+    private var offscreenFrameCounter: Int {
+        get { offscreenCounterQueue.sync { _offscreenFrameCounter } }
+        set { offscreenCounterQueue.sync { _offscreenFrameCounter = newValue } }
     }
-    private var didCapturePhoto = false
+    private var didDrawOffscreen = false
+    private var resumeARDrawOffscreen = false
     
     public let renderer = CameraRenderer()
     
@@ -95,26 +111,33 @@ class CameraModel: NSObject, ObservableObject {
         )
     }
     
+    deinit {
+        if let ar = arSession {
+            ar.pause()
+            arSession = nil
+        }
+    }
+    
     @objc private func willEnterForeground() {
         sessionQueue.async {
-            if !self.session.isRunning {
-                self.session.startRunning()
+            if !self.captureSession.isRunning {
+                self.captureSession.startRunning()
             }
         }
     }
 
     @objc private func didEnterBackground() {
         sessionQueue.async {
-            if self.session.isRunning {
-                self.session.stopRunning()
+            if self.captureSession.isRunning {
+                self.captureSession.stopRunning()
             }
         }
     }
     
     func stop() {
         sessionQueue.async {
-            if self.session.isRunning {
-                self.session.stopRunning()
+            if self.captureSession.isRunning {
+                self.captureSession.stopRunning()
             }
         }
     }
@@ -134,7 +157,7 @@ class CameraModel: NSObject, ObservableObject {
     
     func adjustWhiteBalance(kelvin: Double) {
         sessionQueue.async {
-            guard let device = self.session.inputs
+            guard let device = self.captureSession.inputs
                 .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
                 .first else {
                     print("no capture device found.")
@@ -160,7 +183,7 @@ class CameraModel: NSObject, ObservableObject {
     
     func resetWhiteBalance() {
         sessionQueue.async {
-            guard let device = self.session.inputs
+            guard let device = self.captureSession.inputs
                 .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
                 .first else {
                     return
@@ -182,7 +205,7 @@ class CameraModel: NSObject, ObservableObject {
     
     func adjustAutoExposure(ev: Float) {
         sessionQueue.async {
-            guard let device = self.session.inputs
+            guard let device = self.captureSession.inputs
                 .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
                 .first else { return }
 
@@ -207,7 +230,7 @@ class CameraModel: NSObject, ObservableObject {
     
     func adjustEVExposure(fstop: Double, speed: Double, shutter: Double, exposureCompensation: Double = 0.0) {
         sessionQueue.async {
-            guard let device = self.session.inputs
+            guard let device = self.captureSession.inputs
                 .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
                 .first else {
                     print("no device found")
@@ -285,7 +308,7 @@ class CameraModel: NSObject, ObservableObject {
     
     func enableAutoFocus() {
         sessionQueue.async {
-            guard let device = self.session.inputs
+            guard let device = self.captureSession.inputs
                 .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
                 .first else { return }
 
@@ -313,7 +336,7 @@ class CameraModel: NSObject, ObservableObject {
     
     func disableAutoFocus() {
         sessionQueue.async {
-            guard let device = self.session.inputs
+            guard let device = self.captureSession.inputs
                 .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
                 .first else { return }
 
@@ -342,7 +365,7 @@ class CameraModel: NSObject, ObservableObject {
     func focus(at point: CGPoint, viewSize: CGSize) {
         let focusPoint = CGPoint(x: point.y / viewSize.height, y: 1.0 - point.x / viewSize.width)
         sessionQueue.async {
-            guard let device = self.session.inputs
+            guard let device = self.captureSession.inputs
                 .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
                 .first else {
                 print("focus error: no capture device found")
@@ -367,11 +390,56 @@ class CameraModel: NSObject, ObservableObject {
         lensType = lens
         configureCamera(for: lens)
     }
+    
+    func pauseAR() {
+        sessionQueue.async {
+            if let arSession = self.arSession {
+                //arSession.pause()
+            }
+            DispatchQueue.main.async {
+                self.captureAR = false
+            }
+        }
+    }
+    
+    func resumeAR() {
+        sessionQueue.async {
+            guard let arSession = self.arSession else { return }
 
-    func capturePhoto(completion: @escaping (CGImage?) -> Void) {
-        photoCaptureCompletion = completion
-        didCapturePhoto = false
-        enablePhotoOutput(true)
+            let config = ARWorldTrackingConfiguration()
+            config.planeDetection = [.horizontal]
+            config.environmentTexturing = .automatic
+            config.isLightEstimationEnabled = true
+
+            arSession.run(config, options: [])
+            DispatchQueue.main.async {
+                self.captureAR = true
+            }
+        }
+    }
+    
+    private func pauseRendering() {
+        renderer.pause()
+    }
+
+    private func resumeRendering() {
+        renderer.resume()
+    }
+    
+    func captureOffscreen(completion: @escaping (CGImage?) -> Void) {
+        resumeARDrawOffscreen = (arSession != nil)
+        pauseRendering()
+        if resumeARDrawOffscreen {
+            pauseAR()
+        }
+        sessionQueue.async {
+            if !self.captureSession.isRunning {
+                self.captureSession.startRunning()
+            }
+        }
+        drawOffscreenCompletion = completion
+        didDrawOffscreen = false
+        enableOffscreenOutput(true)
     }
 
     private func mainsFrequency() -> Int {
@@ -380,130 +448,159 @@ class CameraModel: NSObject, ObservableObject {
         return sixtyHz.contains(region) ? 60 : 50
     }
     
-    private func enablePhotoOutput(_ enable: Bool) {
+    private func enableOffscreenOutput(_ enable: Bool) {
         sessionQueue.async {
-            self.session.beginConfiguration()
-            defer { self.session.commitConfiguration() }
+            self.captureSession.beginConfiguration()
+            defer { self.captureSession.commitConfiguration() }
 
             if enable {
-                self.photoDataOutput.videoSettings = [
+                guard let offscreenFormat = self.offscreenFormat else {
+                    print("offscreenFormat not set")
+                    return
+                }
+                self.offscreenDataOutput.videoSettings = [
                     kCVPixelBufferPixelFormatTypeKey as String:
                         kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
                 ]
-                self.photoDataOutput.alwaysDiscardsLateVideoFrames = true
+                self.offscreenDataOutput.alwaysDiscardsLateVideoFrames = true
 
-                if !self.session.outputs.contains(self.photoDataOutput),
-                   self.session.canAddOutput(self.photoDataOutput) {
-                    self.session.addOutput(self.photoDataOutput)
-                    self.photoDataOutput.setSampleBufferDelegate(self, queue: self.photoOutputQueue)
+                if !self.captureSession.outputs.contains(self.offscreenDataOutput),
+                   self.captureSession.canAddOutput(self.offscreenDataOutput) {
+
+                    self.captureSession.addOutput(self.offscreenDataOutput)
+                    self.offscreenDataOutput.setSampleBufferDelegate(
+                        self,
+                        queue: self.offscreenOutputQueue
+                    )
+                }
+                guard let device = self.captureSession.inputs
+                    .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
+                    .first else {
+                        print("no capture device found")
+                        return
+                    }
+
+                do {
+                    try device.lockForConfiguration()
+                    if self.restoreFormat == nil {
+                        self.restoreFormat = device.activeFormat
+                    }
+                    device.activeFormat = offscreenFormat.format
+                    device.unlockForConfiguration()
+                } catch {
+                    print("failed to apply offscreen format: \(error.localizedDescription)")
+                    return
                 }
 
-                if let device = self.session.inputs
-                    .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
-                    .first {
-
-                    var previewFps: Double = 30.0
-                    let duration = device.activeVideoMinFrameDuration
-                    if duration.isValid && duration.seconds > 0 {
-                        previewFps = 1.0 / duration.seconds
-                    }
-
-                    var bestFormat: AVCaptureDevice.Format?
-                    var maxPixels = 0
-                    var bestDims: CMVideoDimensions?
-
-                    for format in device.formats {
-                        let desc = format.formatDescription
-                        let dims = CMVideoFormatDescriptionGetDimensions(desc)
-                        let mediaSubType = CMFormatDescriptionGetMediaSubType(desc)
-                        guard mediaSubType == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange else { continue }
-                        guard let range = format.videoSupportedFrameRateRanges.first else { continue }
-
-                        let maxRate = range.maxFrameRate
-                        if maxRate >= previewFps {
-                            let pixels = Int(dims.width) * Int(dims.height)
-                            if pixels > maxPixels {
-                                bestFormat = format
-                                bestDims = dims
-                                maxPixels = pixels
-                            }
-                        }
-                    }
-
-                    if let best = bestFormat, let dims = bestDims {
-                        do {
-                            try device.lockForConfiguration()
-                            device.activeFormat = best
-                            device.unlockForConfiguration()
-                            let ar = CGFloat(dims.width) / CGFloat(dims.height)
-                            DispatchQueue.main.async {
-                                self.aspectRatio = ar
-                            }
-
-                        } catch {
-                            print("failed to set best photo format: \(error.localizedDescription)")
-                        }
-                    } else {
-                        print("no matching NV12 full-range format found.")
-                    }
+                DispatchQueue.main.async {
+                    self.updateDeviceOffscreenInfo(device)
                 }
             } else {
-                if self.session.outputs.contains(self.photoDataOutput) {
-                    self.session.removeOutput(self.photoDataOutput)
+                if self.captureSession.outputs.contains(self.offscreenDataOutput) {
+                    self.captureSession.removeOutput(self.offscreenDataOutput)
                 }
             }
         }
     }
-    
-    private func configureCamera(for lens: LensType, completion: ((Result<Void, CameraError>) -> Void)? = nil) {
-        sessionQueue.async {
-            self.session.beginConfiguration()
-            self.session.sessionPreset = .high
 
-            for input in self.session.inputs {
-                self.session.removeInput(input)
-            }
-            for output in self.session.outputs {
-                self.session.removeOutput(output)
-            }
-            
-            guard let device = AVCaptureDevice.default(lens.deviceType, for: .video, position: .back),
-                  let input = try? AVCaptureDeviceInput(device: device),
-                  self.session.canAddInput(input) else {
+    private func configureCamera(
+        for lens: LensType,
+        completion: ((Result<Void, CameraError>) -> Void)? = nil
+    ) {
+        sessionQueue.async {
+            self.pauseRendering()
+            self.captureSession.beginConfiguration()
+            self.captureSession.sessionPreset = .high
+
+            self.captureSession.inputs.forEach { self.captureSession.removeInput($0) }
+            self.captureSession.outputs.forEach { self.captureSession.removeOutput($0) }
+
+            guard let device = AVCaptureDevice.default(
+                lens.deviceType,
+                for: .video,
+                position: .back
+            ),
+            let input = try? AVCaptureDeviceInput(device: device),
+            self.captureSession.canAddInput(input) else {
+
+                self.captureSession.commitConfiguration()
                 DispatchQueue.main.async {
-                    completion?(.failure(.configurationFailed("device not available for \(lens.rawValue).")))
+                    completion?(
+                        .failure(.configurationFailed(
+                            "device not available for \(lens.rawValue)"
+                        ))
+                    )
                 }
-                self.session.commitConfiguration()
                 return
             }
-            self.session.addInput(input)
 
+            self.captureSession.addInput(input)
+            self.cacheCameraFormats(for: device, lens: lens)
+            self.selectFormats(for: lens)
+
+            guard let viewFormat = self.viewFormat,
+                  let offscreenFormat = self.offscreenFormat else {
+
+                self.captureSession.commitConfiguration()
+                DispatchQueue.main.async {
+                    completion?(
+                        .failure(.configurationFailed(
+                            "failed to determine camera formats"
+                        ))
+                    )
+                }
+                return
+            }
+            do {
+                try device.lockForConfiguration()
+                device.activeFormat = viewFormat.format
+                device.unlockForConfiguration()
+            } catch {
+                self.captureSession.commitConfiguration()
+                DispatchQueue.main.async {
+                    completion?(
+                        .failure(.configurationFailed(
+                            "failed to apply view format"
+                        ))
+                    )
+                }
+                return
+            }
             self.videoDataOutput.videoSettings = [
                 kCVPixelBufferPixelFormatTypeKey as String:
                     kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
             ]
-            
             self.videoDataOutput.alwaysDiscardsLateVideoFrames = true
 
-            if self.session.canAddOutput(self.videoDataOutput) {
-                self.session.addOutput(self.videoDataOutput)
-                self.videoDataOutput.setSampleBufferDelegate(self.renderer, queue: self.videoOutputQueue)
+            if self.captureSession.canAddOutput(self.videoDataOutput) {
+                self.captureSession.addOutput(self.videoDataOutput)
+                self.videoDataOutput.setSampleBufferDelegate(
+                    self.renderer,
+                    queue: self.videoOutputQueue
+                )
             } else {
-                print("cannot add videoDataOutput to session.")
-                self.session.commitConfiguration()
+                self.captureSession.commitConfiguration()
+                DispatchQueue.main.async {
+                    completion?(
+                        .failure(.configurationFailed(
+                            "cannot add video output"
+                        ))
+                    )
+                }
                 return
             }
-
-            self.session.commitConfiguration()
-
-            if !self.session.isRunning {
-                self.session.startRunning()
+            self.captureSession.commitConfiguration()
+            if !self.captureSession.isRunning {
+                self.captureSession.startRunning()
             }
-            
-            self.updateDeviceInfo(device)
-
             DispatchQueue.main.async {
+                self.viewFov = CGFloat(viewFormat.fov)
+                self.offscreenFov = CGFloat(offscreenFormat.fov)
+                self.offscreenAspectRatio =
+                    CGFloat(offscreenFormat.dimensions.width) /
+                    CGFloat(offscreenFormat.dimensions.height)
                 completion?(.success(()))
+                self.resumeRendering()
             }
         }
     }
@@ -520,6 +617,107 @@ class CameraModel: NSObject, ObservableObject {
         g.blueGain = max(1.0, min(g.blueGain, maxGain))
         return g
     }
+    
+    private func cacheCameraFormats(
+        for device: AVCaptureDevice,
+        lens: LensType
+    ) {
+        var formats: [CameraFormat] = []
+        for format in device.formats {
+            let desc = format.formatDescription
+            let dims = CMVideoFormatDescriptionGetDimensions(desc)
+            let subtype = CMFormatDescriptionGetMediaSubType(desc)
+
+            // require NV12 full-range
+            guard subtype == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange else {
+                continue
+            }
+
+            let ranges = format.videoSupportedFrameRateRanges
+            let minFps = ranges.map { $0.minFrameRate }.min() ?? 0
+            let maxFps = ranges.map { $0.maxFrameRate }.max() ?? 0
+
+            let info = CameraFormat(
+                format: format,
+                dimensions: dims,
+                pixelCount: Int(dims.width) * Int(dims.height),
+                fov: format.videoFieldOfView,
+                minFps: minFps,
+                maxFps: maxFps,
+                isHDR: format.isVideoHDRSupported
+            )
+            formats.append(info)
+        }
+        formats.sort { $0.pixelCount > $1.pixelCount }
+        cameraFormats[lens] = formats
+    }
+    
+    private func selectFormats(
+        for lens: LensType,
+        targetFps: Double = 30.0
+    ) {
+        guard let formats = cameraFormats[lens], !formats.isEmpty else {
+            print("no cached camera formats for lens \(lens)")
+            return
+        }
+
+        // select camera formats by filtering for target fps, grouping by field of view (sensor gate),
+        // choosing the largest fov group to avoid crop, then picking the highest-resolution format
+        // for offscreen capture and a matching-FOV format for live preview.
+        
+        let fpsCapable = formats.filter { $0.maxFps >= targetFps }
+        let groupedByFov = Dictionary(grouping: fpsCapable) { format in
+            round(format.fov * 10) / 10   // bucket by 0.1° to avoid float noise
+        }
+        guard let bestFovGroup = groupedByFov
+            .max(by: { $0.key < $1.key })?
+            .value else {
+            print("Failed to determine FOV group")
+            return
+        }
+        let offscreen = bestFovGroup.max(by: { $0.pixelCount < $1.pixelCount })!
+        let preferredViewWidth = 1920 // default to HD for referred view
+
+        let view =
+            bestFovGroup
+                .filter { $0.maxFps >= targetFps }
+                .sorted { a, b in
+                    let da = abs(Int(a.dimensions.width) - preferredViewWidth)
+                    let db = abs(Int(b.dimensions.width) - preferredViewWidth)
+                    if da != db { return da < db }
+                    return a.pixelCount < b.pixelCount
+                }
+                .first!
+
+        self.offscreenFormat = offscreen
+        self.viewFormat = view
+
+        DispatchQueue.main.async {
+            self.offscreenAspectRatio =
+                CGFloat(offscreen.dimensions.width) /
+                CGFloat(offscreen.dimensions.height)
+
+            self.offscreenFov = CGFloat(offscreen.fov)
+            self.viewFov = CGFloat(view.fov)
+        }
+        
+        print("""
+        [FORMAT SELECTION]
+          lens: \(lens.rawValue)
+
+          VIEW FORMAT
+            resolution: \(view.dimensions.width)x\(view.dimensions.height)
+            fov: \(view.fov)
+            fps: \(view.minFps)–\(view.maxFps)
+
+          OFFSCREEN FORMAT
+            resolution: \(offscreen.dimensions.width)x\(offscreen.dimensions.height)
+            fov: \(offscreen.fov)
+            fps: \(offscreen.minFps)–\(offscreen.maxFps)
+
+          aspect: \(CGFloat(offscreen.dimensions.width) / CGFloat(offscreen.dimensions.height))
+        """)
+    }
 
     private func checkCameraPermission() async throws {
         let status = AVCaptureDevice.authorizationStatus(for: .video)
@@ -533,21 +731,28 @@ class CameraModel: NSObject, ObservableObject {
         }
     }
 
-    private func updateDeviceInfo(_ device: AVCaptureDevice) {
+    private func updateDeviceViewInfo(_ device: AVCaptureDevice) {
         let fov = CGFloat(device.activeFormat.videoFieldOfView)
         DispatchQueue.main.async {
-            self.fieldOfView = fov
-            self.isConfigured = true;
+            self.viewFov = fov
+        }
+    }
+    
+    private func updateDeviceOffscreenInfo(_ device: AVCaptureDevice) {
+        let fov = CGFloat(device.activeFormat.videoFieldOfView)
+        DispatchQueue.main.async {
+            self.offscreenFov = fov
         }
     }
 }
+
 
 extension CameraModel: AVCaptureVideoDataOutputSampleBufferDelegate {
 
     // apple explicitly mentions that auto-exposure/auto-white balance needs
     // a few frames to settle, and apps should allow "warm-up time" before using
     // frames for critical processing.
-    
+
     private static let warmupFrameCount = 20
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
@@ -556,22 +761,42 @@ extension CameraModel: AVCaptureVideoDataOutputSampleBufferDelegate {
         if output === videoDataOutput {
             renderer.captureOutput(output, didOutput: sampleBuffer, from: connection)
         }
-        else if output === photoDataOutput {
-            guard !didCapturePhoto else { return }
+        else if output === offscreenDataOutput {
+            guard !didDrawOffscreen else { return }
             guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
             
-            photoFrameCounter += 1
-            if photoFrameCounter < CameraModel.warmupFrameCount {
+            offscreenFrameCounter += 1
+            if offscreenFrameCounter < CameraModel.warmupFrameCount {
                 return
             }
-            
-            didCapturePhoto = true
-            guard let completion = photoCaptureCompletion else { return }
-            photoCaptureCompletion = nil
-            renderer.drawImage(pixelBuffer: pixelBuffer) { cgImage in
-                DispatchQueue.main.async { completion(cgImage) }
-                self.enablePhotoOutput(false)
-                self.photoFrameCounter = 0
+            didDrawOffscreen = true
+            guard let completion = drawOffscreenCompletion else { return }
+            drawOffscreenCompletion = nil
+            renderer.drawOffscreen(pixelBuffer: pixelBuffer) { cgImage in
+                DispatchQueue.main.async {
+                    completion(cgImage)
+                }
+                self.enableOffscreenOutput(false)
+                self.offscreenFrameCounter = 0
+                
+                if let device = self.captureSession.inputs
+                    .compactMap({ ($0 as? AVCaptureDeviceInput)?.device })
+                    .first,
+                    let format = self.restoreFormat {
+                    do {
+                        try device.lockForConfiguration()
+                        device.activeFormat = format // can be AR or view format
+                        device.unlockForConfiguration()
+                    } catch {
+                        print("failed to restore view format: \(error)")
+                    }
+                    self.restoreFormat = nil
+                }
+                if self.resumeARDrawOffscreen {
+                    self.resumeARDrawOffscreen = false
+                    self.resumeAR()
+                }
+                self.resumeRendering()
             }
         }
     }
@@ -589,10 +814,12 @@ extension CameraModel: ARSessionDelegate {
 
     func startARSession() {
         sessionQueue.async {
-            if self.session.isRunning {
-                self.session.stopRunning()
+            if self.captureSession.isRunning {
+                self.captureSession.stopRunning()
             }
-
+            if (self.lensType != .wide) {
+                self.selectFormats(for: .wide) // AR is wide
+            }
             let config = ARWorldTrackingConfiguration()
             config.planeDetection = [.horizontal]
             config.environmentTexturing = .automatic
@@ -605,6 +832,7 @@ extension CameraModel: ARSessionDelegate {
         
             DispatchQueue.main.async {
                 self.arState = .scanning
+                self.captureAR = true
             }
         }
     }
@@ -618,10 +846,11 @@ extension CameraModel: ARSessionDelegate {
             self.renderer.clearARCamera()
             DispatchQueue.main.async {
                 self.arState = .idle
+                self.captureAR = false
             }
         }
     }
-
+    
     func placeARModel(from url: URL) {
         // todo: replace with code for AR, should be full PBR pipeline
         //print("[placeARModel] Loading model:", url.lastPathComponent)
@@ -629,13 +858,14 @@ extension CameraModel: ARSessionDelegate {
     }
     
     func fovFromIntrinsics(_ intrinsics: simd_float3x3, resolution: CGSize) -> CGFloat {
-        let fy = intrinsics.columns.1.y
-        let fovY = 2 * atan(Float(resolution.height) / (2 * fy))
-        return CGFloat(fovY)
+        let fx = intrinsics.columns.0.x
+        let fovXRadians = 2 * atan(Float(resolution.width) / (2 * fx))
+        return CGFloat(fovXRadians * 180 / .pi)
     }
     
     func session(_ session: ARSession, didUpdate frame: ARFrame)
     {
+        guard captureAR else { return }
         let pixelBuffer = frame.capturedImage
         renderer.captureAROutput(pixelBuffer: pixelBuffer)
         if arState == .ready {
@@ -645,7 +875,7 @@ extension CameraModel: ARSessionDelegate {
         let res = frame.camera.imageResolution
         let fov = fovFromIntrinsics(intr, resolution: res)
         DispatchQueue.main.async {
-            self.fieldOfView = fov
+            self.viewFov = fov
         }
     }
 
@@ -658,9 +888,7 @@ extension CameraModel: ARSessionDelegate {
                     }
                 }
             }
-            
             guard let plane = anchor as? ARPlaneAnchor else { continue }
-
             if plane.alignment == .horizontal {
                 DispatchQueue.main.async {
                     self.planeWorldTransform = plane.transform

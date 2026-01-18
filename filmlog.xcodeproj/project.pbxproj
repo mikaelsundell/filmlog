@@ -40,10 +40,10 @@
 		3A06CBD32EB7FFC100984DCA /* TagDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A06CBD22EB7FFBD00984DCA /* TagDetailView.swift */; };
 		3A0A42DB2EE5EA760024CB2D /* ShaderPBRModel.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3A0A42DA2EE5EA760024CB2D /* ShaderPBRModel.metal */; };
 		3A43C4F52EAAB5B7001E7080 /* ProjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A43C4F42EAAB5B7001E7080 /* ProjectDetailView.swift */; };
+		3A43E9112F1ADE6100BBC049 /* ShaderARModel.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3A43E9102F1ADE6100BBC049 /* ShaderARModel.metal */; };
 		3A7723BD2EE59CA600257222 /* ARRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723BC2EE59CA600257222 /* ARRenderer.swift */; };
 		3A7723C32EE5A33A00257222 /* CameraRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723C02EE5A33A00257222 /* CameraRenderer.swift */; };
 		3A7723CA2EE5A82D00257222 /* CameraPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723C92EE5A82D00257222 /* CameraPreview.swift */; };
-		3A7723CE2EE5B01500257222 /* ShaderModel.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723CD2EE5B01500257222 /* ShaderModel.metal */; };
 		3A7723D22EE5C5F700257222 /* ShaderIndicator.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723D12EE5C5F700257222 /* ShaderIndicator.metal */; };
 		3A86A9782EED8EE600E21584 /* PBRRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A86A9772EED8EE600E21584 /* PBRRenderer.swift */; };
 		3A8E95892EBF5ED100884160 /* GalleryPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A8E95882EBF5ED100884160 /* GalleryPicker.swift */; };
@@ -136,10 +136,10 @@
 		3A06CBD22EB7FFBD00984DCA /* TagDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagDetailView.swift; sourceTree = "<group>"; };
 		3A0A42DA2EE5EA760024CB2D /* ShaderPBRModel.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ShaderPBRModel.metal; sourceTree = "<group>"; };
 		3A43C4F42EAAB5B7001E7080 /* ProjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDetailView.swift; sourceTree = "<group>"; };
+		3A43E9102F1ADE6100BBC049 /* ShaderARModel.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ShaderARModel.metal; sourceTree = "<group>"; };
 		3A7723BC2EE59CA600257222 /* ARRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARRenderer.swift; sourceTree = "<group>"; };
 		3A7723C02EE5A33A00257222 /* CameraRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraRenderer.swift; sourceTree = "<group>"; };
 		3A7723C92EE5A82D00257222 /* CameraPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreview.swift; sourceTree = "<group>"; };
-		3A7723CD2EE5B01500257222 /* ShaderModel.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ShaderModel.metal; sourceTree = "<group>"; };
 		3A7723D12EE5C5F700257222 /* ShaderIndicator.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ShaderIndicator.metal; sourceTree = "<group>"; };
 		3A86A9772EED8EE600E21584 /* PBRRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PBRRenderer.swift; sourceTree = "<group>"; };
 		3A8E95882EBF5ED100884160 /* GalleryPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryPicker.swift; sourceTree = "<group>"; };
@@ -326,7 +326,7 @@
 			children = (
 				3A0194D62EE449A9001374A1 /* ShaderLut.metal */,
 				3A7723D12EE5C5F700257222 /* ShaderIndicator.metal */,
-				3A7723CD2EE5B01500257222 /* ShaderModel.metal */,
+				3A43E9102F1ADE6100BBC049 /* ShaderARModel.metal */,
 				3A0A42DA2EE5EA760024CB2D /* ShaderPBRModel.metal */,
 				3AE72F682ECD05C7005B35BC /* ShaderNv12ToLinear709.metal */,
 				1F2A9A362E42216600C304FA /* LutExposure.cube */,
@@ -572,9 +572,9 @@
 				3A43C4F52EAAB5B7001E7080 /* ProjectDetailView.swift in Sources */,
 				1F9B3E992E1AE48C005F95A0 /* Item.swift in Sources */,
 				3A7723D22EE5C5F700257222 /* ShaderIndicator.metal in Sources */,
+				3A43E9112F1ADE6100BBC049 /* ShaderARModel.metal in Sources */,
 				1F9B3E952E1AE48C005F95A0 /* filmlogApp.swift in Sources */,
 				3AC4E1412ED379FF00A3E09B /* FilePicker.swift in Sources */,
-				3A7723CE2EE5B01500257222 /* ShaderModel.metal in Sources */,
 				3AE72F6A2ECD05C7005B35BC /* ShaderNv12ToLinear709.metal in Sources */,
 				3A86A9782EED8EE600E21584 /* PBRRenderer.swift in Sources */,
 				1F62CE0F2E21608C002DBAA3 /* CameraModel.swift in Sources */,

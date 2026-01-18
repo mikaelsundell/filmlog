@@ -56,20 +56,6 @@ vertex VSOut modelPBRVS(
     return out;
 }
 
-vertex VSOut modelPBRVS_UVDebug(
-    VSIn in [[stage_in]],
-    constant ModelUniforms& U [[buffer(10)]]
-) {
-    VSOut out;
-    out.position = U.mvp * float4(in.position, 1.0);
-    out.worldPos = (U.modelMatrix * float4(in.position, 1.0)).xyz;
-    out.normalW  = normalize(U.normalMatrix * in.normal);
-    out.tangentW = float3(1,0,0);
-    out.bitangentW = float3(0,1,0);
-    out.uv = in.uv;
-    return out;
-}
-
 float DistributionGGX(float3 N, float3 H, float roughness)
 {
     float a  = roughness * roughness;
@@ -127,11 +113,6 @@ fragment float4 modelPBRFS(
 
         albedo *= texColor;
     }
-    
-    
-    
-
-    
     
     // --- Metallic / roughness ---
     float metallic = P.metallicFactor;
