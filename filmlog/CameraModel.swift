@@ -393,9 +393,6 @@ class CameraModel: NSObject, ObservableObject {
     
     func pauseAR() {
         sessionQueue.async {
-            if let arSession = self.arSession {
-                //arSession.pause()
-            }
             DispatchQueue.main.async {
                 self.captureAR = false
             }

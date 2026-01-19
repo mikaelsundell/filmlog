@@ -76,16 +76,13 @@ class SharedStorageFile: ObservableObject, Identifiable {
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path) else {
             return nil
         }
-
         self.url = url
         self.name = url.lastPathComponent
         self.fileExtension = url.pathExtension.lowercased()
         self.kind = kind
-
         self.created = attrs[.creationDate] as? Date ?? .distantPast
         self.modified = attrs[.modificationDate] as? Date ?? .distantPast
         self.fileSize = attrs[.size] as? Int64 ?? 0
-
         generateThumbnail()
     }
 

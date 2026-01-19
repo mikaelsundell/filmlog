@@ -67,9 +67,8 @@ final class MetalPBRRenderer {
     private(set) weak var mtkView: MTKView?
 
     private var device: MTLDevice
-    private var model: MetalPBRLoader.PBRModel?
-    private let loader: MetalPBRLoader
-
+    private var model: PBRModel?
+    
     private var pbrPipeline: MTLRenderPipelineState?
     private var shadowDepthPipeline: MTLRenderPipelineState?
     private var contactShadowMaskPipeline: MTLRenderPipelineState!
@@ -97,7 +96,6 @@ final class MetalPBRRenderer {
         self.device = device
         self.mtkView = mtkView
         self.textureLoader = MTKTextureLoader(device: device)
-        self.loader = MetalPBRLoader(device: device)
         
         let depthDesc = MTLDepthStencilDescriptor()
         depthDesc.depthCompareFunction = .less
@@ -164,7 +162,7 @@ final class MetalPBRRenderer {
             let modelMatrix = mesh.transform
             var su = ShadowDepthUniforms(lightMVP: heightVP * modelMatrix)
 
-            if let vb0 = mesh.mtkMesh.vertexBuffers.first {
+            if let vb0 = mesh.mesh.vertexBuffers.first {
                 encoder.setVertexBuffer(vb0.buffer, offset: vb0.offset, index: 0)
             }
             encoder.setVertexBytes(
@@ -173,7 +171,7 @@ final class MetalPBRRenderer {
                 index: 1
             )
 
-            for sub in mesh.mtkMesh.submeshes {
+            for sub in mesh.mesh.submeshes {
                 encoder.drawIndexedPrimitives(
                     type: sub.primitiveType,
                     indexCount: sub.indexCount,
@@ -415,7 +413,7 @@ final class MetalPBRRenderer {
     
     private func renderMeshes(
         encoder: MTLRenderCommandEncoder,
-        model: MetalPBRLoader.PBRModel,
+        model: PBRModel,
         projection: simd_float4x4,
         viewMatrix: simd_float4x4,
         globalModelScale: simd_float4x4,
@@ -432,7 +430,7 @@ final class MetalPBRRenderer {
                 worldPosition: cameraWorldPos
             )
 
-            for (i, vtx) in mesh.mtkMesh.vertexBuffers.enumerated() {
+            for (i, vtx) in mesh.mesh.vertexBuffers.enumerated() {
                 encoder.setVertexBuffer(vtx.buffer, offset: vtx.offset, index: i)
             }
 
@@ -464,7 +462,7 @@ final class MetalPBRRenderer {
             encoder.setFragmentTexture(mesh.material.roughnessTexture, index: 2)
             encoder.setFragmentTexture(mesh.material.normalTexture, index: 3)
 
-            for sub in mesh.mtkMesh.submeshes {
+            for sub in mesh.mesh.submeshes {
                 encoder.drawIndexedPrimitives(
                     type: sub.primitiveType,
                     indexCount: sub.indexCount,
@@ -478,37 +476,44 @@ final class MetalPBRRenderer {
 
     func loadModel(from url: URL) {
         do {
-            let result = try loader.loadModel(from: url)
-            self.model = result.model
+            let materialLoader = PBRMaterialLoader(device: device)
+            let modelFactory = PBRModelLoader(
+                device: device,
+                materialLoader: materialLoader
+            )
+            
+            let loadedModel = try modelFactory.loadModel(from: url)
+            self.model = loadedModel
+
             if pbrPipeline == nil {
                 self.pbrPipeline =
-                    try makePBRPipeline(
-                        mdlMesh: result.referenceMesh,
-                        vertexFunction: "modelPBRVS",
-                        fragmentFunction: "modelPBRFS"
-                    )
-
+                try makePBRPipeline(
+                    vertexDescriptor: loadedModel.vertexDescriptor,
+                    vertexFunction: "modelPBRVS",
+                    fragmentFunction: "modelPBRFS"
+                )
+                
                 self.blurPipeline =
-                    try makeBlurPipeline(fragmentFunction: "blurFS")
-
+                try makeBlurPipeline(fragmentFunction: "blurFS")
+                
                 self.shadowDepthPipeline =
-                    try makeShadowDepthPipeline(
-                        mdlMesh: result.referenceMesh,
-                        vertexFunction: "shadowDepthVS",
-                        fragmentFunction: "shadowDepthFS"
-                    )
-
+                try makeShadowDepthPipeline(
+                    vertexDescriptor: loadedModel.vertexDescriptor,
+                    vertexFunction: "shadowDepthVS",
+                    fragmentFunction: "shadowDepthFS"
+                )
+                
                 self.contactShadowMaskPipeline =
-                    try makeContactShadowMaskPipeline(
-                        vertexFunction: "groundVS",
-                        fragmentFunction: "contactShadowMaskFS"
-                    )
-
+                try makeContactShadowMaskPipeline(
+                    vertexFunction: "groundVS",
+                    fragmentFunction: "contactShadowMaskFS"
+                )
+                
                 self.groundPipeline =
-                    try makeGroundPipeline(
-                        vertexFunction: "groundVS",
-                        fragmentFunction: "groundFS"
-                    )
+                try makeGroundPipeline(
+                    vertexFunction: "groundVS",
+                    fragmentFunction: "groundFS"
+                )
             }
         } catch {
             print("model load failed:", error)
@@ -561,7 +566,7 @@ final class MetalPBRRenderer {
     }
     
     private func computeHeightVP(
-        model: MetalPBRLoader.PBRModel,
+        model: PBRModel,
     ) -> (simd_float4x4, SIMD3<Float>, Float, Float) {
         let b = modelBoundsWorld(model)
         let minB = b?.min ?? SIMD3<Float>(-0.5, 0.0, -0.5)
@@ -588,7 +593,7 @@ final class MetalPBRRenderer {
         return (proj * view, center, footprint, maxHeight)
     }
     
-    private func modelBoundsWorld(_ model: MetalPBRLoader.PBRModel)
+    private func modelBoundsWorld(_ model: PBRModel)
         -> (min: SIMD3<Float>, max: SIMD3<Float>)?
     {
         var minOut = SIMD3<Float>(.greatestFiniteMagnitude, .greatestFiniteMagnitude, .greatestFiniteMagnitude)
@@ -690,7 +695,7 @@ final class MetalPBRRenderer {
     }
 
     private func makeShadowDepthPipeline(
-        mdlMesh: MDLMesh,
+        vertexDescriptor: MDLVertexDescriptor,
         vertexFunction: String,
         fragmentFunction: String
     ) throws -> MTLRenderPipelineState {
@@ -709,7 +714,7 @@ final class MetalPBRRenderer {
         }
 
         let metalVertexDescriptor =
-            MTKMetalVertexDescriptorFromModelIO(mdlMesh.vertexDescriptor)
+            MTKMetalVertexDescriptorFromModelIO(vertexDescriptor)
 
         let desc = MTLRenderPipelineDescriptor()
         desc.vertexFunction = vfn
@@ -774,9 +779,7 @@ final class MetalPBRRenderer {
         }
     }
 
-
-
-    private func makePBRPipeline(mdlMesh: MDLMesh, vertexFunction: String, fragmentFunction: String) throws -> MTLRenderPipelineState {
+    private func makePBRPipeline(vertexDescriptor: MDLVertexDescriptor, vertexFunction: String, fragmentFunction: String) throws -> MTLRenderPipelineState {
         let library = try device.makeDefaultLibrary(bundle: .main)
 
         guard let vfn = library.makeFunction(name: vertexFunction),
@@ -786,7 +789,7 @@ final class MetalPBRRenderer {
                           userInfo: [NSLocalizedDescriptionKey: "Missing shader functions \(vertexFunction)/\(fragmentFunction)"])
         }
 
-        let metalVertexDescriptor = MTKMetalVertexDescriptorFromModelIO(mdlMesh.vertexDescriptor)
+        let metalVertexDescriptor = MTKMetalVertexDescriptorFromModelIO(vertexDescriptor)
 
         let desc = MTLRenderPipelineDescriptor()
         desc.vertexFunction = vfn

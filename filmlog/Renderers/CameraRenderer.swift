@@ -121,15 +121,26 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         arRenderer = ARRenderer(device: device, mtkView: view)
         pbrRenderer = PBRRenderer(device: device, mtkView: view)
         
-        /*if !testFileLoaded {
+        if !testFileLoaded {
             testFileLoaded = true
+            let materialLoader = PBRMaterialLoader(device: device)
+            let modelFactory = PBRModelLoader(
+                device: device,
+                materialLoader: materialLoader
+            )
             if let firstFile = testLoadFirstFile() {
                 print("loading first AR file:", firstFile.lastPathComponent)
-                pbrRenderer.loadModel(from: firstFile)
+                do {
+                    let loadedModel = try modelFactory.loadModel(from: firstFile)
+                    pbrRenderer.model = loadedModel
+                } catch {
+                    print("failed to load PBR model:", error)
+                    pbrRenderer.model = nil
+                }
             } else {
                 print("no AR files found in shared storage")
             }
-        }*/
+        }
 
         loadCurrentLut()
     }
@@ -307,28 +318,42 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
     
     func updateARCamera(_ camera: ARCamera) {
         guard let view = mtkView,
-              let renderer = arRenderer,
-              let orientation = view.window?.windowScene?.interfaceOrientation else { return }
+              let orientation = view.window?.windowScene?.interfaceOrientation
+        else { return }
 
-        let resolution = SIMD2<Float>(
-            Float(camera.imageResolution.width),
-            Float(camera.imageResolution.height)
-        )
         let projection = camera.projectionMatrix(
             for: orientation,
             viewportSize: view.drawableSize,
             zNear: 0.01,
             zFar: 100.0
         )
-        let viewM = camera.viewMatrix(for: orientation)
-        renderer.cameraData = ARRenderer.CameraData(
-            resolution: resolution,
+
+        let viewMatrix = camera.viewMatrix(for: orientation)
+        let cameraWorld = simd_inverse(viewMatrix)
+
+        let camPos = SIMD3<Float>(
+            cameraWorld.columns.3.x,
+            cameraWorld.columns.3.y,
+            cameraWorld.columns.3.z
+        )
+
+        arRenderer?.cameraData = .init(
+            resolution: SIMD2(
+                Float(camera.imageResolution.width),
+                Float(camera.imageResolution.height)
+            ),
             intrinsics: camera.intrinsics,
-            transform: simd_inverse(viewM),
+            transform: cameraWorld,
             projection: projection
         )
+
+        pbrRenderer?.cameraData = .init(
+            projection: projection,
+            view: viewMatrix,
+            worldPosition: camPos
+        )
     }
-    
+
     func clearARCamera() {
         guard let renderer = arRenderer else { return }
         renderer.cameraData = nil

@@ -54,6 +54,7 @@
 		3AC4E14B2EDB55D000A3E09B /* TagPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AC4E14A2EDB55D000A3E09B /* TagPicker.swift */; };
 		3AC4E14D2EDB570100A3E09B /* TagView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AC4E14C2EDB570100A3E09B /* TagView.swift */; };
 		3ACD5E182EDF38E700F88D68 /* ImagePresentationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ACD5E172EDF38E700F88D68 /* ImagePresentationView.swift */; };
+		3AD33C1C2F1D8B3800E87EB6 /* PBRLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AD33C1A2F1D8B3800E87EB6 /* PBRLoader.swift */; };
 		3AE72F6A2ECD05C7005B35BC /* ShaderNv12ToLinear709.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3AE72F682ECD05C7005B35BC /* ShaderNv12ToLinear709.metal */; };
 /* End PBXBuildFile section */
 
@@ -151,6 +152,7 @@
 		3AC4E14A2EDB55D000A3E09B /* TagPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagPicker.swift; sourceTree = "<group>"; };
 		3AC4E14C2EDB570100A3E09B /* TagView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagView.swift; sourceTree = "<group>"; };
 		3ACD5E172EDF38E700F88D68 /* ImagePresentationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePresentationView.swift; sourceTree = "<group>"; };
+		3AD33C1A2F1D8B3800E87EB6 /* PBRLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PBRLoader.swift; sourceTree = "<group>"; };
 		3AE72F682ECD05C7005B35BC /* ShaderNv12ToLinear709.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ShaderNv12ToLinear709.metal; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -246,11 +248,12 @@
 				1F9B3E982E1AE48C005F95A0 /* Item.swift */,
 				1F64D2E32E1B1362009EA1A8 /* Models.swift */,
 				3A923C462EE4599000911E30 /* SharedStorage.swift */,
-				1F9B3E9C2E1AE48F005F95A0 /* Preview Content */,
-				3A7723C82EE5A49A00257222 /* Shaders */,
-				3A7723BF2EE5A32700257222 /* Renderers */,
+				3AD33C1B2F1D8B3800E87EB6 /* Loaders */,
 				3A7723C72EE5A3C400257222 /* Pickers */,
+				3A7723BF2EE5A32700257222 /* Renderers */,
+				3A7723C82EE5A49A00257222 /* Shaders */,
 				3A7723C62EE5A38B00257222 /* Views */,
+				1F9B3E9C2E1AE48F005F95A0 /* Preview Content */,
 			);
 			path = filmlog;
 			sourceTree = "<group>";
@@ -339,6 +342,14 @@
 				1F2A9A3E2E422EF300C304FA /* LutKodakWarm.cube */,
 			);
 			path = Shaders;
+			sourceTree = "<group>";
+		};
+		3AD33C1B2F1D8B3800E87EB6 /* Loaders */ = {
+			isa = PBXGroup;
+			children = (
+				3AD33C1A2F1D8B3800E87EB6 /* PBRLoader.swift */,
+			);
+			path = Loaders;
 			sourceTree = "<group>";
 		};
 		3AE02C322EE5F93A008E9583 /* Frameworks */ = {
@@ -574,6 +585,7 @@
 				3A7723D22EE5C5F700257222 /* ShaderIndicator.metal in Sources */,
 				3A43E9112F1ADE6100BBC049 /* ShaderARModel.metal in Sources */,
 				1F9B3E952E1AE48C005F95A0 /* filmlogApp.swift in Sources */,
+				3AD33C1C2F1D8B3800E87EB6 /* PBRLoader.swift in Sources */,
 				3AC4E1412ED379FF00A3E09B /* FilePicker.swift in Sources */,
 				3AE72F6A2ECD05C7005B35BC /* ShaderNv12ToLinear709.metal in Sources */,
 				3A86A9782EED8EE600E21584 /* PBRRenderer.swift in Sources */,
