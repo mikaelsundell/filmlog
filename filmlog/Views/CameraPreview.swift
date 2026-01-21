@@ -6,19 +6,25 @@ import SwiftUI
 import MetalKit
 
 struct CameraPreview: UIViewRepresentable {
-    let renderer: CameraRenderer
+    typealias UIViewType = MTKView
 
-    func makeUIView(context: Context) -> MTKView {
-        let mtkView = MTKView()
-        mtkView.device = MTLCreateSystemDefaultDevice()
-        mtkView.framebufferOnly = false
-        mtkView.enableSetNeedsDisplay = false
-        mtkView.isPaused = false
-        mtkView.colorPixelFormat = .bgra8Unorm_srgb
-        mtkView.preferredFramesPerSecond = 30
-        renderer.attach(to: mtkView)
-        return mtkView
+    @ObservedObject var cameraModel: CameraModel
+
+    init(cameraModel: CameraModel) {
+        self.cameraModel = cameraModel
     }
 
-    func updateUIView(_ uiView: MTKView, context: Context) { }
+    func makeUIView(context: Context) -> MTKView {
+        let view = MTKView()
+        view.device = MTLCreateSystemDefaultDevice()
+        view.framebufferOnly = false
+        view.enableSetNeedsDisplay = false
+        view.isPaused = false
+        view.colorPixelFormat = .bgra8Unorm_srgb
+        view.preferredFramesPerSecond = 30
+        cameraModel.attachRenderer(to: view)
+        return view
+    }
+
+    func updateUIView(_ uiView: MTKView, context: Context) {}
 }

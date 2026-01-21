@@ -4,7 +4,7 @@
 
 import MetalKit
 
-final class MetalView: MTKView {
+final class ModelView: MTKView {
 
     var camera: OrbitCamera?
 

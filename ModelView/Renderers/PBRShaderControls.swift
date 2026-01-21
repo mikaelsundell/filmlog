@@ -4,7 +4,7 @@
 
 import simd
 
-struct MetalShaderControls {
+struct PBRShaderControls {
     var keyIntensity: Float      = 2.8
     var ambientIntensity: Float  = 0.4
     var specularIntensity: Float = 1.8

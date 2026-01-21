@@ -1,5 +1,5 @@
 #include <metal_stdlib>
-#include "ShaderLut.metal"
+#include "LutShader.metal"
 using namespace metal;
 
 struct ModelUniforms {

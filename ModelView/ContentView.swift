@@ -9,15 +9,15 @@ extension Notification.Name {
     static let loadMetalModel = Notification.Name("LoadMetalModel")
 }
 
-struct MetalViewRepresentable: NSViewRepresentable {
-    @Binding var controls: MetalShaderControls
+struct ModelViewRepresentable: NSViewRepresentable {
+    @Binding var controls: PBRShaderControls
     
     func makeCoordinator() -> Coordinator {
         Coordinator()
     }
 
-    func makeNSView(context: Context) -> MetalView {
-        let view = MetalView(frame: .zero)
+    func makeNSView(context: Context) -> ModelView {
+        let view = ModelView(frame: .zero)
 
         guard let device = MTLCreateSystemDefaultDevice() else {
             fatalError("Metal not supported")
@@ -38,7 +38,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
         view.isPaused = false
         view.framebufferOnly = false
 
-        let renderer = MetalRenderer(mtkView: view)
+        let renderer = CameraRenderer(view: view)
         context.coordinator.renderer = renderer
         view.delegate = renderer
 
@@ -58,21 +58,21 @@ struct MetalViewRepresentable: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ nsView: MetalView, context: Context) {
+    func updateNSView(_ nsView: ModelView, context: Context) {
         context.coordinator.renderer?.shaderControls = controls
     }
     
     final class Coordinator {
-        var renderer: MetalRenderer?
+        var renderer: CameraRenderer?
     }
 }
 
 struct ContentView: View {
-    @State private var controls = MetalShaderControls()
+    @State private var controls = PBRShaderControls()
 
     var body: some View {
         VStack(spacing: 0) {
-            MetalViewRepresentable(controls: $controls)
+            ModelViewRepresentable(controls: $controls)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             Divider()

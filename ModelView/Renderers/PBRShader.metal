@@ -90,7 +90,7 @@ struct VSOut {
     float2 uv;
 };
 
-vertex VSOut modelPBRVS(
+vertex VSOut modelVS(
     VSIn in [[stage_in]],
     constant ModelUniforms& U [[buffer(10)]]
 ) {
@@ -111,7 +111,7 @@ vertex VSOut modelPBRVS(
 
 constant float3 TOP_LIGHT_DIR = float3(0.0, 0.2425356, 0.9701425);
 
-float DistributionGGX(float3 N, float3 H, float roughness)
+float distributionGGX(float3 N, float3 H, float roughness)
 {
     float a  = roughness * roughness;
     float a2 = a * a;
@@ -127,7 +127,7 @@ float GeometrySchlickGGX(float NdotV, float roughness)
     return NdotV / max(NdotV * (1.0 - k) + k, 1e-4);
 }
 
-float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
+float geometrySmith(float3 N, float3 V, float3 L, float roughness)
 {
     return GeometrySchlickGGX(max(dot(N, V), 0.0), roughness) *
            GeometrySchlickGGX(max(dot(N, L), 0.0), roughness);
@@ -138,7 +138,7 @@ float3 fresnelSchlick(float cosTheta, float3 F0)
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
-fragment float4 modelPBRFS(
+fragment float4 modelFS(
     VSOut in [[stage_in]],
     constant ModelUniforms& U [[buffer(10)]],
     constant PBRFragmentUniforms& P [[buffer(0)]],
@@ -190,8 +190,8 @@ fragment float4 modelPBRFS(
     // cok–Torrance direct lighting
     float3 F0 = mix(float3(0.04), albedo, metallic);
     float3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
-    float  D  = DistributionGGX(N, H, roughness);
-    float  G  = GeometrySmith(N, V, L, roughness);
+    float  D  = distributionGGX(N, H, roughness);
+    float  G  = geometrySmith(N, V, L, roughness);
 
     float3 specular = (D * G * F) / max(4.0 * NdotL * NdotV, 1e-4);
     specular *= C.specularIntensity;
@@ -206,7 +206,7 @@ fragment float4 modelPBRFS(
         NdotL *
         C.keyIntensity;
 
-    // generic top light - z-up, separation
+    // generic top light - z-up
     float3 Lt = TOP_LIGHT_DIR;
     float NdotLt = max(dot(N, Lt), 0.0);
 
@@ -245,7 +245,6 @@ fragment float4 modelPBRFS(
     return float4(color, P.baseColorFactor.a);
 }
 
-
 struct ShadowDepthOut { float4 pos [[position]]; };
 
 vertex ShadowDepthOut shadowDepthVS(
@@ -279,7 +278,32 @@ vertex GroundVSOut groundVS(
     return o;
 }
 
-fragment float contactShadowMaskFS(
+fragment float4 groundFS(
+    GroundVSOut in [[stage_in]],
+    constant GroundUniforms& G [[buffer(1)]],
+    texture2d<float> shadowMask [[texture(0)]],
+    sampler s [[sampler(0)]]
+) {
+    float3 viewDir = normalize(G.cameraWorldPos - in.worldPos.xyz);
+    float3 planeNormalW = float3(0.0, 0.0, 1.0);
+
+    if (dot(planeNormalW, viewDir) <= 0.0)
+        discard_fragment();
+    
+    float3 ndc = in.lightPos.xyz / max(in.lightPos.w, 1e-6);
+    float2 uv  = ndc.xy * 0.5 + 0.5;
+    uv.y = 1.0 - uv.y;
+
+    if (any(uv < 0.0) || any(uv > 1.0))
+        discard_fragment();
+
+    float alpha = shadowMask.sample(s, uv).r;
+    alpha = alpha * 0.5;
+    
+    return float4(0.0, 0.0, 0.0, alpha);
+}
+
+fragment float shadowMaskFS(
     GroundVSOut in [[stage_in]],
     constant GroundUniforms& G [[buffer(1)]],
     depth2d<float> heightMap [[texture(0)]],
@@ -317,27 +341,3 @@ fragment float blurFS(
     return sum;
 }
 
-fragment float4 groundFS(
-    GroundVSOut in [[stage_in]],
-    constant GroundUniforms& G [[buffer(1)]],
-    texture2d<float> shadowMask [[texture(0)]],
-    sampler s [[sampler(0)]]
-) {
-    float3 viewDir = normalize(G.cameraWorldPos - in.worldPos.xyz);
-    float3 planeNormalW = float3(0.0, 0.0, 1.0);
-
-    if (dot(planeNormalW, viewDir) <= 0.0)
-        discard_fragment();
-    
-    float3 ndc = in.lightPos.xyz / max(in.lightPos.w, 1e-6);
-    float2 uv  = ndc.xy * 0.5 + 0.5;
-    uv.y = 1.0 - uv.y;
-
-    if (any(uv < 0.0) || any(uv > 1.0))
-        discard_fragment();
-
-    float alpha = shadowMask.sample(s, uv).r;
-    alpha = alpha * 0.5;
-    
-    return float4(0.0, 0.0, 0.0, alpha);
-}

@@ -141,6 +141,31 @@ extension float3x3 {
 }
 
 extension float4x4 {
+    init(
+        orthoLeft l: Float,
+        right r: Float,
+        bottom b: Float,
+        top t: Float,
+        nearZ n: Float,
+        farZ f: Float
+    ) {
+        let rl = r - l
+        let tb = t - b
+        let fn = f - n
+
+        self.init(
+            SIMD4<Float>( 2.0 / rl, 0, 0, 0),
+            SIMD4<Float>( 0, 2.0 / tb, 0, 0),
+            SIMD4<Float>( 0, 0, -1.0 / fn, 0),
+            SIMD4<Float>(
+                -(r + l) / rl,
+                -(t + b) / tb,
+                -n / fn,
+                1
+            )
+        )
+    }
+    
     init(perspectiveFov fovY: Float, aspect: Float, nearZ: Float, farZ: Float) {
         let y = 1 / tan(fovY * 0.5)
         let x = y / aspect
@@ -157,10 +182,12 @@ extension float4x4 {
         let s = normalize(cross(f, up))
         let u = cross(s, f)
 
-        self.init(SIMD4<Float>( s.x,  u.x, -f.x, 0),
-                  SIMD4<Float>( s.y,  u.y, -f.y, 0),
-                  SIMD4<Float>( s.z,  u.z, -f.z, 0),
-                  SIMD4<Float>(-dot(s, eye), -dot(u, eye), dot(f, eye), 1))
+        self.init(
+            SIMD4<Float>( s.x,  u.x, -f.x, 0),
+            SIMD4<Float>( s.y,  u.y, -f.y, 0),
+            SIMD4<Float>( s.z,  u.z, -f.z, 0),
+            SIMD4<Float>(-dot(s, eye), -dot(u, eye), dot(f, eye), 1)
+        )
     }
     
     init(translation t: SIMD3<Float>) {
@@ -173,6 +200,13 @@ extension float4x4 {
         self.columns.0.x = scale
         self.columns.1.y = scale
         self.columns.2.z = scale
+    }
+    
+    init(scale v: SIMD3<Float>) {
+        self = matrix_identity_float4x4
+        self.columns.0.x = v.x
+        self.columns.1.y = v.y
+        self.columns.2.z = v.z
     }
     
     static func rotationX(_ angle: Float) -> float4x4 {
@@ -227,6 +261,25 @@ extension simd_float3x3 {
 }
 
 extension simd_float4x4 {
+    init(lookAt eye: SIMD3<Float>,
+         _ center: SIMD3<Float>,
+         _ up: SIMD3<Float>) {
+        let f = normalize(center - eye)
+        let r = normalize(cross(f, up))
+        let u = cross(r, f)
+        let t = SIMD3<Float>(
+            -dot(r, eye),
+            -dot(u, eye),
+             dot(f, eye)
+        )
+        self.init(
+            SIMD4<Float>( r.x,  u.x, -f.x, 0),
+            SIMD4<Float>( r.y,  u.y, -f.y, 0),
+            SIMD4<Float>( r.z,  u.z, -f.z, 0),
+            SIMD4<Float>( t.x,  t.y,  t.z, 1)
+        )
+    }
+    
     var position: SIMD3<Float> {
         SIMD3(columns.3.x, columns.3.y, columns.3.z)
     }

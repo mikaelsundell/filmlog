@@ -205,7 +205,7 @@ struct ShotViewfinderView: View {
                                         .animation(.easeOut(duration: 0.3), value: scaleRatio)
                                     
                                     GeometryReader { geo in
-                                        CameraPreview(renderer: cameraModel.renderer)
+                                        CameraPreview(cameraModel: cameraModel)
                                     }
                                 }
                                 .scaleEffect(scale)
@@ -448,7 +448,7 @@ struct ShotViewfinderView: View {
                        onChange: { selected in
                            selectedLutTypeValue = selected
                            if let lutType = LUTType(rawValue: selected) {
-                               cameraModel.renderer.setLutType(lutType)
+                               cameraModel.switchLUT(lutType)
                            }
                        },
                        onRelease: { _ in }
@@ -832,7 +832,7 @@ struct ShotViewfinderView: View {
                     }
                     switchExposure()
                     if let lutType = LUTType(rawValue: selectedLutTypeValue) {
-                        cameraModel.renderer.setLutType(lutType)
+                        cameraModel.switchLUT(lutType)
                     }
                 case .failure(let error):
                     print("camera error: \(error.localizedDescription)")

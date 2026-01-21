@@ -39,9 +39,10 @@ class ARRenderer {
     }
     public private(set) var planeY: Float = 0
     public var cameraData: CameraData?
-
+    
     private(set) weak var mtkView: MTKView?
-    private var device: MTLDevice!
+    private var renderContext: RenderContext
+    
     private var depthState: MTLDepthStencilState!
     private var meshAllocator: MTKMeshBufferAllocator!
     private var testCubePipeline: MTLRenderPipelineState?
@@ -60,26 +61,27 @@ class ARRenderer {
 
     private var startTime = CACurrentMediaTime()
 
-    init(device: MTLDevice, mtkView: MTKView) {
-        self.device = device
-        self.mtkView = mtkView
-        self.meshAllocator = MTKMeshBufferAllocator(device: device)
+    init(renderContext: RenderContext) {
+        self.renderContext = renderContext
+        self.meshAllocator = MTKMeshBufferAllocator(device: renderContext.device)
         
         let depthDesc = MTLDepthStencilDescriptor()
         depthDesc.depthCompareFunction = .less
         depthDesc.isDepthWriteEnabled  = true
-        depthState = device.makeDepthStencilState(descriptor: depthDesc)
+        depthState = renderContext.device.makeDepthStencilState(descriptor: depthDesc)
 
         makeTestCubeModel()
         makeIndicatorModel()
     }
     
-    func draw(with encoder: MTLRenderCommandEncoder, drawableSize: CGSize) {
+    func draw(with cmd: MTLCommandBuffer, descriptor: MTLRenderPassDescriptor, drawableSize: CGSize) {
         guard let _ = self.cameraData,
               let model = self.model,
               let testCubeModel = self.testCubeModel,
               let testCubePipeline = self.testCubePipeline,
               let pipeline = self.pipeline else { return }
+        
+        guard let enc = cmd.makeRenderCommandEncoder(descriptor: descriptor) else { return }
         
         var uniforms = ModelUniforms(
             mvp: matrix_identity_float4x4,
@@ -92,7 +94,7 @@ class ARRenderer {
             modelMatrix: makeInitialMatrix(),
             uniforms: &uniforms,
             uniformIndex: 10,
-            encoder: encoder
+            encoder: enc
         )
         
         let center = CGPoint(
@@ -112,7 +114,7 @@ class ARRenderer {
             modelMatrix: modelMatrix,
             uniforms: &uniforms,
             uniformIndex: 10,
-            encoder: encoder
+            encoder: enc
         )
 
         indicatorUniforms.time = Float(CACurrentMediaTime() - startTime)
@@ -126,8 +128,10 @@ class ARRenderer {
             modelMatrix: modelMatrix,
             uniforms: &indicatorUniforms,
             uniformIndex: 10,
-            encoder: encoder
+            encoder: enc
         )
+        
+        enc.endEncoding()
     }
     
     func drawMesh<T: MetalUniform>(
@@ -193,7 +197,7 @@ class ARRenderer {
     }
     
     private func makeTestCubeModel() {
-        let allocator = MTKMeshBufferAllocator(device: device)
+        let allocator = MTKMeshBufferAllocator(device: renderContext.device)
         
         let box = MDLMesh(
             boxWithExtent: [0.2, 0.2, 0.2],
@@ -265,7 +269,7 @@ class ARRenderer {
         box.vertexBuffers.append(colorBuffer)
 
         do {
-            testCubeModel = try MTKMesh(mesh: box, device: device)
+            testCubeModel = try MTKMesh(mesh: box, device: renderContext.device)
         } catch {
             print("failed to build test cube model:", error)
             testCubeModel = nil
@@ -284,7 +288,7 @@ class ARRenderer {
     }
     
     private func makeIndicatorModel() {
-        let allocator = MTKMeshBufferAllocator(device: device)
+        let allocator = MTKMeshBufferAllocator(device: renderContext.device)
         let plane = MDLMesh.newPlane(
             withDimensions: [10.0, 10.0],
             segments: [1, 1],
@@ -294,7 +298,7 @@ class ARRenderer {
         plane.addNormals(withAttributeNamed: MDLVertexAttributeNormal, creaseThreshold: 0)
 
         do {
-            model = try MTKMesh(mesh: plane, device: device)
+            model = try MTKMesh(mesh: plane, device: renderContext.device)
         } catch {
             print("failed to build indicator model: \(error)")
             model = nil
@@ -373,7 +377,7 @@ class ARRenderer {
         vertexFunction: String,
         fragmentFunction: String
     ) throws -> MTLRenderPipelineState {
-        let library = try device.makeDefaultLibrary(bundle: .main)
+        let library = try renderContext.device.makeDefaultLibrary(bundle: .main)
         let vfn = library.makeFunction(name: vertexFunction)
         let ffn = library.makeFunction(name: fragmentFunction)
 
@@ -392,6 +396,6 @@ class ARRenderer {
         desc.colorAttachments[0].pixelFormat = mtkView?.colorPixelFormat ?? .bgra8Unorm
         desc.depthAttachmentPixelFormat = .depth32Float
 
-        return try device.makeRenderPipelineState(descriptor: desc)
+        return try renderContext.device.makeRenderPipelineState(descriptor: desc)
     }
 }

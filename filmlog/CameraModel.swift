@@ -4,8 +4,9 @@
 
 import ARKit
 import AVFoundation
+import MetalKit
 import UIKit
-import RealityKit
+
 
 enum ARState {
     case idle
@@ -62,10 +63,6 @@ class CameraModel: NSObject, ObservableObject {
     @Published var planeWorldTransform: simd_float4x4?
     @Published var viewSize: CGSize = .zero
     @Published var captureAR = false
-    
-    var currentViewSize: CGSize {
-        renderer.viewportSize
-    }
 
     let captureSession = AVCaptureSession()
     let sessionQueue = DispatchQueue(label: "camera.session.queue")
@@ -93,7 +90,7 @@ class CameraModel: NSObject, ObservableObject {
     private var didDrawOffscreen = false
     private var resumeARDrawOffscreen = false
     
-    public let renderer = CameraRenderer()
+    private(set) var renderer: CameraRenderer?
     
     override init() {
         super.init()
@@ -116,6 +113,21 @@ class CameraModel: NSObject, ObservableObject {
             ar.pause()
             arSession = nil
         }
+    }
+    
+    func attachRenderer(to view: MTKView) {
+        guard let device = view.device else {
+            fatalError("MTKView has no metal device")
+        }
+
+        if let renderer {
+            renderer.attach(to: view)
+            return
+        }
+
+        let renderer = CameraRenderer(device: device)
+        renderer.attach(to: view)
+        self.renderer = renderer
     }
     
     @objc private func willEnterForeground() {
@@ -391,6 +403,11 @@ class CameraModel: NSObject, ObservableObject {
         configureCamera(for: lens)
     }
     
+    func switchLUT(_ type: LUTType) {
+        guard let renderer else { return }
+        renderer.setLutType(type)
+    }
+    
     func pauseAR() {
         sessionQueue.async {
             DispatchQueue.main.async {
@@ -416,10 +433,12 @@ class CameraModel: NSObject, ObservableObject {
     }
     
     private func pauseRendering() {
+        guard let renderer else { return }
         renderer.pause()
     }
 
     private func resumeRendering() {
+        guard let renderer else { return }
         renderer.resume()
     }
     
@@ -697,23 +716,6 @@ class CameraModel: NSObject, ObservableObject {
             self.offscreenFov = CGFloat(offscreen.fov)
             self.viewFov = CGFloat(view.fov)
         }
-        
-        print("""
-        [FORMAT SELECTION]
-          lens: \(lens.rawValue)
-
-          VIEW FORMAT
-            resolution: \(view.dimensions.width)x\(view.dimensions.height)
-            fov: \(view.fov)
-            fps: \(view.minFps)–\(view.maxFps)
-
-          OFFSCREEN FORMAT
-            resolution: \(offscreen.dimensions.width)x\(offscreen.dimensions.height)
-            fov: \(offscreen.fov)
-            fps: \(offscreen.minFps)–\(offscreen.maxFps)
-
-          aspect: \(CGFloat(offscreen.dimensions.width) / CGFloat(offscreen.dimensions.height))
-        """)
     }
 
     private func checkCameraPermission() async throws {
@@ -754,7 +756,7 @@ extension CameraModel: AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
-        
+        guard let renderer else { return }
         if output === videoDataOutput {
             renderer.captureOutput(output, didOutput: sampleBuffer, from: connection)
         }
@@ -840,7 +842,9 @@ extension CameraModel: ARSessionDelegate {
                 ar.pause()
                 self.arSession = nil
             }
-            self.renderer.clearARCamera()
+
+            self.renderer?.clearARCamera()
+
             DispatchQueue.main.async {
                 self.arState = .idle
                 self.captureAR = false
@@ -862,7 +866,7 @@ extension CameraModel: ARSessionDelegate {
     
     func session(_ session: ARSession, didUpdate frame: ARFrame)
     {
-        guard captureAR else { return }
+        guard captureAR, let renderer else { return }
         let pixelBuffer = frame.capturedImage
         renderer.captureAROutput(pixelBuffer: pixelBuffer)
         if arState == .ready {
@@ -877,11 +881,12 @@ extension CameraModel: ARSessionDelegate {
     }
 
     func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
+        guard let renderer else { return }
         for anchor in anchors {
             if let probe = anchor as? AREnvironmentProbeAnchor {
                 if let cubeTexture = probe.environmentTexture {
                     DispatchQueue.main.async {
-                        self.renderer.updateAREnvironmentTexture(cubeTexture)
+                        renderer.updateAREnvironmentTexture(cubeTexture)
                     }
                 }
             }
@@ -889,7 +894,7 @@ extension CameraModel: ARSessionDelegate {
             if plane.alignment == .horizontal {
                 DispatchQueue.main.async {
                     self.planeWorldTransform = plane.transform
-                    self.renderer.updateARPlaneTransform(plane.transform)
+                    renderer.updateARPlaneTransform(plane.transform)
                 }
                 if plane.classification == .floor {
                     if arState == .scanning {

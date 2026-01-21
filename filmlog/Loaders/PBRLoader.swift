@@ -68,6 +68,87 @@ public struct PBRModel {
     }
 }
 
+public extension PBRModel {
+    func worldBounds() -> (min: SIMD3<Float>, max: SIMD3<Float>)? {
+        var minOut = SIMD3<Float>(
+            .greatestFiniteMagnitude,
+            .greatestFiniteMagnitude,
+            .greatestFiniteMagnitude
+        )
+        var maxOut = SIMD3<Float>(
+            -.greatestFiniteMagnitude,
+            -.greatestFiniteMagnitude,
+            -.greatestFiniteMagnitude
+        )
+        var found = false
+
+        for mesh in meshes {
+            guard let bounds = mesh.bounds else { continue }
+
+            let modelMatrix = mesh.transform
+            let localMin = bounds.min
+            let localMax = bounds.max
+
+            let corners: [SIMD3<Float>] = [
+                SIMD3(localMin.x, localMin.y, localMin.z),
+                SIMD3(localMax.x, localMin.y, localMin.z),
+                SIMD3(localMin.x, localMax.y, localMin.z),
+                SIMD3(localMax.x, localMax.y, localMin.z),
+                SIMD3(localMin.x, localMin.y, localMax.z),
+                SIMD3(localMax.x, localMin.y, localMax.z),
+                SIMD3(localMin.x, localMax.y, localMax.z),
+                SIMD3(localMax.x, localMax.y, localMax.z),
+            ]
+
+            for c in corners {
+                let wc = (modelMatrix * SIMD4<Float>(c, 1)).xyz
+                minOut = simd.min(minOut, wc)
+                maxOut = simd.max(maxOut, wc)
+            }
+
+            found = true
+        }
+
+        return found ? (min: minOut, max: maxOut) : nil
+    }
+
+    func heightShadowVP(
+        shadowPlaneZ: Float
+    ) -> (
+        lightVP: simd_float4x4,
+        center: SIMD3<Float>,
+        footprintRadius: Float,
+        maxHeight: Float
+    ) {
+        let b = worldBounds()
+        let minB = b?.min ?? SIMD3<Float>(-0.5, 0.0, -0.5)
+        let maxB = b?.max ?? SIMD3<Float>( 0.5, 1.0,  0.5)
+
+        let center = (minB + maxB) * 0.5
+        let ext = maxB - minB
+        let footprint = 0.5 * max(ext.x, ext.z)
+
+        let maxHeight = max(ext.y, 0.1) * 2.0 + 0.1
+
+        let view = simd_float4x4(
+            lookAt:
+                SIMD3<Float>(center.x, center.y, shadowPlaneZ),
+                SIMD3<Float>(center.x, center.y, shadowPlaneZ + 1.0),
+                SIMD3<Float>(0, 1, 0)
+        )
+
+        let pad = max(footprint, 0.25) * 1.5
+        let proj = simd_float4x4(
+            orthoLeft: -pad, right: pad,
+            bottom: -pad, top: pad,
+            nearZ: 0.0,
+            farZ: maxHeight
+        )
+
+        return (proj * view, center, footprint, maxHeight)
+    }
+}
+
 public enum PBRPrimitive {
     case box(size: SIMD3<Float>)
     case plane(size: SIMD2<Float>)

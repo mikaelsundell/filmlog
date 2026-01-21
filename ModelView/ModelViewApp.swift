@@ -5,7 +5,7 @@
 import SwiftUI
 
 @main
-struct PBRTestsApp: App {
+struct ModelViewApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()

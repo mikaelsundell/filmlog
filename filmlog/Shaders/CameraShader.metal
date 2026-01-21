@@ -150,7 +150,7 @@ float3 tetra_optimized(texture3d<float> lutTex, float3 color, sampler s) {
 }
 
 #define USE_TETRA_HIGH_PRECISION 0
-fragment float4 nv12ToLinear709FS(VSOut in [[stage_in]],
+fragment float4 cameraFS(VSOut in [[stage_in]],
                                   texture2d<float> yTex   [[texture(0)]],
                                   texture2d<float> uvTex  [[texture(1)]],
                                   texture3d<float> lutTex [[texture(2)]])
