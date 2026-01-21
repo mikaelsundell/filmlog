@@ -93,8 +93,39 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
             bytes: verts,
             length: verts.count * MemoryLayout<Float>.size
         )
-        
+
         self.pbrRenderer = PBRRenderer(renderContext: renderContext)
+        
+        // todo: test code
+        
+        let aspect =
+            Float(view.drawableSize.width / max(view.drawableSize.height, 1))
+
+        let projection = simd_float4x4(
+            perspectiveFov: .pi / 3,   // 60°
+            aspect: aspect,
+            nearZ: 0.1,
+            farZ: 100.0
+        )
+
+        let cameraPosition = SIMD3<Float>(0, 0, 3)
+        let target = SIMD3<Float>(0, 0, 0)
+        let up = SIMD3<Float>(0, 1, 0)
+
+        let viewMatrix = simd_float4x4(
+            lookAt: cameraPosition,
+            target: target,
+            up: up
+        )
+        
+        pbrRenderer.cameraData = PBRRenderer.CameraData(
+            projection: projection,
+            viewMatrix: viewMatrix,
+            worldPosition: cameraPosition
+        )
+        
+        // todo: test code
+
         self.arRenderer  = ARRenderer(renderContext: renderContext)
 
         loadCurrentLut()
@@ -102,6 +133,7 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         if !loadFirstFile {
             loadFirstFile = true
             if let url = findFirstARUrl() {
+                print("load model: \(url)")
                 pbrRenderer.loadModel(from: url)
             }
         }
@@ -117,11 +149,7 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
               let texture = yTexture,
               let descriptor = view.currentRenderPassDescriptor else { return }
         
-        print("draw ...")
-        
         if (paused) { return }
-
-        print("- not paused")
         
         descriptor.colorAttachments[0].loadAction = .clear
         descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
@@ -349,14 +377,14 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         enc.setFragmentTexture(cbcrTexture, index: 1)
         enc.setFragmentTexture(lutTexture, index: 2)
         enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-
+        enc.endEncoding()
+        
         pbrRenderer?.draw(with: cmd, descriptor: descriptor, drawableSize: viewSize)
 
         if !offscreen {
             arRenderer?.draw(with: cmd, descriptor: descriptor, drawableSize: viewSize)
         }
 
-        enc.endEncoding()
         return cmd
     }
     

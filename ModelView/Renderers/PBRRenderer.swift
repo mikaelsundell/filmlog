@@ -189,8 +189,6 @@ class PBRRenderer {
               let model,
               let pbrPipeline else { return }
 
-        print("draw...")
-        
         renderShadowMap(with: cmd)
         
         if shadowMaskTexture == nil ||
