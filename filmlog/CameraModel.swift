@@ -115,13 +115,13 @@ class CameraModel: NSObject, ObservableObject {
         }
     }
     
-    func attachRenderer(to view: MTKView) {
+    func attach(to view: MTKView) {
         guard let device = view.device else {
             fatalError("MTKView has no metal device")
         }
-
         if let renderer {
             renderer.attach(to: view)
+            self.renderer = renderer
             return
         }
 
@@ -432,16 +432,6 @@ class CameraModel: NSObject, ObservableObject {
         }
     }
     
-    private func pauseRendering() {
-        guard let renderer else { return }
-        renderer.pause()
-    }
-
-    private func resumeRendering() {
-        guard let renderer else { return }
-        renderer.resume()
-    }
-    
     func captureOffscreen(completion: @escaping (CGImage?) -> Void) {
         resumeARDrawOffscreen = (arSession != nil)
         pauseRendering()
@@ -457,7 +447,17 @@ class CameraModel: NSObject, ObservableObject {
         didDrawOffscreen = false
         enableOffscreenOutput(true)
     }
+    
+    private func pauseRendering() {
+        guard let renderer else { return }
+        renderer.pause()
+    }
 
+    private func resumeRendering() {
+        guard let renderer else { return }
+        renderer.resume()
+    }
+    
     private func mainsFrequency() -> Int {
         let region = Locale.current.region?.identifier ?? "SE"
         let sixtyHz: Set<String> = ["US","CA","MX","BR","KR","TW","PH","SA","LB"]
@@ -744,7 +744,6 @@ class CameraModel: NSObject, ObservableObject {
         }
     }
 }
-
 
 extension CameraModel: AVCaptureVideoDataOutputSampleBufferDelegate {
 

@@ -33,14 +33,19 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
     private(set) weak var mtkView: MTKView?
     private var renderContext: RenderContext
 
-    private var pipeline: MTLRenderPipelineState!
+    private var cameraPipeline: MTLRenderPipelineState!
+    private var compositePipeline: MTLRenderPipelineState!
     private var vertexBuffer: MTLBuffer!
     private var yTexture: MTLTexture?
     private var cbcrTexture: MTLTexture?
+    private var cameraTexture: MTLTexture?
+    private var pbrTexture: MTLTexture?
     private var offscreenTexture: MTLTexture?
     private var offscreenDepthTexture: MTLTexture?
     private var lutTexture:  MTLTexture?
     private var textureCache: CVMetalTextureCache!
+    
+    private var linearSampler: MTLSamplerState!
 
     private var captureRawData: [UInt8]? = nil
     private var pendingCapture: ((CGImage?) -> Void)?
@@ -63,15 +68,30 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
             sampleCount: 1
         )
         
+        let sampDesc = MTLSamplerDescriptor()
+        sampDesc.minFilter = .linear
+        sampDesc.magFilter = .linear
+        sampDesc.mipFilter = .notMipmapped
+        sampDesc.sAddressMode = .clampToEdge
+        sampDesc.tAddressMode = .clampToEdge
+        sampDesc.rAddressMode = .clampToEdge
+        sampDesc.normalizedCoordinates = true
+
+        linearSampler = device.makeSamplerState(descriptor: sampDesc)
+
+        
         super.init()
     }
     
     func attach(to view: MTKView) {
+        if mtkView !== view {
+            detach()
+        }
         self.mtkView = view
         guard let device = view.device else { return }
         view.delegate = self
         view.sampleCount = 1
-        view.clearColor = MTLClearColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0)
+        view.clearColor = MTLClearColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 0.0)
         view.colorPixelFormat = .bgra8Unorm_srgb
         view.depthStencilPixelFormat = .depth32Float
 
@@ -79,8 +99,9 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         renderContext.depthPixelFormat = view.depthStencilPixelFormat
         renderContext.sampleCount = view.sampleCount
 
-        try? makePipeline(pixelFormat: view.colorPixelFormat)
-
+        try? makeCameraPipeline(pixelFormat: view.colorPixelFormat)
+        try? makeCompositePipeline(pixelFormat: view.colorPixelFormat)
+        
         CVMetalTextureCacheCreate(nil, nil, device, nil, &textureCache)
 
         let verts: [Float] = [
@@ -94,7 +115,9 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
             length: verts.count * MemoryLayout<Float>.size
         )
 
-        self.pbrRenderer = PBRRenderer(renderContext: renderContext)
+        if pbrRenderer == nil {
+            pbrRenderer = PBRRenderer(renderContext: renderContext)
+        }
         
         // todo: test code
         
@@ -126,10 +149,10 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         
         // todo: test code
 
-        self.arRenderer  = ARRenderer(renderContext: renderContext)
+        //self.arRenderer  = ARRenderer(renderContext: renderContext)
 
         loadCurrentLut()
-
+    
         if !loadFirstFile {
             loadFirstFile = true
             if let url = findFirstARUrl() {
@@ -137,6 +160,23 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
                 pbrRenderer.loadModel(from: url)
             }
         }
+    }
+    
+    func detach() {
+        mtkView?.delegate = nil
+        mtkView = nil
+
+        vertexBuffer = nil
+
+        offscreenTexture = nil
+        offscreenDepthTexture = nil
+
+        yTexture = nil
+        cbcrTexture = nil
+
+        textureCache = nil
+
+        viewportSize = .zero
     }
     
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
@@ -152,8 +192,8 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         if (paused) { return }
         
         descriptor.colorAttachments[0].loadAction = .clear
-        descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
-
+        descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        
         guard let cmd = render(
             to: descriptor,
             viewSize: view.drawableSize,
@@ -206,7 +246,7 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         rpd.colorAttachments[0].texture = offscreenTexture
         rpd.colorAttachments[0].loadAction = .clear
         rpd.colorAttachments[0].storeAction = .store
-        rpd.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
+        rpd.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
         
         rpd.depthAttachment.texture = offscreenDepthTexture
         rpd.depthAttachment.loadAction = .clear
@@ -354,40 +394,102 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         renderer.cameraData = nil
     }
     
-    func setLutType(_ type: LUTType) { currentLutType = type }
-    
-    private func render(to descriptor: MTLRenderPassDescriptor, viewSize: CGSize, videoSize: CGSize, offscreen: Bool = false) -> MTLCommandBuffer? {
-        guard let pipeline,
-              let yTexture,
-              let cbcrTexture else { return nil }
-
-        guard let cmd = renderContext.commandQueue.makeCommandBuffer(),
-              let enc = cmd.makeRenderCommandEncoder(descriptor: descriptor) else { return nil }
-
-        var cameraUniforms = CameraUniforms(
-            viewSize: SIMD2(Float(viewSize.width), Float(viewSize.height)),
-            videoSize: SIMD2(Float(yTexture.width), Float(yTexture.height)),
-            offscreen: offscreen ? 1 : 0
-        )
-        
-        enc.setRenderPipelineState(pipeline)
-        enc.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
-        enc.setVertexBytes(&cameraUniforms, length: MemoryLayout<CameraUniforms>.size, index: 1)
-        enc.setFragmentTexture(yTexture, index: 0)
-        enc.setFragmentTexture(cbcrTexture, index: 1)
-        enc.setFragmentTexture(lutTexture, index: 2)
-        enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-        enc.endEncoding()
-        
-        pbrRenderer?.draw(with: cmd, descriptor: descriptor, drawableSize: viewSize)
-
-        if !offscreen {
-            arRenderer?.draw(with: cmd, descriptor: descriptor, drawableSize: viewSize)
-        }
-
-        return cmd
+    func setLutType(_ type: LUTType) {
+        currentLutType = type
     }
     
+    private func render(
+        to descriptor: MTLRenderPassDescriptor,
+        viewSize: CGSize,
+        videoSize: CGSize,
+        offscreen: Bool = false
+    ) -> MTLCommandBuffer? {
+
+        guard let yTexture,
+              let cbcrTexture,
+              let cameraPipeline,
+              let compositePipeline,
+              let cmd = renderContext.commandQueue.makeCommandBuffer()
+        else { return nil }
+
+        let w = Int(viewSize.width)
+        let h = Int(viewSize.height)
+
+        if cameraTexture == nil ||
+            cameraTexture!.width != w ||
+            cameraTexture!.height != h {
+            cameraTexture = makeCameraTexture(size: viewSize)
+        }
+        
+        do {
+            let rpd = MTLRenderPassDescriptor()
+            rpd.colorAttachments[0].texture = cameraTexture
+            rpd.colorAttachments[0].loadAction = .clear
+            rpd.colorAttachments[0].storeAction = .store
+            rpd.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
+
+            let enc = cmd.makeRenderCommandEncoder(descriptor: rpd)!
+            enc.setRenderPipelineState(cameraPipeline)
+            enc.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+
+            var u = CameraUniforms(
+                viewSize: SIMD2(Float(viewSize.width), Float(viewSize.height)),
+                videoSize: SIMD2(Float(videoSize.width), Float(videoSize.height)),
+                offscreen: offscreen ? 1 : 0
+            )
+
+            enc.setVertexBytes(&u, length: MemoryLayout<CameraUniforms>.size, index: 1)
+            enc.setFragmentTexture(yTexture, index: 0)
+            enc.setFragmentTexture(cbcrTexture, index: 1)
+            enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+            enc.endEncoding()
+        }
+
+        if pbrTexture == nil ||
+           pbrTexture!.width != w ||
+           pbrTexture!.height != h {
+
+            pbrTexture = makePBRTexture(size: viewSize)
+        }
+        
+        if let pbrRenderer {
+            let rpd = MTLRenderPassDescriptor()
+            rpd.colorAttachments[0].texture = pbrTexture
+            rpd.colorAttachments[0].loadAction = .clear
+            rpd.colorAttachments[0].storeAction = .store
+            rpd.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+
+            rpd.depthAttachment.texture = offscreenDepthTexture
+            rpd.depthAttachment.loadAction = .clear
+            rpd.depthAttachment.storeAction = .dontCare
+            rpd.depthAttachment.clearDepth = 1.0
+
+            pbrRenderer.draw(
+                with: cmd,
+                descriptor: rpd,
+                drawableSize: viewSize
+            )
+        }
+
+        do {
+            descriptor.depthAttachment.texture = nil
+            descriptor.depthAttachment.loadAction = .dontCare
+            descriptor.depthAttachment.storeAction = .dontCare
+
+            let enc = cmd.makeRenderCommandEncoder(descriptor: descriptor)!
+            enc.setRenderPipelineState(compositePipeline)
+
+            enc.setFragmentTexture(cameraTexture, index: 0)
+            enc.setFragmentTexture(pbrTexture,    index: 1)
+            enc.setFragmentTexture(lutTexture,    index: 2)
+            enc.setFragmentSamplerState(linearSampler, index: 0)
+            
+            enc.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
+            enc.endEncoding()
+        }
+        return cmd
+    }
+
     private func resetLutType() { currentLutType = .kodakNeutral }
     
     private func findFirstARUrl() -> URL? {
@@ -453,8 +555,8 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
                     bytesPerImage: lutSize * lutSize * 4 * MemoryLayout<Float>.size)
         return tex
     }
-    
-    private func makePipeline(pixelFormat: MTLPixelFormat) throws {
+
+    private func makeCameraPipeline(pixelFormat: MTLPixelFormat) throws {
         let lib = try renderContext.device.makeDefaultLibrary(bundle: .main)
         let vfn = lib.makeFunction(name: "cameraVS")!
         let ffn = lib.makeFunction(name: "cameraFS")!
@@ -463,10 +565,27 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         desc.vertexFunction = vfn
         desc.fragmentFunction = ffn
         desc.colorAttachments[0].pixelFormat = pixelFormat
-        desc.depthAttachmentPixelFormat = .depth32Float
+        desc.depthAttachmentPixelFormat = .invalid   // ✅ FIX
         desc.rasterSampleCount = 1
-        
-        pipeline = try renderContext.device.makeRenderPipelineState(descriptor: desc)
+
+        cameraPipeline = try renderContext.device.makeRenderPipelineState(descriptor: desc)
+    }
+    
+    private func makeCompositePipeline(pixelFormat: MTLPixelFormat) throws {
+        let library = try renderContext.device.makeDefaultLibrary(bundle: .main)
+
+        let vfn = library.makeFunction(name: "compositeVS")!
+        let ffn = library.makeFunction(name: "compositeFS")!
+
+        let desc = MTLRenderPipelineDescriptor()
+        desc.vertexFunction = vfn
+        desc.fragmentFunction = ffn
+        desc.colorAttachments[0].pixelFormat = pixelFormat
+        desc.depthAttachmentPixelFormat = .invalid
+        desc.rasterSampleCount = 1
+
+        compositePipeline =
+            try renderContext.device.makeRenderPipelineState(descriptor: desc)
     }
     
     private func makeDepthTexture(
@@ -493,5 +612,29 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         )
         descriptor.usage = [.renderTarget, .shaderRead]
         return renderContext.device.makeTexture(descriptor: descriptor)
+    }
+    
+    private func makeCameraTexture(size: CGSize) -> MTLTexture? {
+        let desc = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: renderContext.colorPixelFormat,
+            width: Int(size.width),
+            height: Int(size.height),
+            mipmapped: false
+        )
+        desc.usage = [.renderTarget, .shaderRead]
+        desc.storageMode = .private
+        return renderContext.device.makeTexture(descriptor: desc)
+    }
+    
+    private func makePBRTexture(size: CGSize) -> MTLTexture? {
+        let desc = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: renderContext.colorPixelFormat,
+            width: Int(size.width),
+            height: Int(size.height),
+            mipmapped: false
+        )
+        desc.usage = [.renderTarget, .shaderRead]
+        desc.storageMode = .private
+        return renderContext.device.makeTexture(descriptor: desc)
     }
 }

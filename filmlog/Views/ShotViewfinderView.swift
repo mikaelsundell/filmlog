@@ -165,7 +165,7 @@ struct ShotViewfinderView: View {
                             .position(x: width / 2, y: height / 2)
                             .allowsHitTesting(false)
                         }
-
+                        
                         if let image = capturedImage, isCaptured {
                             ZStack {
                                 let scale = (height * scale) / image.size.width; // is camera

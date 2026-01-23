@@ -47,6 +47,7 @@
 		3A4B5D912F2158920096BA9E /* CameraShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3A4B5D902F2158920096BA9E /* CameraShader.metal */; };
 		3A4B5D932F2159150096BA9E /* PBRShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3A4B5D922F2159150096BA9E /* PBRShader.metal */; };
 		3A4B5D952F21793F0096BA9E /* CameraLUTs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A4B5D942F21793F0096BA9E /* CameraLUTs.swift */; };
+		3A6F0D572F2414B000477FBD /* CompositeShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3A6F0D562F2414B000477FBD /* CompositeShader.metal */; };
 		3A7723BD2EE59CA600257222 /* ARRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723BC2EE59CA600257222 /* ARRenderer.swift */; };
 		3A7723C32EE5A33A00257222 /* CameraRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723C02EE5A33A00257222 /* CameraRenderer.swift */; };
 		3A7723CA2EE5A82D00257222 /* CameraPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7723C92EE5A82D00257222 /* CameraPreview.swift */; };
@@ -162,6 +163,7 @@
 		3A4B5D902F2158920096BA9E /* CameraShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = CameraShader.metal; sourceTree = "<group>"; };
 		3A4B5D922F2159150096BA9E /* PBRShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = PBRShader.metal; sourceTree = "<group>"; };
 		3A4B5D942F21793F0096BA9E /* CameraLUTs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraLUTs.swift; sourceTree = "<group>"; };
+		3A6F0D562F2414B000477FBD /* CompositeShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = CompositeShader.metal; sourceTree = "<group>"; };
 		3A7723BC2EE59CA600257222 /* ARRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARRenderer.swift; sourceTree = "<group>"; };
 		3A7723C02EE5A33A00257222 /* CameraRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraRenderer.swift; sourceTree = "<group>"; };
 		3A7723C92EE5A82D00257222 /* CameraPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreview.swift; sourceTree = "<group>"; };
@@ -365,6 +367,7 @@
 				3A4B5D882F2148D50096BA9E /* ARIndicatorShader.metal */,
 				3A4B5D892F2148D50096BA9E /* ARModelShader.metal */,
 				3A4B5D902F2158920096BA9E /* CameraShader.metal */,
+				3A6F0D562F2414B000477FBD /* CompositeShader.metal */,
 				3A4B5D922F2159150096BA9E /* PBRShader.metal */,
 				1F2A9A362E42216600C304FA /* LutExposure.cube */,
 				1F2A9A402E422EF300C304FA /* LutFujiNeutral.cube */,
@@ -659,6 +662,7 @@
 				1F9D42962E82F4850072D498 /* Debug.swift in Sources */,
 				3A4B5D8C2F2148D50096BA9E /* ARModelShader.metal in Sources */,
 				3A4B5D8E2F2148D50096BA9E /* ARIndicatorShader.metal in Sources */,
+				3A6F0D572F2414B000477FBD /* CompositeShader.metal in Sources */,
 				3A4B5D912F2158920096BA9E /* CameraShader.metal in Sources */,
 				1F70B3772E30124B0021DB93 /* ShotViewfinderView.swift in Sources */,
 				3A7723BD2EE59CA600257222 /* ARRenderer.swift in Sources */,

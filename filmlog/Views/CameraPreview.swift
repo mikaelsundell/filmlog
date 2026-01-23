@@ -22,7 +22,7 @@ struct CameraPreview: UIViewRepresentable {
         view.isPaused = false
         view.colorPixelFormat = .bgra8Unorm_srgb
         view.preferredFramesPerSecond = 30
-        cameraModel.attachRenderer(to: view)
+        cameraModel.attach(to: view)
         return view
     }
 
