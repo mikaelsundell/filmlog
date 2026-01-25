@@ -7,7 +7,6 @@ import AVFoundation
 import MetalKit
 import UIKit
 
-
 enum ARState {
     case idle
     case scanning
@@ -847,14 +846,37 @@ extension CameraModel: ARSessionDelegate {
             DispatchQueue.main.async {
                 self.arState = .idle
                 self.captureAR = false
+                self.updateARRenderer()
             }
         }
     }
     
-    func placeARModel(from url: URL) {
+    private func updateARRenderer() {
+        guard let renderer else { return }
+        switch arState {
+        case .ready:
+            renderer.enableAR()
+            break
+        case .placed:
+            break
+        default:
+            renderer.disableAR()
+        }
+    }
+    
+    func loadARModel(from url: URL) {
         // todo: replace with code for AR, should be full PBR pipeline
         //print("[placeARModel] Loading model:", url.lastPathComponent)
         //renderer.loadModel(from: url)
+    }
+    
+    func placeARModel() {
+        guard let renderer else { return }
+        
+        print("placeARModel")
+        
+        renderer.placeAR()
+        arState = .placed
     }
     
     func fovFromIntrinsics(_ intrinsics: simd_float3x3, resolution: CGSize) -> CGFloat {
@@ -868,7 +890,7 @@ extension CameraModel: ARSessionDelegate {
         guard captureAR, let renderer else { return }
         let pixelBuffer = frame.capturedImage
         renderer.captureAROutput(pixelBuffer: pixelBuffer)
-        if arState == .ready {
+        if arState == .ready || arState == .placed {
             renderer.updateARCamera(frame.camera)
         }
         let intr = frame.camera.intrinsics
@@ -904,6 +926,7 @@ extension CameraModel: ARSessionDelegate {
                     if plane.areaXZ > 1.5 {
                         DispatchQueue.main.async {
                             self.arState = .ready
+                            self.updateARRenderer()
                         }
                     }
                 }

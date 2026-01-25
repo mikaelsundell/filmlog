@@ -125,11 +125,13 @@ float3 tetra_optimized(texture3d<float> lutTex, float3 color, sampler s) {
     return mix(c0, c1, fz);
 }
 
+/*
 fragment float4 compositeFS(
     FullscreenOut in [[stage_in]],
     texture2d<float> cameraTex [[texture(0)]],
-    texture2d<float> pbrTex    [[texture(1)]],
-    texture3d<float> lutTex    [[texture(2)]],
+    texture2d<float> arTex     [[texture(1)]],
+    texture2d<float> pbrTex    [[texture(2)]],
+    texture3d<float> lutTex    [[texture(3)]],
     sampler s [[sampler(0)]]
 )
 {
@@ -148,4 +150,37 @@ fragment float4 compositeFS(
     //    tetra_optimized(lutTex, saturate(composited), s);
 
     return float4(composited, 1.0);
+}
+*/
+
+fragment float4 compositeFS(
+    FullscreenOut in [[stage_in]],
+    texture2d<float> cameraTex [[texture(0)]],
+    texture2d<float> arTex     [[texture(1)]],
+    texture2d<float> pbrTex    [[texture(2)]],
+    texture3d<float> lutTex    [[texture(3)]],
+    sampler s [[sampler(0)]]
+)
+{
+    float2 uv = in.uv;
+
+    float4 cam = cameraTex.sample(s, uv); // camera feed (opaque)
+    float4 pbr = pbrTex.sample(s, uv);    // 3D render (alpha)
+    float4 ar  = arTex.sample(s, uv);     // UI / indicators (alpha)
+
+    // --- PBR over Camera ---
+    float3 cam_pbr =
+        pbr.rgb * pbr.a +
+        cam.rgb * (1.0 - pbr.a);
+
+    // --- AR over (Camera + PBR) ---
+    float3 composited =
+        ar.rgb * ar.a +
+        cam_pbr * (1.0 - ar.a);
+
+    // Final output is fully opaque
+    
+    return float4(composited, 1.0);
+    
+    //return float4(ar);
 }

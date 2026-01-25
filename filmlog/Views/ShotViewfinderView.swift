@@ -216,6 +216,7 @@ struct ShotViewfinderView: View {
                             .position(x: width / 2, y: height / 2)
                             .ignoresSafeArea()
                         }
+                        
                         MaskView(
                             frameSize: displaySize,
                             aspectSize: aspectFrame,
@@ -351,7 +352,22 @@ struct ShotViewfinderView: View {
                         }
                     )
                     
-                    if activeControls == .none {
+                    if cameraModel.arState == .ready {
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .gesture(
+                                TapGesture()
+                                    .onEnded {
+                                        cameraModel.placeARModel()
+                                    }
+                            )
+                            .allowsHitTesting(true)
+                    }
+    
+                    
+                    
+                    
+                    if activeControls == .none  && cameraModel.arState != .ready {
                         let scale = (width * scale) / width;
                         Color.clear
                             .contentShape(Rectangle())
@@ -869,7 +885,7 @@ struct ShotViewfinderView: View {
         .onChange(of: arFile) { _, newFile in
             guard arMode, let url = newFile else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                cameraModel.placeARModel(from: url)
+                cameraModel.loadARModel(from: url)
             }
         }
         .onChange(of: cameraMode) { _, newMode in

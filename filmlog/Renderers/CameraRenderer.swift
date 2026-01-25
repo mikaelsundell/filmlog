@@ -34,14 +34,18 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
     private var renderContext: RenderContext
 
     private var cameraPipeline: MTLRenderPipelineState!
-    private var compositePipeline: MTLRenderPipelineState!
+    private var cameraTexture: MTLTexture?
     private var vertexBuffer: MTLBuffer!
     private var yTexture: MTLTexture?
     private var cbcrTexture: MTLTexture?
-    private var cameraTexture: MTLTexture?
+
+    private var arTexture: MTLTexture?
     private var pbrTexture: MTLTexture?
+    
     private var offscreenTexture: MTLTexture?
     private var offscreenDepthTexture: MTLTexture?
+    
+    private var compositePipeline: MTLRenderPipelineState!
     private var lutTexture:  MTLTexture?
     private var textureCache: CVMetalTextureCache!
     
@@ -87,6 +91,7 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         if mtkView !== view {
             detach()
         }
+        
         self.mtkView = view
         guard let device = view.device else { return }
         view.delegate = self
@@ -114,42 +119,14 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
             bytes: verts,
             length: verts.count * MemoryLayout<Float>.size
         )
-
+        
+        if arRenderer == nil {
+            self.arRenderer  = ARRenderer(renderContext: renderContext)
+        }
+        
         if pbrRenderer == nil {
             pbrRenderer = PBRRenderer(renderContext: renderContext)
         }
-        
-        // todo: test code
-        
-        let aspect =
-            Float(view.drawableSize.width / max(view.drawableSize.height, 1))
-
-        let projection = simd_float4x4(
-            perspectiveFov: .pi / 3,   // 60°
-            aspect: aspect,
-            nearZ: 0.1,
-            farZ: 100.0
-        )
-
-        let cameraPosition = SIMD3<Float>(0, 0, 3)
-        let target = SIMD3<Float>(0, 0, 0)
-        let up = SIMD3<Float>(0, 1, 0)
-
-        let viewMatrix = simd_float4x4(
-            lookAt: cameraPosition,
-            target: target,
-            up: up
-        )
-        
-        pbrRenderer.cameraData = PBRRenderer.CameraData(
-            projection: projection,
-            viewMatrix: viewMatrix,
-            worldPosition: cameraPosition
-        )
-        
-        // todo: test code
-
-        //self.arRenderer  = ARRenderer(renderContext: renderContext)
 
         loadCurrentLut()
     
@@ -165,17 +142,24 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
     func detach() {
         mtkView?.delegate = nil
         mtkView = nil
-
+        
+        cameraPipeline = nil
+        compositePipeline = nil
         vertexBuffer = nil
-
-        offscreenTexture = nil
-        offscreenDepthTexture = nil
 
         yTexture = nil
         cbcrTexture = nil
 
-        textureCache = nil
+        cameraTexture = nil
+        arTexture = nil
+        pbrTexture = nil
+        offscreenTexture = nil
+        offscreenDepthTexture = nil
 
+        if let cache = textureCache {
+            CVMetalTextureCacheFlush(cache, 0)
+        }
+        textureCache = nil
         viewportSize = .zero
     }
     
@@ -341,6 +325,28 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         }
     }
     
+    func enableAR()
+    {
+        guard let renderer = arRenderer else { return }
+        renderer.enable()
+    }
+    
+    func disableAR()
+    {
+        guard let arRenderer = arRenderer else { return }
+        guard let pbrRenderer = pbrRenderer else { return }
+        arRenderer.disable()
+        pbrRenderer.disable();
+    }
+    
+    func placeAR()
+    {
+        guard let arRenderer = arRenderer else { return }
+        guard let renderer = pbrRenderer else { return }
+        arRenderer.disable()
+        renderer.enable();
+    }
+    
     func updateAREnvironmentTexture(_ texture: MTLTexture) {
         guard let renderer = pbrRenderer else { return }
         renderer.environmentTexture = texture
@@ -355,7 +361,9 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         guard let view = mtkView,
               let orientation = view.window?.windowScene?.interfaceOrientation
         else { return }
-
+        
+        print("updateARCamera")
+        
         let projection = camera.projectionMatrix(
             for: orientation,
             viewportSize: view.drawableSize,
@@ -365,23 +373,23 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
 
         let viewMatrix = camera.viewMatrix(for: orientation)
         let cameraWorld = simd_inverse(viewMatrix)
-
+        
         let camPos = SIMD3<Float>(
             cameraWorld.columns.3.x,
             cameraWorld.columns.3.y,
             cameraWorld.columns.3.z
         )
-
+    
         arRenderer?.cameraData = .init(
+            projection: projection,
             resolution: SIMD2(
                 Float(camera.imageResolution.width),
                 Float(camera.imageResolution.height)
             ),
             intrinsics: camera.intrinsics,
-            transform: cameraWorld,
-            projection: projection
+            transform: cameraWorld
         )
-
+        
         pbrRenderer?.cameraData = .init(
             projection: projection,
             viewMatrix: viewMatrix,
@@ -444,11 +452,30 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
             enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
             enc.endEncoding()
         }
+        
+        if arTexture == nil ||
+            arTexture!.width != w ||
+            arTexture!.height != h {
+            arTexture = makeARTexture(size: viewSize)
+        }
+        
+        if let arRenderer {
+            let rpd = MTLRenderPassDescriptor()
+            rpd.colorAttachments[0].texture = arTexture
+            rpd.colorAttachments[0].loadAction = .clear
+            rpd.colorAttachments[0].storeAction = .store
+            rpd.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+
+            arRenderer.draw(
+                with: cmd,
+                descriptor: rpd,
+                drawableSize: viewSize
+            )
+        }
 
         if pbrTexture == nil ||
            pbrTexture!.width != w ||
            pbrTexture!.height != h {
-
             pbrTexture = makePBRTexture(size: viewSize)
         }
         
@@ -463,7 +490,15 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
             rpd.depthAttachment.loadAction = .clear
             rpd.depthAttachment.storeAction = .dontCare
             rpd.depthAttachment.clearDepth = 1.0
-
+            
+            if !pbrRenderer.enabled {
+                if let floor = arRenderer.floorData {
+                    pbrRenderer.floorTransform = floor.transform
+                }
+            }
+            
+            pbrRenderer.modelScale = 4.5
+            
             pbrRenderer.draw(
                 with: cmd,
                 descriptor: rpd,
@@ -480,8 +515,9 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
             enc.setRenderPipelineState(compositePipeline)
 
             enc.setFragmentTexture(cameraTexture, index: 0)
-            enc.setFragmentTexture(pbrTexture,    index: 1)
-            enc.setFragmentTexture(lutTexture,    index: 2)
+            enc.setFragmentTexture(arTexture,     index: 1)
+            enc.setFragmentTexture(pbrTexture,    index: 2)
+            enc.setFragmentTexture(lutTexture,    index: 3)
             enc.setFragmentSamplerState(linearSampler, index: 0)
             
             enc.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
@@ -615,6 +651,18 @@ final class CameraRenderer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
     }
     
     private func makeCameraTexture(size: CGSize) -> MTLTexture? {
+        let desc = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: renderContext.colorPixelFormat,
+            width: Int(size.width),
+            height: Int(size.height),
+            mipmapped: false
+        )
+        desc.usage = [.renderTarget, .shaderRead]
+        desc.storageMode = .private
+        return renderContext.device.makeTexture(descriptor: desc)
+    }
+    
+    private func makeARTexture(size: CGSize) -> MTLTexture? {
         let desc = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: renderContext.colorPixelFormat,
             width: Int(size.width),

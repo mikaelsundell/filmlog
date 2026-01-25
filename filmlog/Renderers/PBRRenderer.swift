@@ -10,7 +10,7 @@ class PBRRenderer {
     struct CameraData {
         var projection: simd_float4x4
         var viewMatrix: simd_float4x4
-        var worldPosition: SIMD3<Float>
+        var worldPosition: SIMD3<Float> // todo: used by shader for shadow rendering
     }
     
     struct ModelUniforms {
@@ -60,8 +60,13 @@ class PBRRenderer {
         var _pad0: SIMD3<Float> = .zero
     }
 
+    public var enabled: Bool = false
     public var model: PBRModel?
+    public var modelZUp: Bool = true
+    public var modelScale: Double = 1.0
+    public var modelRotate: Double = 0.0
     public var cameraData: CameraData?
+    public var floorTransform: simd_float4x4
     public var shaderControls = PBRShaderControls()
     public var environmentTexture: MTLTexture?
     
@@ -133,8 +138,18 @@ class PBRRenderer {
             options: .storageModeShared
         )!
         self.groundVertexBuffer.label = "GroundQuadVB"
+        
+        floorTransform = matrix_identity_float4x4
 
         makeShadowMapResources()
+    }
+    
+    func enable() {
+        enabled = true
+    }
+
+    func disable() {
+        enabled = false
     }
     
     func loadModel(from url: URL)
@@ -185,10 +200,32 @@ class PBRRenderer {
     }
     
     func draw(with cmd: MTLCommandBuffer, descriptor: MTLRenderPassDescriptor, drawableSize: CGSize) {
-        guard let cameraData,
+    
+        guard enabled,
+              let cameraData = self.cameraData,
               let model,
-              let pbrPipeline else { return }
-
+              let pbrPipeline
+        else {
+            guard let enc = cmd.makeRenderCommandEncoder(descriptor: descriptor) else { return }
+            enc.endEncoding()
+            return
+        }
+        
+        var modelTransform = matrix_identity_float4x4
+        if modelZUp {
+            let zUpToYUp = simd_float4x4.rotationX(-.pi / 2)
+            modelTransform = modelTransform * zUpToYUp
+        }
+        if modelRotate != 0.0 {
+            let rotY = simd_float4x4.rotationY(Float(modelRotate))
+            modelTransform = modelTransform * rotY
+        }
+        if modelScale != 1.0 {
+            let scale = simd_float4x4(scale: Float(modelScale))
+            modelTransform = modelTransform * scale
+        }
+        modelTransform = floorTransform * modelTransform
+        
         renderShadowMap(with: cmd)
         
         if shadowMaskTexture == nil ||
@@ -197,25 +234,13 @@ class PBRRenderer {
             makeContactShadowTextures(size: drawableSize)
         }
 
-        let aspect = Float(drawableSize.width / max(drawableSize.height, 1))
-        let projection = simd_float4x4(
-            perspectiveFov: .pi / 3,
-            aspect: aspect,
-            nearZ: 0.1,
-            farZ: 100.0
-        )
-
-        let localViewMatrix = cameraData.viewMatrix
-        let cameraWorldPos  = cameraData.worldPosition
-        let globalModelScale = simd_float4x4(scale: 1.00)
-
         let (heightVP, modelCenter, footprint, maxHeight) =
             model.heightShadowVP(shadowPlaneZ: shadowPlaneZ)
 
         renderShadowMask(
             commandBuffer: cmd,
-            projection: projection,
-            viewMatrix: localViewMatrix,
+            projection: cameraData.projection,
+            viewMatrix: cameraData.viewMatrix,
             lightVP: heightVP,
             center: modelCenter,
             footprintRadius: footprint,
@@ -259,15 +284,15 @@ class PBRRenderer {
                 radius: r1
             )
         }
-
+        
         guard let enc = cmd.makeRenderCommandEncoder(descriptor: descriptor) else { return }
         enc.setDepthStencilState(depthWriteState)
         enc.setCullMode(.none)
         
         drawGround(
             encoder: enc,
-            projection: projection,
-            viewMatrix: localViewMatrix,
+            projection: cameraData.projection,
+            viewMatrix: cameraData.viewMatrix,
             lightVP: heightVP,
             center: modelCenter,
             footprintRadius: footprint,
@@ -284,10 +309,10 @@ class PBRRenderer {
         renderMeshes(
             encoder: enc,
             model: model,
-            projection: projection,
-            viewMatrix: localViewMatrix,
-            globalModelScale: globalModelScale,
-            cameraWorldPos: cameraWorldPos
+            projection: cameraData.projection,
+            viewMatrix: cameraData.viewMatrix,
+            modelTransform: modelTransform,
+            cameraWorldPos: cameraData.worldPosition
         )
 
         enc.endEncoding()
@@ -457,11 +482,11 @@ class PBRRenderer {
         model: PBRModel,
         projection: simd_float4x4,
         viewMatrix: simd_float4x4,
-        globalModelScale: simd_float4x4,
+        modelTransform: simd_float4x4,
         cameraWorldPos: SIMD3<Float>
     ) {
         for mesh in model.meshes {
-            let modelMatrix = globalModelScale * mesh.transform
+            let modelMatrix = modelTransform * mesh.transform
             let mvp = projection * viewMatrix * modelMatrix
 
             var uniforms = ModelUniforms(

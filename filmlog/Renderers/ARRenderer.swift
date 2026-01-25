@@ -10,12 +10,17 @@ protocol MetalUniform {}
 
 class ARRenderer {
     struct CameraData {
+        var projection: simd_float4x4   // clip = P * V * M
         var resolution: SIMD2<Float>
         var intrinsics: simd_float3x3
         var transform:  simd_float4x4   // camera in world
-        var projection: simd_float4x4   // clip = P * V * M
     }
     
+    struct FloorData {
+        var transform: simd_float4x4
+        var planeY: Float
+    }
+
     struct IndicatorUniforms: MetalUniform {
         var modelViewProjectionMatrix: simd_float4x4
         var time: Float
@@ -37,17 +42,18 @@ class ARRenderer {
             }
         }
     }
-    public private(set) var planeY: Float = 0
+    public var enabled: Bool = false
+    public var placed: Bool = false
+    public var planeY: Float = 0
     public var cameraData: CameraData?
-    
-    private(set) weak var mtkView: MTKView?
+    public var floorData: FloorData?
     private var renderContext: RenderContext
     
     private var depthState: MTLDepthStencilState!
     private var meshAllocator: MTKMeshBufferAllocator!
-    private var testCubePipeline: MTLRenderPipelineState?
+    private var centerCubePipeline: MTLRenderPipelineState?
+    private var centerCubeModel: MTKMesh?
     private var pipeline: MTLRenderPipelineState?
-    private var testCubeModel: MTKMesh?
     private var model: MTKMesh?
     
     private var indicatorUniforms = IndicatorUniforms(
@@ -66,22 +72,49 @@ class ARRenderer {
         self.meshAllocator = MTKMeshBufferAllocator(device: renderContext.device)
         
         let depthDesc = MTLDepthStencilDescriptor()
-        depthDesc.depthCompareFunction = .less
-        depthDesc.isDepthWriteEnabled  = true
-        depthState = renderContext.device.makeDepthStencilState(descriptor: depthDesc)
+        depthDesc.depthCompareFunction = .always
+        depthDesc.isDepthWriteEnabled  = false
+        self.depthState = renderContext.device.makeDepthStencilState(descriptor: depthDesc)
 
         makeTestCubeModel()
         makeIndicatorModel()
     }
     
+    func enable() {
+        enabled = true
+        placed = false
+        cameraData = nil
+        floorData = nil
+        startTime = CACurrentMediaTime()
+    }
+
+    func disable() {
+        enabled = false
+        placed = false
+        cameraData = nil
+        floorData = nil
+    }
+    
+    func confirmPlacement() {
+        guard enabled, let _ = self.floorData else { return }
+        placed = true
+    }
+    
     func draw(with cmd: MTLCommandBuffer, descriptor: MTLRenderPassDescriptor, drawableSize: CGSize) {
-        guard let _ = self.cameraData,
-              let model = self.model,
-              let testCubeModel = self.testCubeModel,
-              let testCubePipeline = self.testCubePipeline,
-              let pipeline = self.pipeline else { return }
-        
         guard let enc = cmd.makeRenderCommandEncoder(descriptor: descriptor) else { return }
+        
+        guard enabled,
+              let _ = self.cameraData,
+              let model,
+              let centerCubeModel,
+              let centerCubePipeline,
+              let pipeline
+        else {
+            enc.endEncoding()
+            return
+        }
+        
+        print("AR: draw")
         
         var uniforms = ModelUniforms(
             mvp: matrix_identity_float4x4,
@@ -89,8 +122,8 @@ class ARRenderer {
         )
         
         drawMesh(
-            testCubeModel,
-            pipeline: testCubePipeline,
+            centerCubeModel,
+            pipeline: centerCubePipeline,
             modelMatrix: makeInitialMatrix(),
             uniforms: &uniforms,
             uniformIndex: 10,
@@ -102,15 +135,24 @@ class ARRenderer {
                 y: drawableSize.height * 0.5
             )
         
-        let modelMatrix = makeFloorHitMatrix(
+        let hitMatrix = makeFloorHitMatrix(
             screenPoint: center,
             viewSize: drawableSize,
             planeY: planeY
-        ) ?? makeInitialMatrix()
-        
+        )
+
+        if !placed, let hitMatrix {
+            floorData = FloorData(
+                transform: hitMatrix,
+                planeY: planeY
+            )
+        }
+
+        let modelMatrix = hitMatrix ?? makeInitialMatrix()
+
         drawMesh(
-            testCubeModel,
-            pipeline: testCubePipeline,
+            centerCubeModel,
+            pipeline: centerCubePipeline,
             modelMatrix: modelMatrix,
             uniforms: &uniforms,
             uniformIndex: 10,
@@ -269,15 +311,15 @@ class ARRenderer {
         box.vertexBuffers.append(colorBuffer)
 
         do {
-            testCubeModel = try MTKMesh(mesh: box, device: renderContext.device)
+            centerCubeModel = try MTKMesh(mesh: box, device: renderContext.device)
         } catch {
             print("failed to build test cube model:", error)
-            testCubeModel = nil
+            centerCubeModel = nil
             return
         }
 
         do {
-            testCubePipeline = try makePipeline(
+            centerCubePipeline = try makePipeline(
                 mdlMesh: box,
                 vertexFunction: "modelARVS",
                 fragmentFunction: "modelARFS"
@@ -393,8 +435,14 @@ class ARRenderer {
         desc.vertexFunction = vfn
         desc.fragmentFunction = ffn
         desc.vertexDescriptor = metalVertexDescriptor
-        desc.colorAttachments[0].pixelFormat = mtkView?.colorPixelFormat ?? .bgra8Unorm
-        desc.depthAttachmentPixelFormat = .depth32Float
+        desc.colorAttachments[0].pixelFormat = renderContext.colorPixelFormat
+        desc.colorAttachments[0].isBlendingEnabled = true
+        desc.colorAttachments[0].rgbBlendOperation = .add
+        desc.colorAttachments[0].alphaBlendOperation = .add
+        desc.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+        desc.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+        desc.colorAttachments[0].sourceAlphaBlendFactor = .one
+        desc.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
 
         return try renderContext.device.makeRenderPipelineState(descriptor: desc)
     }
