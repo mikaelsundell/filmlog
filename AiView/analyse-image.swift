@@ -10,9 +10,39 @@ struct AIAnalysisResponse: Decodable {
 }
 
 final class AIAnalysisService {
+    enum AnalysisMode: String, CaseIterable, Identifiable, Codable {
+        case imageCritique
+        case composition
+
+        var id: String {
+            rawValue
+        }
+
+        var title: String {
+            switch self {
+            case .imageCritique:
+                return "Image Critique"
+            case .composition:
+                return "Composition Analysis"
+            }
+        }
+
+        var description: String {
+            switch self {
+            case .imageCritique:
+                return "Improvement-focused image critique."
+            case .composition:
+                return "Perception and storytelling composition read."
+            }
+        }
+    }
+
     private let endpoint = URL(string: "https://45kitmd9sh.execute-api.eu-north-1.amazonaws.com/analyze-image")!
 
-    func analyze(image: NSImage) async throws -> String {
+    func analyze(
+        image: NSImage,
+        mode: AnalysisMode = .imageCritique
+    ) async throws -> String {
         guard
             let tiffData = image.tiffRepresentation,
             let bitmap = NSBitmapImageRep(data: tiffData),
@@ -25,7 +55,8 @@ final class AIAnalysisService {
 
         let payload: [String: String] = [
             "mimeType": "image/jpeg",
-            "imageBase64": jpegData.base64EncodedString()
+            "imageBase64": jpegData.base64EncodedString(),
+            "mode": mode.rawValue
         ]
 
         let body = try JSONSerialization.data(withJSONObject: payload)
