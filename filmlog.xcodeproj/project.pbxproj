@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -192,7 +192,12 @@
 		3AD33C7E2F1E9FD500E87EB6 /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
 		3AD33C7F2F1E9FD500E87EB6 /* ModelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelView.swift; sourceTree = "<group>"; };
 		3AD33C802F1E9FD500E87EB6 /* OrbitCamera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrbitCamera.swift; sourceTree = "<group>"; };
+		3AEC007F2FDEE372005742C6 /* AiView.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AiView.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		3AEC00802FDEE372005742C6 /* AiView */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = AiView; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		1F2D89DE2E2E61780040D673 /* Frameworks */ = {
@@ -230,6 +235,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3AEC007C2FDEE372005742C6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -252,6 +264,7 @@
 				1F9B3EB02E1AE48F005F95A0 /* filmlogUITests */,
 				1F2D89E22E2E61780040D673 /* FilmlogShareExtension */,
 				3AD33C822F1E9FD500E87EB6 /* ModelView */,
+				3AEC00802FDEE372005742C6 /* AiView */,
 				3AE02C322EE5F93A008E9583 /* Frameworks */,
 				1F9B3E922E1AE48C005F95A0 /* Products */,
 			);
@@ -265,6 +278,7 @@
 				1F9B3EAD2E1AE48F005F95A0 /* filmlogUITests.xctest */,
 				1F2D89E12E2E61780040D673 /* FilmlogShareExtension.appex */,
 				3AC1D30E2EED9329007E6DF3 /* ModelView.app */,
+				3AEC007F2FDEE372005742C6 /* AiView.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -537,6 +551,28 @@
 			productReference = 3AC1D30E2EED9329007E6DF3 /* ModelView.app */;
 			productType = "com.apple.product-type.application";
 		};
+		3AEC007E2FDEE372005742C6 /* AiView */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3AEC00872FDEE373005742C6 /* Build configuration list for PBXNativeTarget "AiView" */;
+			buildPhases = (
+				3AEC007B2FDEE372005742C6 /* Sources */,
+				3AEC007C2FDEE372005742C6 /* Frameworks */,
+				3AEC007D2FDEE372005742C6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				3AEC00802FDEE372005742C6 /* AiView */,
+			);
+			name = AiView;
+			packageProductDependencies = (
+			);
+			productName = AiView;
+			productReference = 3AEC007F2FDEE372005742C6 /* AiView.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -564,6 +600,9 @@
 					3AC1D30D2EED9329007E6DF3 = {
 						CreatedOnToolsVersion = 26.0.1;
 					};
+					3AEC007E2FDEE372005742C6 = {
+						CreatedOnToolsVersion = 26.0.1;
+					};
 				};
 			};
 			buildConfigurationList = 1F9B3E8C2E1AE48C005F95A0 /* Build configuration list for PBXProject "filmlog" */;
@@ -586,6 +625,7 @@
 				1F9B3EAC2E1AE48F005F95A0 /* filmlogUITests */,
 				1F2D89E02E2E61780040D673 /* FilmlogShareExtension */,
 				3AC1D30D2EED9329007E6DF3 /* ModelView */,
+				3AEC007E2FDEE372005742C6 /* AiView */,
 			);
 		};
 /* End PBXProject section */
@@ -639,6 +679,13 @@
 				3AD33C8F2F1E9FD500E87EB6 /* Assets.xcassets in Resources */,
 				3AD33C902F1E9FD500E87EB6 /* fox_basic_pbr.usdz in Resources */,
 				3AD33C912F1E9FD500E87EB6 /* shark_basic_pbr.usdz in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3AEC007D2FDEE372005742C6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -728,6 +775,13 @@
 				3AD33C892F1E9FD500E87EB6 /* PBRLoader.swift in Sources */,
 				3AD33C8A2F1E9FD500E87EB6 /* CameraRenderer.swift in Sources */,
 				3AD33C8C2F1E9FD500E87EB6 /* ModelView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3AEC007B2FDEE372005742C6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1150,6 +1204,94 @@
 			};
 			name = Release;
 		};
+		3AEC00882FDEE373005742C6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = R5Y97YP857;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = mikaelsundell.filmlog.AiView;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		3AEC00892FDEE373005742C6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = R5Y97YP857;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = mikaelsundell.filmlog.AiView;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1203,6 +1345,15 @@
 			buildConfigurations = (
 				3AC1D3172EED932A007E6DF3 /* Debug */,
 				3AC1D3182EED932A007E6DF3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3AEC00872FDEE373005742C6 /* Build configuration list for PBXNativeTarget "AiView" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3AEC00882FDEE373005742C6 /* Debug */,
+				3AEC00892FDEE373005742C6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
