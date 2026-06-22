@@ -83,7 +83,7 @@ struct ContentView: View {
                 }
             }
             .pickerStyle(.menu)
-            .frame(width: 190)
+            .frame(width: 220)
             .disabled(isAnalyzing)
 
             Button {
@@ -235,10 +235,54 @@ private struct MarkdownOutputView: View {
                         .frame(width: 3)
                 }
 
+        case .table(let headers, let rows):
+            tableView(headers: headers, rows: rows)
+
         case .spacer:
             Spacer()
                 .frame(height: 2)
         }
+    }
+
+    private func tableView(headers: [String], rows: [[String]]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 16) {
+                ForEach(Array(headers.enumerated()), id: \.offset) { _, header in
+                    Text(inlineMarkdown(header))
+                        .font(.body.bold())
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(.vertical, 6)
+
+            Divider()
+
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(alignment: .top, spacing: 16) {
+                    ForEach(Array(normalizedRow(row, columnCount: headers.count).enumerated()), id: \.offset) { _, value in
+                        Text(inlineMarkdown(value))
+                            .font(.body)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.vertical, 6)
+
+                Divider()
+            }
+        }
+        .padding(.vertical, 6)
+    }
+
+    private func normalizedRow(_ row: [String], columnCount: Int) -> [String] {
+        if row.count == columnCount {
+            return row
+        }
+
+        if row.count > columnCount {
+            return Array(row.prefix(columnCount))
+        }
+
+        return row + Array(repeating: "", count: max(0, columnCount - row.count))
     }
 
     private func font(forHeadingLevel level: Int) -> Font {
@@ -302,6 +346,7 @@ private enum MarkdownBlock {
     case bullet(String)
     case numbered(number: Int, text: String)
     case quote(String)
+    case table(headers: [String], rows: [[String]])
     case spacer
 }
 
@@ -331,7 +376,10 @@ private enum MarkdownParser {
             paragraphLines.removeAll()
         }
 
-        for rawLine in lines {
+        var index = 0
+
+        while index < lines.count {
+            let rawLine = lines[index]
             let line = rawLine.trimmingCharacters(in: .whitespaces)
 
             if line.isEmpty {
@@ -341,34 +389,49 @@ private enum MarkdownParser {
                     blocks.append(.spacer)
                 }
 
+                index += 1
+                continue
+            }
+
+            if isTableLine(line) {
+                flushParagraph()
+
+                let tableLines = collectTableLines(from: lines, startingAt: index)
+                blocks.append(parseTable(tableLines))
+                index += tableLines.count
                 continue
             }
 
             if let heading = parseHeading(line) {
                 flushParagraph()
                 blocks.append(heading)
+                index += 1
                 continue
             }
 
             if let numbered = parseNumbered(line) {
                 flushParagraph()
                 blocks.append(numbered)
+                index += 1
                 continue
             }
 
             if let bullet = parseBullet(line) {
                 flushParagraph()
                 blocks.append(bullet)
+                index += 1
                 continue
             }
 
             if line.hasPrefix("> ") {
                 flushParagraph()
                 blocks.append(.quote(String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)))
+                index += 1
                 continue
             }
 
             paragraphLines.append(line)
+            index += 1
         }
 
         flushParagraph()
@@ -433,6 +496,60 @@ private enum MarkdownParser {
             .trimmingCharacters(in: .whitespaces)
 
         return .numbered(number: number, text: text)
+    }
+
+    private static func isTableLine(_ line: String) -> Bool {
+        line.hasPrefix("|") && line.hasSuffix("|")
+    }
+
+    private static func collectTableLines(from lines: [String], startingAt index: Int) -> [String] {
+        var result: [String] = []
+        var current = index
+
+        while current < lines.count {
+            let line = lines[current].trimmingCharacters(in: .whitespaces)
+
+            guard isTableLine(line) else {
+                break
+            }
+
+            result.append(line)
+            current += 1
+        }
+
+        return result
+    }
+
+    private static func parseTable(_ lines: [String]) -> MarkdownBlock {
+        guard let headerLine = lines.first else {
+            return .table(headers: [], rows: [])
+        }
+
+        let headers = splitTableRow(headerLine)
+
+        let rows = lines
+            .dropFirst()
+            .filter { !isTableSeparator($0) }
+            .map(splitTableRow)
+
+        return .table(headers: headers, rows: rows)
+    }
+
+    private static func splitTableRow(_ line: String) -> [String] {
+        line
+            .trimmingCharacters(in: CharacterSet(charactersIn: "|"))
+            .components(separatedBy: "|")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+    }
+
+    private static func isTableSeparator(_ line: String) -> Bool {
+        let stripped = line
+            .replacingOccurrences(of: "|", with: "")
+            .replacingOccurrences(of: "-", with: "")
+            .replacingOccurrences(of: ":", with: "")
+            .trimmingCharacters(in: .whitespaces)
+
+        return stripped.isEmpty
     }
 
     private static func isSpacer(_ block: MarkdownBlock) -> Bool {

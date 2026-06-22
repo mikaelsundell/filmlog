@@ -13,6 +13,7 @@ final class AIAnalysisService {
     enum AnalysisMode: String, CaseIterable, Identifiable, Codable {
         case imageCritique
         case composition
+        case storytelling
 
         var id: String {
             rawValue
@@ -24,6 +25,8 @@ final class AIAnalysisService {
                 return "Image Critique"
             case .composition:
                 return "Composition Analysis"
+            case .storytelling:
+                return "Storytelling Analysis"
             }
         }
 
@@ -33,6 +36,8 @@ final class AIAnalysisService {
                 return "Improvement-focused image critique."
             case .composition:
                 return "Perception and storytelling composition read."
+            case .storytelling:
+                return "Intent, attention, fixation, composition, and validation mentor."
             }
         }
     }
